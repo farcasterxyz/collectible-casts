@@ -6,6 +6,8 @@ interface ICollectibleCast {
     error Unauthorized();
     error AlreadyMinted();
     error TransferNotAllowed();
+    error InvalidModule();
+    error InvalidFid();
 
     // Events
     event MinterSet(address indexed previousMinter, address indexed newMinter);
@@ -15,7 +17,5 @@ interface ICollectibleCast {
     event RoyaltiesModuleSet(address indexed previousRoyalties, address indexed newRoyalties);
 
     function mint(address to, bytes32 castHash, uint256 fid, address creator) external;
-    function setMetadataModule(address metadata) external;
-    function setTransferValidatorModule(address validator) external;
-    function setRoyaltiesModule(address royalties) external;
+    function setModule(bytes32 module, address addr) external;
 }

@@ -10,6 +10,12 @@ import {ITransferValidator} from "./interfaces/ITransferValidator.sol";
 import {IRoyalties} from "./interfaces/IRoyalties.sol";
 
 contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
+    // Token data stored per token ID
+    struct TokenData {
+        uint256 fid;
+        address creator;
+    }
+
     // Minter contract address
     address public minter;
 
@@ -22,48 +28,50 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     // Royalties module address
     address public royaltiesModule;
 
-    // Mapping to track if a token has been minted
-    mapping(uint256 => bool) public hasMinted;
-
-    // Mapping from cast hash to FID
-    mapping(bytes32 => uint256) public castHashToFid;
-
-    // Mapping from token ID to creator address
-    mapping(uint256 => address) public tokenCreator;
+    // Mapping from token ID to token data
+    mapping(uint256 => TokenData) public tokenData;
 
     constructor() ERC1155("") Ownable(msg.sender) {}
 
-    function setMinter(address _minter) external onlyOwner {
-        address previousMinter = minter;
-        minter = _minter;
-        emit MinterSet(previousMinter, _minter);
+    function setModule(bytes32 module, address addr) external onlyOwner {
+        if (module == "minter") {
+            address previousMinter = minter;
+            minter = addr;
+            emit MinterSet(previousMinter, addr);
+        } else if (module == "metadata") {
+            address previousMetadata = metadataModule;
+            metadataModule = addr;
+            emit MetadataModuleSet(previousMetadata, addr);
+        } else if (module == "transferValidator") {
+            address previousValidator = transferValidatorModule;
+            transferValidatorModule = addr;
+            emit TransferValidatorModuleSet(previousValidator, addr);
+        } else if (module == "royalties") {
+            address previousRoyalties = royaltiesModule;
+            royaltiesModule = addr;
+            emit RoyaltiesModuleSet(previousRoyalties, addr);
+        } else {
+            revert InvalidModule();
+        }
     }
 
     function mint(address to, bytes32 castHash, uint256 fid, address creator) external {
         if (msg.sender != minter) revert Unauthorized();
+        if (fid == 0) revert InvalidFid();
 
         uint256 tokenId = uint256(castHash);
-        if (hasMinted[tokenId]) revert AlreadyMinted();
+        // Check if already minted by checking if FID is non-zero
+        if (tokenData[tokenId].fid != 0) revert AlreadyMinted();
 
-        hasMinted[tokenId] = true;
-        castHashToFid[castHash] = fid;
-        tokenCreator[tokenId] = creator;
+        tokenData[tokenId] = TokenData({
+            fid: fid,
+            creator: creator
+        });
 
         _mint(to, tokenId, 1, "");
         emit CastMinted(to, castHash, tokenId, fid);
     }
 
-    function setMetadataModule(address _metadata) external onlyOwner {
-        address previousMetadata = metadataModule;
-        metadataModule = _metadata;
-        emit MetadataModuleSet(previousMetadata, _metadata);
-    }
-
-    function setTransferValidatorModule(address _validator) external onlyOwner {
-        address previousValidator = transferValidatorModule;
-        transferValidatorModule = _validator;
-        emit TransferValidatorModuleSet(previousValidator, _validator);
-    }
 
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
         internal
@@ -80,11 +88,6 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         super._update(from, to, ids, values);
     }
 
-    function setRoyaltiesModule(address _royalties) external onlyOwner {
-        address previousRoyalties = royaltiesModule;
-        royaltiesModule = _royalties;
-        emit RoyaltiesModuleSet(previousRoyalties, _royalties);
-    }
 
     // ERC-2981 implementation that delegates to royalties module
     function royaltyInfo(uint256 tokenId, uint256 salePrice) 
@@ -97,7 +100,7 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
             return (address(0), 0);
         }
         
-        address creator = tokenCreator[tokenId];
+        address creator = tokenData[tokenId].creator;
         if (creator == address(0)) {
             return (address(0), 0);
         }
@@ -108,5 +111,18 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, IERC165) returns (bool) {
         return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    // Getter functions for backward compatibility
+    function hasMinted(uint256 tokenId) external view returns (bool) {
+        return tokenData[tokenId].fid != 0;
+    }
+
+    function castHashToFid(bytes32 castHash) external view returns (uint256) {
+        return tokenData[uint256(castHash)].fid;
+    }
+
+    function tokenCreator(uint256 tokenId) external view returns (address) {
+        return tokenData[tokenId].creator;
     }
 }
