@@ -35,11 +35,12 @@ Each task follows the TDD cycle: RED → GREEN → REFACTOR → COMMIT
 ### 2.1 Basic ERC-1155 Implementation
 - [x] RED: Write test `test_Constructor_SetsOwner()`
 - [x] GREEN: Create CollectibleCast contract with constructor
-- [x] COMMIT: "feat: add CollectibleCast constructor" (ready to commit)
+- [x] REFACTOR: Use OpenZeppelin Ownable2Step for ownership
+- [x] COMMIT: "feat: add CollectibleCast constructor with Ownable2Step"
 
-- [ ] RED: Write test `test_SupportsERC1155Interface()`
-- [ ] GREEN: Inherit from ERC-1155 
-- [ ] COMMIT: "feat: implement ERC-1155 in CollectibleCast"
+- [x] RED: Write test `test_SupportsERC1155Interface()`
+- [x] GREEN: Inherit from ERC-1155 
+- [x] COMMIT: "feat: implement ERC-1155 in CollectibleCast" (ready to commit)
 
 ### 2.2 Minting with Max Supply
 - [ ] RED: Write test `test_Mint_RevertsWhenNotMinter()`

@@ -336,6 +336,12 @@ Every function must have tests for:
 Dependencies are managed through git submodules in the `lib/` directory:
 
 - `forge-std` - Foundry standard library for testing
+- `openzeppelin-contracts` v5.1.0 - Industry-standard smart contract library
+  - Documentation: https://docs.openzeppelin.com/contracts/5.x/
+  - GitHub: https://github.com/OpenZeppelin/openzeppelin-contracts
+  - Key contracts used:
+    - `Ownable2Step` - Two-step ownership transfer for security
+    - `ERC1155` - Multi-token standard implementation
 - Add new dependencies with: `forge install owner/repo`
 - Update dependencies with: `forge update`
 
