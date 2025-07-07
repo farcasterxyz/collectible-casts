@@ -2,31 +2,33 @@
 
 Each task follows the TDD cycle: RED → GREEN → REFACTOR → COMMIT
 
+## Guiding Principles
+- **KISS** (Keep It Simple, Stupid) - Choose the simplest solution
+- **YAGNI** (You Aren't Gonna Need It) - Don't add functionality until needed
+- **100% Test Coverage** - Every line of production code must be tested
+- **Minimal Interfaces** - Start with empty interfaces, add functions only when tests require them
+
 ## Phase 1: Contract Interfaces and Test Infrastructure
 
 ### 1.1 Create Base Test Infrastructure
-- [ ] RED: Write failing test for TestConstants existence
-- [ ] GREEN: Create `test/shared/TestConstants.sol` with basic constants
-- [ ] REFACTOR: Add all needed test constants (USDC address, test addresses)
-- [ ] COMMIT: "test: add TestConstants for shared test values"
+- [x] RED: Write failing test for TestConstants existence
+- [x] GREEN: Create `test/shared/TestConstants.sol` with basic constants
+- [x] REFACTOR: ~~Add all needed test constants~~ Removed unused helpers, use makeAddr pattern
+- [x] COMMIT: "test: add TestConstants for shared test values"
+- [x] COMMIT: "refactor: simplify test infrastructure with forge-std patterns"
 
 ### 1.2 ICollectibleCast Interface
-- [ ] RED: Write failing test that tries to import ICollectibleCast
-- [ ] GREEN: Create minimal `src/interfaces/ICollectibleCast.sol`
-- [ ] RED: Write test expecting ERC-1155 functions in interface
-- [ ] GREEN: Add ERC-1155 function signatures
-- [ ] RED: Write test expecting module getter functions
-- [ ] GREEN: Add module getter functions
-- [ ] RED: Write test expecting castHashToFid function
-- [ ] GREEN: Add castHashToFid function signature
-- [ ] REFACTOR: Organize interface with proper documentation
-- [ ] COMMIT: "feat: add ICollectibleCast interface"
+- [x] RED: Write failing test that tries to import ICollectibleCast
+- [x] GREEN: Create minimal `src/interfaces/ICollectibleCast.sol`
+- [x] ~~RED: Write test expecting ERC-1155 functions~~ Following YAGNI - will add when needed
+- [x] ~~GREEN: Add ERC-1155 function signatures~~ Following YAGNI - will add when needed
+- [x] COMMIT: "feat: add ICollectibleCast interface"
 
 ### 1.3 Other Interfaces (Following Same Pattern)
-- [ ] IMetadata: RED → GREEN → REFACTOR → COMMIT
-- [ ] IMinter: RED → GREEN → REFACTOR → COMMIT  
-- [ ] ITransferValidator: RED → GREEN → REFACTOR → COMMIT
-- [ ] IAuction: RED → GREEN → REFACTOR → COMMIT
+- [x] IMetadata: RED → GREEN → ~~REFACTOR~~ → (ready to commit)
+- [x] IMinter: RED → GREEN → ~~REFACTOR~~ → (ready to commit)
+- [x] ITransferValidator: RED → GREEN → ~~REFACTOR~~ → (ready to commit)
+- [x] IAuction: RED → GREEN → ~~REFACTOR~~ → (ready to commit)
 
 ## Phase 2: CollectibleCast Token - Core ERC-1155
 
