@@ -20,6 +20,17 @@ contract CollectibleCastTest is Test {
         assertEq(newToken.owner(), owner);
     }
     
+    function testFuzz_Constructor_SetsOwner(address owner) public {
+        // Skip zero address and this contract
+        vm.assume(owner != address(0));
+        vm.assume(owner != address(this));
+        
+        vm.prank(owner);
+        CollectibleCast newToken = new CollectibleCast();
+        
+        assertEq(newToken.owner(), owner);
+    }
+    
     function test_SupportsERC1155Interface() public view {
         // ERC-1155 interface ID
         bytes4 erc1155InterfaceId = 0xd9b67a26;

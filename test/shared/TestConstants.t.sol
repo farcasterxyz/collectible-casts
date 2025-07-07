@@ -32,4 +32,33 @@ contract TestConstantsTest is Test {
         (address bob, ) = makeAddrAndKey("bob");
         assertTrue(alice1 != bob);
     }
+    
+    function testFuzz_MakeAddr_GeneratesDeterministicAddresses(string memory name) public {
+        // Test that makeAddr is deterministic for any string
+        address addr1 = makeAddr(name);
+        address addr2 = makeAddr(name);
+        
+        assertEq(addr1, addr2);
+        assertTrue(addr1 != address(0));
+    }
+    
+    function testFuzz_MakeAddrAndKey_GeneratesDeterministicAddresses(string memory name) public {
+        // Test that makeAddrAndKey is deterministic for any string
+        (address addr1, uint256 pk1) = makeAddrAndKey(name);
+        (address addr2, uint256 pk2) = makeAddrAndKey(name);
+        
+        assertEq(addr1, addr2);
+        assertEq(pk1, pk2);
+        assertTrue(addr1 != address(0));
+        assertTrue(pk1 != 0);
+    }
+    
+    function testFuzz_MakeAddr_GeneratesUniqueAddresses(string memory name1, string memory name2) public {
+        vm.assume(keccak256(bytes(name1)) != keccak256(bytes(name2)));
+        
+        address addr1 = makeAddr(name1);
+        address addr2 = makeAddr(name2);
+        
+        assertTrue(addr1 != addr2);
+    }
 }
