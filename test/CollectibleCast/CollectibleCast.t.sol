@@ -41,14 +41,14 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_SetMinter_EmitsEvent(address firstMinter, address secondMinter) public {
         // First set
         vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.MinterSet(address(0), firstMinter);
+        emit ICollectibleCast.SetMinter(address(0), firstMinter);
 
         vm.prank(token.owner());
         token.setModule("minter", firstMinter);
 
         // Second set
         vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.MinterSet(firstMinter, secondMinter);
+        emit ICollectibleCast.SetMinter(firstMinter, secondMinter);
 
         vm.prank(token.owner());
         token.setModule("minter", secondMinter);
@@ -279,20 +279,20 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.setModule("metadata", metadataAddr);
 
-        assertEq(token.metadataModule(), metadataAddr);
+        assertEq(token.metadata(), metadataAddr);
     }
 
     function testFuzz_SetMetadataModule_EmitsEvent(address firstMetadata, address secondMetadata) public {
         // First set
         vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.MetadataModuleSet(address(0), firstMetadata);
+        emit ICollectibleCast.SetMetadata(address(0), firstMetadata);
 
         vm.prank(token.owner());
         token.setModule("metadata", firstMetadata);
 
         // Second set
         vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.MetadataModuleSet(firstMetadata, secondMetadata);
+        emit ICollectibleCast.SetMetadata(firstMetadata, secondMetadata);
 
         vm.prank(token.owner());
         token.setModule("metadata", secondMetadata);
@@ -313,20 +313,20 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.setModule("transferValidator", validatorAddr);
 
-        assertEq(token.transferValidatorModule(), validatorAddr);
+        assertEq(token.transferValidator(), validatorAddr);
     }
 
     function testFuzz_SetTransferValidatorModule_EmitsEvent(address firstValidator, address secondValidator) public {
         // First set
         vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.TransferValidatorModuleSet(address(0), firstValidator);
+        emit ICollectibleCast.SetTransferValidator(address(0), firstValidator);
 
         vm.prank(token.owner());
         token.setModule("transferValidator", firstValidator);
 
         // Second set
         vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.TransferValidatorModuleSet(firstValidator, secondValidator);
+        emit ICollectibleCast.SetTransferValidator(firstValidator, secondValidator);
 
         vm.prank(token.owner());
         token.setModule("transferValidator", secondValidator);
@@ -494,15 +494,15 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.setModule("royalties", royaltiesModule);
 
-        assertEq(token.royaltiesModule(), royaltiesModule);
+        assertEq(token.royalties(), royaltiesModule);
     }
 
     function test_SetRoyaltiesModule_EmitsEvent() public {
-        address previousModule = token.royaltiesModule();
+        address previousModule = token.royalties();
         address newModule = makeAddr("newRoyaltiesModule");
 
         vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.RoyaltiesModuleSet(previousModule, newModule);
+        emit ICollectibleCast.SetRoyalties(previousModule, newModule);
 
         vm.prank(token.owner());
         token.setModule("royalties", newModule);

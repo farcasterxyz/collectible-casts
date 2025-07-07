@@ -18,13 +18,13 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     address public minter;
 
     // Metadata contract address
-    address public metadataModule;
+    address public metadata;
 
     // Transfer validator contract address
-    address public transferValidatorModule;
+    address public transferValidator;
 
     // Royalties module address
-    address public royaltiesModule;
+    address public royalties;
 
     // Mapping from token ID to token data
     mapping(uint256 => ICollectibleCast.TokenData) internal _tokenData;
@@ -54,19 +54,19 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         if (module == "minter") {
             address previousMinter = minter;
             minter = addr;
-            emit MinterSet(previousMinter, addr);
+            emit SetMinter(previousMinter, addr);
         } else if (module == "metadata") {
-            address previousMetadata = metadataModule;
-            metadataModule = addr;
-            emit MetadataModuleSet(previousMetadata, addr);
+            address previousMetadata = metadata;
+            metadata = addr;
+            emit SetMetadata(previousMetadata, addr);
         } else if (module == "transferValidator") {
-            address previousValidator = transferValidatorModule;
-            transferValidatorModule = addr;
-            emit TransferValidatorModuleSet(previousValidator, addr);
+            address previousValidator = transferValidator;
+            transferValidator = addr;
+            emit SetTransferValidator(previousValidator, addr);
         } else if (module == "royalties") {
-            address previousRoyalties = royaltiesModule;
-            royaltiesModule = addr;
-            emit RoyaltiesModuleSet(previousRoyalties, addr);
+            address previousRoyalties = royalties;
+            royalties = addr;
+            emit SetRoyalties(previousRoyalties, addr);
         } else {
             revert InvalidModule();
         }
@@ -79,10 +79,10 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
 
     // Override ERC1155 uri function to delegate to metadata module
     function uri(uint256 tokenId) public view virtual override(ERC1155, ICollectibleCast) returns (string memory) {
-        if (metadataModule == address(0)) {
+        if (metadata == address(0)) {
             return "";
         }
-        return IMetadata(metadataModule).uri(tokenId);
+        return IMetadata(metadata).uri(tokenId);
     }
 
     // ERC-2981 implementation that delegates to royalties module
@@ -92,7 +92,7 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         override
         returns (address receiver, uint256 royaltyAmount)
     {
-        if (royaltiesModule == address(0)) {
+        if (royalties == address(0)) {
             return (address(0), 0);
         }
 
@@ -102,15 +102,15 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         }
 
         // Delegate to royalties module
-        return IRoyalties(royaltiesModule).royaltyInfo(tokenId, salePrice, creator);
+        return IRoyalties(royalties).royaltyInfo(tokenId, salePrice, creator);
     }
 
     // Contract-level metadata
     function contractURI() external view returns (string memory) {
-        if (metadataModule == address(0)) {
+        if (metadata == address(0)) {
             return "";
         }
-        return IMetadata(metadataModule).contractURI();
+        return IMetadata(metadata).contractURI();
     }
 
     // Getter functions
@@ -132,10 +132,10 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         virtual
         override
     {
-        // If transferValidatorModule is set and this is not a mint operation, validate the transfer
-        if (transferValidatorModule != address(0) && from != address(0)) {
+        // If transferValidator is set and this is not a mint operation, validate the transfer
+        if (transferValidator != address(0) && from != address(0)) {
             bool isAllowed =
-                ITransferValidator(transferValidatorModule).validateTransfer(msg.sender, from, to, ids, values);
+                ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids, values);
             if (!isAllowed) revert TransferNotAllowed();
         }
 

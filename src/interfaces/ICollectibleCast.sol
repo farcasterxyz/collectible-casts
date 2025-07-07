@@ -16,20 +16,20 @@ interface ICollectibleCast {
     error InvalidFid();
 
     // Events
-    event MinterSet(address indexed previousMinter, address indexed newMinter);
     event CastMinted(address indexed to, bytes32 indexed castHash, uint256 indexed tokenId, uint256 fid);
-    event MetadataModuleSet(address indexed previousMetadata, address indexed newMetadata);
-    event TransferValidatorModuleSet(address indexed previousValidator, address indexed newValidator);
-    event RoyaltiesModuleSet(address indexed previousRoyalties, address indexed newRoyalties);
+    event SetMinter(address indexed previousMinter, address indexed newMinter);
+    event SetMetadata(address indexed previousMetadata, address indexed newMetadata);
+    event SetTransferValidator(address indexed previousValidator, address indexed newValidator);
+    event SetRoyalties(address indexed previousRoyalties, address indexed newRoyalties);
 
     function mint(address to, bytes32 castHash, uint256 fid, address creator) external;
     function setModule(bytes32 module, address addr) external;
 
     // View functions
     function minter() external view returns (address);
-    function metadataModule() external view returns (address);
-    function transferValidatorModule() external view returns (address);
-    function royaltiesModule() external view returns (address);
+    function metadata() external view returns (address);
+    function transferValidator() external view returns (address);
+    function royalties() external view returns (address);
     function tokenData(uint256 tokenId) external view returns (TokenData memory);
     function tokenFid(uint256 tokenId) external view returns (uint256);
     function tokenCreator(uint256 tokenId) external view returns (address);
