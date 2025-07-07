@@ -113,9 +113,9 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         return IMetadata(metadataModule).contractURI();
     }
 
-    // Getter functions for backward compatibility
-    function castHashToFid(bytes32 castHash) external view returns (uint256) {
-        return _tokenData[uint256(castHash)].fid;
+    // Getter functions
+    function tokenFid(uint256 tokenId) external view returns (uint256) {
+        return _tokenData[tokenId].fid;
     }
 
     function tokenCreator(uint256 tokenId) external view returns (address) {

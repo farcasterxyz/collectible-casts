@@ -31,7 +31,7 @@ interface ICollectibleCast {
     function transferValidatorModule() external view returns (address);
     function royaltiesModule() external view returns (address);
     function tokenData(uint256 tokenId) external view returns (TokenData memory);
-    function castHashToFid(bytes32 castHash) external view returns (uint256);
+    function tokenFid(uint256 tokenId) external view returns (uint256);
     function tokenCreator(uint256 tokenId) external view returns (address);
     function uri(uint256 tokenId) external view returns (string memory);
     function contractURI() external view returns (string memory);

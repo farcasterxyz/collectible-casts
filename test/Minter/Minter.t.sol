@@ -53,7 +53,7 @@ contract MinterTest is TestSuiteSetup {
         // Verify
         uint256 tokenId = uint256(castHash);
         assertEq(token.balanceOf(recipient, tokenId), 1);
-        assertEq(token.castHashToFid(castHash), fid);
+        assertEq(token.tokenFid(uint256(castHash)), fid);
         assertEq(token.tokenCreator(tokenId), creator);
     }
 

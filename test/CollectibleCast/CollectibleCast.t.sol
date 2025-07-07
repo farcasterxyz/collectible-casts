@@ -119,7 +119,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Check that the recipient received the token
         assertEq(token.balanceOf(recipient, tokenId), 1);
-        assertEq(token.castHashToFid(castHash), fid);
+        assertEq(token.tokenFid(tokenId), fid);
         assertEq(token.tokenCreator(tokenId), creator);
     }
 
@@ -155,7 +155,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(address(validReceiver), castHash, fid, makeAddr("creator"));
 
         assertEq(token.balanceOf(address(validReceiver), tokenId), 1);
-        assertEq(token.castHashToFid(castHash), fid);
+        assertEq(token.tokenFid(tokenId), fid);
     }
 
     function test_Mint_ToInvalidContract_Reverts() public {
@@ -191,7 +191,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Check that the recipient received the token
         assertEq(token.balanceOf(recipient, tokenId), 1);
         // Check that the FID was stored
-        assertEq(token.castHashToFid(castHash), fid);
+        assertEq(token.tokenFid(tokenId), fid);
     }
 
     function testFuzz_Mint_MultipleUniqueCasts(bytes32[5] memory castHashes, uint256 baseFid) public {
@@ -215,7 +215,7 @@ contract CollectibleCastTest is TestSuiteSetup {
             token.mint(recipient, castHashes[i], fid, makeAddr("creator"));
 
             assertEq(token.balanceOf(recipient, tokenId), 1);
-            assertEq(token.castHashToFid(castHashes[i]), fid);
+            assertEq(token.tokenFid(uint256(castHashes[i])), fid);
         }
     }
 
@@ -664,5 +664,11 @@ contract CollectibleCastTest is TestSuiteSetup {
         ICollectibleCast.TokenData memory data = token.tokenData(tokenId);
         assertEq(data.fid, 0);
         assertEq(data.creator, address(0));
+    }
+
+    function test_TokenFid_ReturnsZeroForUnmintedToken() public view {
+        // Test tokenFid for unminted token returns 0
+        uint256 tokenId = uint256(keccak256("unmintedFid"));
+        assertEq(token.tokenFid(tokenId), 0);
     }
 }
