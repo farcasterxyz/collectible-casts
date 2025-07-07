@@ -638,4 +638,31 @@ contract CollectibleCastTest is TestSuiteSetup {
         // When no metadata module is set, should return empty string
         assertEq(token.contractURI(), "");
     }
+
+    function test_TokenData_ReturnsStoredData() public {
+        // Setup
+        address minterAddr = makeAddr("minter");
+        address creator = makeAddr("creator");
+        bytes32 castHash = keccak256("tokenDataTest");
+        uint256 tokenId = uint256(castHash);
+        uint256 fid = 12345;
+
+        // Mint a token
+        token.setModule("minter", minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, fid, creator);
+
+        // Test tokenData function returns correct data
+        ICollectibleCast.TokenData memory data = token.tokenData(tokenId);
+        assertEq(data.fid, fid);
+        assertEq(data.creator, creator);
+    }
+
+    function test_TokenData_ReturnsEmptyForUnmintedToken() public view {
+        // Test tokenData for unminted token returns empty struct
+        uint256 tokenId = uint256(keccak256("unminted"));
+        ICollectibleCast.TokenData memory data = token.tokenData(tokenId);
+        assertEq(data.fid, 0);
+        assertEq(data.creator, address(0));
+    }
 }
