@@ -6,6 +6,7 @@ import {Minter} from "../../src/Minter.sol";
 import {IMinter} from "../../src/interfaces/IMinter.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MinterTest is Test {
     Minter public minter;
@@ -18,6 +19,10 @@ contract MinterTest is Test {
 
     function test_Constructor_SetsTokenAddress() public view {
         assertEq(minter.token(), address(token));
+    }
+
+    function test_Constructor_SetsOwner() public view {
+        assertEq(minter.owner(), address(this));
     }
 
     function test_Constructor_RevertsWithZeroAddress() public {
@@ -41,6 +46,9 @@ contract MinterTest is Test {
         // Set the minter as the minter on the token
         token.setModule("minter", address(minter));
 
+        // Allow this test contract to mint
+        minter.allow(address(this));
+
         // Mint
         minter.mint(recipient, castHash, fid, creator);
 
@@ -51,15 +59,20 @@ contract MinterTest is Test {
         assertEq(token.tokenCreator(tokenId), creator);
     }
 
-    function test_Mint_RevertsWhenNotAuthorized() public {
+    function test_Mint_RevertsWhenCallerNotAllowed() public {
         // Setup
         address recipient = makeAddr("recipient");
         bytes32 castHash = keccak256("test cast");
         uint256 fid = 123;
         address creator = makeAddr("creator");
+        address unauthorizedCaller = makeAddr("unauthorizedCaller");
 
-        // Don't set the minter as authorized - mint should fail
-        vm.expectRevert(ICollectibleCast.Unauthorized.selector);
+        // Set the minter as the minter on the token
+        token.setModule("minter", address(minter));
+
+        // Try to mint from unauthorized address - should fail
+        vm.prank(unauthorizedCaller);
+        vm.expectRevert(IMinter.Unauthorized.selector);
         minter.mint(recipient, castHash, fid, creator);
     }
 
@@ -73,11 +86,56 @@ contract MinterTest is Test {
         // Set the minter as the minter on the token
         token.setModule("minter", address(minter));
 
+        // Allow this test contract to mint
+        minter.allow(address(this));
+
         // First mint should succeed
         minter.mint(recipient, castHash, fid, creator);
 
         // Second mint should fail
         vm.expectRevert(ICollectibleCast.AlreadyMinted.selector);
         minter.mint(recipient, castHash, fid, creator);
+    }
+
+    function testFuzz_Allow_SetsAllowedStatus(address account) public {
+        // Expect event
+        vm.expectEmit(true, false, false, true);
+        emit IMinter.Allow(account);
+
+        // Allow should set allowed to true
+        minter.allow(account);
+        assertTrue(minter.allowed(account));
+    }
+
+    function testFuzz_Deny_RemovesAllowedStatus(address account) public {
+        // First allow
+        minter.allow(account);
+        assertTrue(minter.allowed(account));
+
+        // Expect event
+        vm.expectEmit(true, false, false, true);
+        emit IMinter.Deny(account);
+
+        // Then deny
+        minter.deny(account);
+        assertFalse(minter.allowed(account));
+    }
+
+    function test_Allow_OnlyOwner() public {
+        address notOwner = makeAddr("notOwner");
+        address toAllow = makeAddr("toAllow");
+
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        minter.allow(toAllow);
+    }
+
+    function test_Deny_OnlyOwner() public {
+        address notOwner = makeAddr("notOwner");
+        address toDeny = makeAddr("toDeny");
+
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        minter.deny(toDeny);
     }
 }
