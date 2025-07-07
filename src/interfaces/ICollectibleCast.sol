@@ -2,6 +2,12 @@
 pragma solidity ^0.8.30;
 
 interface ICollectibleCast {
+    // Token data stored per token ID
+    struct TokenData {
+        uint256 fid;
+        address creator;
+    }
+
     // Custom errors
     error Unauthorized();
     error AlreadyMinted();

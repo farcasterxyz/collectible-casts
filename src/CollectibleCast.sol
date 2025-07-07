@@ -10,12 +10,6 @@ import {ITransferValidator} from "./interfaces/ITransferValidator.sol";
 import {IRoyalties} from "./interfaces/IRoyalties.sol";
 
 contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
-    // Token data stored per token ID
-    struct TokenData {
-        uint256 fid;
-        address creator;
-    }
-
     // Minter contract address
     address public minter;
 
@@ -29,7 +23,7 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     address public royaltiesModule;
 
     // Mapping from token ID to token data
-    mapping(uint256 => TokenData) public tokenData;
+    mapping(uint256 => ICollectibleCast.TokenData) public tokenData;
 
     constructor() ERC1155("") Ownable(msg.sender) {}
 
@@ -63,7 +57,7 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         // Check if already minted by checking if FID is non-zero
         if (tokenData[tokenId].fid != 0) revert AlreadyMinted();
 
-        tokenData[tokenId] = TokenData({
+        tokenData[tokenId] = ICollectibleCast.TokenData({
             fid: fid,
             creator: creator
         });
