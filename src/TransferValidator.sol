@@ -24,17 +24,24 @@ contract TransferValidator is ITransferValidator, Ownable2Step {
 
     function validateTransfer(
         address operator,
-        address,
+        address from,
         address,
         uint256[] calldata,
         uint256[] calldata
     ) external view override returns (bool) {
-        // If transfers are not enabled, only allowed operators can transfer
+        // If transfers are not enabled, no transfers allowed at all
         if (!transfersEnabled) {
-            return allowedOperators[operator];
+            return false;
         }
-        // If transfers are enabled, anyone can transfer
-        return true;
+        
+        // Transfers are enabled, check if operator is allowed
+        // Owner can always transfer their own tokens
+        if (operator == from) {
+            return true;
+        }
+        
+        // For third-party transfers, operator must be allowed
+        return allowedOperators[operator];
     }
 
     // One-way switch to enable transfers

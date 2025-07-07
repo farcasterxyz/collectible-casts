@@ -26,38 +26,40 @@ contract TransferValidatorTest is Test {
         assertFalse(validator.transfersEnabled());
     }
 
-    function test_ValidateTransfer_BlocksWhenTransfersDisabled() public {
+    function test_ValidateTransfer_BlocksAllWhenTransfersDisabled() public {
+        address owner = makeAddr("owner");
         address operator = makeAddr("operator");
-        address from = makeAddr("from");
         address to = makeAddr("to");
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
-        // Should block when transfers disabled and operator not allowed
-        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
-        assertFalse(isAllowed);
+        // Should block ALL transfers when disabled, even owner transfers
+        assertFalse(validator.validateTransfer(owner, owner, to, ids, amounts));
+        
+        // Should block even if operator is allowed
+        validator.allowOperator(operator);
+        assertFalse(validator.validateTransfer(operator, owner, to, ids, amounts));
     }
 
-    function test_ValidateTransfer_AllowsOperatorWhenTransfersDisabled() public {
-        address operator = makeAddr("operator");
-        address from = makeAddr("from");
+    function test_ValidateTransfer_AllowsOwnerWhenTransfersEnabled() public {
+        address owner = makeAddr("owner");
         address to = makeAddr("to");
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
-        // Allow the operator
-        validator.allowOperator(operator);
+        // Enable transfers
+        validator.enableTransfers();
 
-        // Should allow when operator is allowed even if transfers disabled
-        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
+        // Owner should be able to transfer their own tokens
+        bool isAllowed = validator.validateTransfer(owner, owner, to, ids, amounts);
         assertTrue(isAllowed);
     }
 
-    function test_ValidateTransfer_AllowsAllWhenTransfersEnabled() public {
+    function test_ValidateTransfer_RequiresOperatorAllowlistWhenTransfersEnabled() public {
         address operator = makeAddr("operator");
         address from = makeAddr("from");
         address to = makeAddr("to");
@@ -69,8 +71,15 @@ contract TransferValidatorTest is Test {
         // Enable transfers
         validator.enableTransfers();
 
-        // Should allow any operator when transfers enabled
+        // Operator not allowed - should fail
         bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
+        assertFalse(isAllowed);
+
+        // Allow operator
+        validator.allowOperator(operator);
+
+        // Now should succeed
+        isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
         assertTrue(isAllowed);
     }
 
@@ -162,29 +171,48 @@ contract TransferValidatorTest is Test {
         validator.removeOperator(operator);
     }
 
-    function testFuzz_ValidateTransfer_RespectsOperatorAllowlist(
+    function testFuzz_ValidateTransfer_BlocksAllWhenDisabled(
         address operator,
         address from,
-        address to,
-        bool isOperatorAllowed
+        address to
     ) public {
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
+        // When transfers disabled, should always return false
+        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
+        assertFalse(isAllowed);
+    }
+
+    function testFuzz_ValidateTransfer_RespectsOperatorAllowlistWhenEnabled(
+        address operator,
+        address from,
+        address to,
+        bool isOperatorAllowed
+    ) public {
+        vm.assume(operator != from); // Test third-party transfers
+        
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 1;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        // Enable transfers
+        validator.enableTransfers();
+
         if (isOperatorAllowed) {
             validator.allowOperator(operator);
         }
 
-        // When transfers disabled, should respect operator allowlist
+        // Should respect operator allowlist for third-party transfers
         bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
         assertEq(isAllowed, isOperatorAllowed);
     }
 
-    function testFuzz_ValidateTransfer_AllowsAllWhenEnabled(
-        address operator,
-        address from,
+    function testFuzz_ValidateTransfer_AllowsOwnerTransfersWhenEnabled(
+        address owner,
         address to
     ) public {
         uint256[] memory ids = new uint256[](1);
@@ -195,8 +223,8 @@ contract TransferValidatorTest is Test {
         // Enable transfers
         validator.enableTransfers();
 
-        // Should always allow when transfers enabled
-        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
+        // Owner should always be able to transfer their own tokens
+        bool isAllowed = validator.validateTransfer(owner, owner, to, ids, amounts);
         assertTrue(isAllowed);
     }
 
