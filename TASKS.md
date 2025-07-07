@@ -33,9 +33,9 @@ Each task follows the TDD cycle: RED → GREEN → REFACTOR → COMMIT
 ## Phase 2: CollectibleCast Token - Core ERC-1155
 
 ### 2.1 Basic ERC-1155 Implementation
-- [ ] RED: Write test `test_Constructor_SetsOwner()`
-- [ ] GREEN: Create CollectibleCast contract with constructor
-- [ ] COMMIT: "feat: add CollectibleCast constructor"
+- [x] RED: Write test `test_Constructor_SetsOwner()`
+- [x] GREEN: Create CollectibleCast contract with constructor
+- [x] COMMIT: "feat: add CollectibleCast constructor" (ready to commit)
 
 - [ ] RED: Write test `test_SupportsERC1155Interface()`
 - [ ] GREEN: Inherit from ERC-1155 
