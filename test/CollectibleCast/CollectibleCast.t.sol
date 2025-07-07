@@ -90,8 +90,9 @@ contract CollectibleCastTest is Test {
     }
     
     function testFuzz_Mint_SucceedsFirstTime(address recipient, bytes32 castHash, uint256 fid) public {
-        // Skip invalid addresses
+        // Skip invalid addresses and contracts (which need to implement ERC1155Receiver)
         vm.assume(recipient != address(0));
+        vm.assume(recipient.code.length == 0); // Only EOAs
         
         // Set up minter
         address minterAddr = makeAddr("minter");
