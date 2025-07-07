@@ -112,9 +112,6 @@ contract CollectibleCastTest is Test {
         // Set minter
         token.setModule("minter", minterAddr);
 
-        // Check hasMinted is false before minting
-        assertFalse(token.hasMinted(tokenId));
-
         // Mint as the minter with creator
         vm.prank(minterAddr);
         token.mint(recipient, castHash, fid, creator);
@@ -123,9 +120,6 @@ contract CollectibleCastTest is Test {
         assertEq(token.balanceOf(recipient, tokenId), 1);
         assertEq(token.castHashToFid(castHash), fid);
         assertEq(token.tokenCreator(tokenId), creator);
-        
-        // Check hasMinted is true after minting
-        assertTrue(token.hasMinted(tokenId));
     }
 
     function testFuzz_Mint_EmitsEvent(address recipient, bytes32 castHash, uint256 fid) public {

@@ -114,10 +114,6 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     }
 
     // Getter functions for backward compatibility
-    function hasMinted(uint256 tokenId) external view returns (bool) {
-        return tokenData[tokenId].fid != 0;
-    }
-
     function castHashToFid(bytes32 castHash) external view returns (uint256) {
         return tokenData[uint256(castHash)].fid;
     }
