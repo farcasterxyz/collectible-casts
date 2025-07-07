@@ -7,6 +7,14 @@ Each task follows the TDD cycle: RED → GREEN → REFACTOR → COMMIT
 - **YAGNI** (You Aren't Gonna Need It) - Don't add functionality until needed
 - **100% Test Coverage** - Every line of production code must be tested
 - **Minimal Interfaces** - Start with empty interfaces, add functions only when tests require them
+- **Fuzz Test Upgrade** - After each GREEN phase, evaluate if unit tests can be upgraded to fuzz tests
+
+## Fuzz Test Upgrade Process
+After implementing each feature:
+1. **Identify Parameterized Inputs** - Look for functions that accept dynamic inputs
+2. **Consider Edge Cases** - What ranges or values should we test?
+3. **Keep Unit Tests** - Maintain specific test cases alongside fuzz tests
+4. **Add Appropriate Assumptions** - Use vm.assume to skip invalid inputs
 
 ## Phase 1: Contract Interfaces and Test Infrastructure
 
@@ -47,9 +55,9 @@ Each task follows the TDD cycle: RED → GREEN → REFACTOR → COMMIT
 - [x] GREEN: Add minter check in mint function
 - [x] COMMIT: "feat: add minter authorization to mint" (ready to commit)
 
-- [ ] RED: Write test `test_Mint_SucceedsFirstTime()`
-- [ ] GREEN: Implement basic mint function
-- [ ] COMMIT: "feat: implement basic minting"
+- [x] RED: Write test `test_Mint_SucceedsFirstTime()`
+- [x] GREEN: Implement basic mint function with setMinter
+- [x] COMMIT: "feat: implement basic minting" (ready to commit)
 
 - [ ] RED: Write test `test_Mint_RevertsOnSecondMint()`
 - [ ] GREEN: Add max supply = 1 check

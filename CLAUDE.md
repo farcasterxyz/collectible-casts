@@ -144,6 +144,21 @@ forge script script/Counter.s.sol:CounterScript --rpc-url <RPC_URL> --private-ke
   - `testFail_FunctionName()` for tests expecting reverts
   - Use underscores in test function names for readability
 
+### Error Handling
+
+- **ALWAYS use custom errors instead of require statements**
+  ```solidity
+  // Bad
+  require(msg.sender == owner, "Unauthorized");
+  
+  // Good
+  error Unauthorized();
+  if (msg.sender != owner) revert Unauthorized();
+  ```
+- Define custom errors at the contract level
+- Include custom errors in interfaces so they can be imported
+- Use descriptive error names that explain the failure condition
+
 ### Contract Development Patterns
 
 - **Modular Architecture**: Each contract should have a single, well-defined purpose

@@ -3,13 +3,31 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
+import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CollectibleCastTest is Test {
     CollectibleCast public token;
     
     function setUp() public {
         token = new CollectibleCast();
+    }
+    
+    function testFuzz_SetMinter_OnlyOwner(address newMinter, address notOwner) public {
+        // Ensure notOwner is different from the actual owner
+        vm.assume(notOwner != token.owner());
+        vm.assume(notOwner != address(0));
+        
+        // Test that owner can set minter
+        vm.prank(token.owner());
+        token.setMinter(newMinter);
+        assertEq(token.minter(), newMinter);
+        
+        // Test that non-owner cannot set minter
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        token.setMinter(makeAddr("anotherMinter"));
     }
     
     function test_Constructor_SetsOwner() public {
@@ -48,7 +66,46 @@ contract CollectibleCastTest is Test {
         uint256 fid = 1;
         
         vm.prank(notMinter);
-        vm.expectRevert("Unauthorized");
+        vm.expectRevert(ICollectibleCast.Unauthorized.selector);
         token.mint(recipient, castHash, fid);
+    }
+    
+    function test_Mint_SucceedsFirstTime() public {
+        // First, we need to set a minter
+        address minterAddr = makeAddr("minter");
+        address recipient = makeAddr("recipient");
+        bytes32 castHash = keccak256("cast1");
+        uint256 tokenId = uint256(castHash);
+        uint256 fid = 1;
+        
+        // Set minter (we'll need to add this function)
+        token.setMinter(minterAddr);
+        
+        // Mint as the minter
+        vm.prank(minterAddr);
+        token.mint(recipient, castHash, fid);
+        
+        // Check that the recipient received the token
+        assertEq(token.balanceOf(recipient, tokenId), 1);
+    }
+    
+    function testFuzz_Mint_SucceedsFirstTime(address recipient, bytes32 castHash, uint256 fid) public {
+        // Skip invalid addresses
+        vm.assume(recipient != address(0));
+        
+        // Set up minter
+        address minterAddr = makeAddr("minter");
+        token.setMinter(minterAddr);
+        
+        uint256 tokenId = uint256(castHash);
+        
+        // Mint as the minter
+        vm.prank(minterAddr);
+        token.mint(recipient, castHash, fid);
+        
+        // Check that the recipient received the token
+        assertEq(token.balanceOf(recipient, tokenId), 1);
+        // Check that the FID was stored
+        assertEq(token.castHashToFid(castHash), fid);
     }
 }

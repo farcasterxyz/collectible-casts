@@ -9,12 +9,27 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast {
     // Minter contract address
     address public minter;
     
+    // Mapping to track if a token has been minted
+    mapping(uint256 => bool) public hasMinted;
+    
+    // Mapping from cast hash to FID
+    mapping(bytes32 => uint256) public castHashToFid;
+    
     constructor() ERC1155("") Ownable(msg.sender) {}
     
+    function setMinter(address _minter) external onlyOwner {
+        minter = _minter;
+    }
+    
     function mint(address to, bytes32 castHash, uint256 fid) external {
-        require(msg.sender == minter, "Unauthorized");
+        if (msg.sender != minter) revert Unauthorized();
         
-        // We'll implement the actual minting logic later
-        // For now, just check authorization
+        uint256 tokenId = uint256(castHash);
+        if (hasMinted[tokenId]) revert AlreadyMinted();
+        
+        hasMinted[tokenId] = true;
+        castHashToFid[castHash] = fid;
+        
+        _mint(to, tokenId, 1, "");
     }
 }
