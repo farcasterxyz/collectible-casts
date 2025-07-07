@@ -21,10 +21,12 @@ contract Minter is IMinter, Ownable2Step {
         _;
     }
 
+    // External/public state-changing functions
     function mint(address to, bytes32 castHash, uint256 fid, address creator) external onlyAllowed {
         ICollectibleCast(token).mint(to, castHash, fid, creator);
     }
 
+    // External permissioned functions
     function allow(address account) external onlyOwner {
         allowed[account] = true;
         emit Allow(account);

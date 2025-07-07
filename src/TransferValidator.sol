@@ -13,6 +13,27 @@ contract TransferValidator is ITransferValidator, Ownable2Step {
 
     constructor() Ownable(msg.sender) {}
 
+    // External permissioned functions
+    // One-way switch to enable transfers
+    function enableTransfers() external onlyOwner {
+        if (transfersEnabled) revert TransfersAlreadyEnabled();
+        transfersEnabled = true;
+        emit TransfersEnabled();
+    }
+
+    // Allow an operator (e.g., marketplace contract)
+    function allowOperator(address operator) external onlyOwner {
+        allowedOperators[operator] = true;
+        emit OperatorAllowed(operator);
+    }
+
+    // Remove an operator from the allowlist
+    function removeOperator(address operator) external onlyOwner {
+        allowedOperators[operator] = false;
+        emit OperatorRemoved(operator);
+    }
+
+    // View functions
     function validateTransfer(address operator, address from, address, uint256[] calldata, uint256[] calldata)
         external
         view
@@ -32,24 +53,5 @@ contract TransferValidator is ITransferValidator, Ownable2Step {
 
         // For third-party transfers, operator must be allowed
         return allowedOperators[operator];
-    }
-
-    // One-way switch to enable transfers
-    function enableTransfers() external onlyOwner {
-        if (transfersEnabled) revert TransfersAlreadyEnabled();
-        transfersEnabled = true;
-        emit TransfersEnabled();
-    }
-
-    // Allow an operator (e.g., marketplace contract)
-    function allowOperator(address operator) external onlyOwner {
-        allowedOperators[operator] = true;
-        emit OperatorAllowed(operator);
-    }
-
-    // Remove an operator from the allowlist
-    function removeOperator(address operator) external onlyOwner {
-        allowedOperators[operator] = false;
-        emit OperatorRemoved(operator);
     }
 }

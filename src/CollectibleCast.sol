@@ -31,6 +31,22 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
 
     constructor() ERC1155("") Ownable(msg.sender) {}
 
+    // External/public state-changing functions
+    function mint(address to, bytes32 castHash, uint256 fid, address creator) external {
+        if (msg.sender != minter) revert Unauthorized();
+        if (fid == 0) revert InvalidFid();
+
+        uint256 tokenId = uint256(castHash);
+        // Check if already minted by checking if FID is non-zero
+        if (_tokenData[tokenId].fid != 0) revert AlreadyMinted();
+
+        _tokenData[tokenId] = ICollectibleCast.TokenData({fid: fid, creator: creator});
+
+        _mint(to, tokenId, 1, "");
+        emit CastMinted(to, castHash, tokenId, fid);
+    }
+
+    // External permissioned functions
     /// @notice Updates a module address
     /// @param module The module identifier ("minter", "metadata", "transferValidator", or "royalties")
     /// @param addr The new module address
@@ -56,33 +72,17 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         }
     }
 
-    function mint(address to, bytes32 castHash, uint256 fid, address creator) external {
-        if (msg.sender != minter) revert Unauthorized();
-        if (fid == 0) revert InvalidFid();
-
-        uint256 tokenId = uint256(castHash);
-        // Check if already minted by checking if FID is non-zero
-        if (_tokenData[tokenId].fid != 0) revert AlreadyMinted();
-
-        _tokenData[tokenId] = ICollectibleCast.TokenData({fid: fid, creator: creator});
-
-        _mint(to, tokenId, 1, "");
-        emit CastMinted(to, castHash, tokenId, fid);
+    // View functions
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, IERC165) returns (bool) {
+        return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
 
-    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
-        internal
-        virtual
-        override
-    {
-        // If transferValidatorModule is set and this is not a mint operation, validate the transfer
-        if (transferValidatorModule != address(0) && from != address(0)) {
-            bool isAllowed =
-                ITransferValidator(transferValidatorModule).validateTransfer(msg.sender, from, to, ids, values);
-            if (!isAllowed) revert TransferNotAllowed();
+    // Override ERC1155 uri function to delegate to metadata module
+    function uri(uint256 tokenId) public view virtual override(ERC1155, ICollectibleCast) returns (string memory) {
+        if (metadataModule == address(0)) {
+            return "";
         }
-
-        super._update(from, to, ids, values);
+        return IMetadata(metadataModule).uri(tokenId);
     }
 
     // ERC-2981 implementation that delegates to royalties module
@@ -105,18 +105,6 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         return IRoyalties(royaltiesModule).royaltyInfo(tokenId, salePrice, creator);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, IERC165) returns (bool) {
-        return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
-    }
-
-    // Override ERC1155 uri function to delegate to metadata module
-    function uri(uint256 tokenId) public view virtual override(ERC1155, ICollectibleCast) returns (string memory) {
-        if (metadataModule == address(0)) {
-            return "";
-        }
-        return IMetadata(metadataModule).uri(tokenId);
-    }
-
     // Contract-level metadata
     function contractURI() external view returns (string memory) {
         if (metadataModule == address(0)) {
@@ -136,5 +124,21 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
 
     function tokenData(uint256 tokenId) external view returns (ICollectibleCast.TokenData memory) {
         return _tokenData[tokenId];
+    }
+
+    // Internal functions
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
+        internal
+        virtual
+        override
+    {
+        // If transferValidatorModule is set and this is not a mint operation, validate the transfer
+        if (transferValidatorModule != address(0) && from != address(0)) {
+            bool isAllowed =
+                ITransferValidator(transferValidatorModule).validateTransfer(msg.sender, from, to, ids, values);
+            if (!isAllowed) revert TransferNotAllowed();
+        }
+
+        super._update(from, to, ids, values);
     }
 }

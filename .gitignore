@@ -12,3 +12,5 @@ docs/
 
 # Dotenv file
 .env
+coverage_debug.txt
+lcov.info

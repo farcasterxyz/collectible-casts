@@ -12,17 +12,19 @@ contract Metadata is IMetadata, Ownable2Step {
         baseURI = _baseURI;
     }
 
+    // External permissioned functions
+    function setBaseURI(string memory _baseURI) external onlyOwner {
+        string memory oldBaseURI = baseURI;
+        baseURI = _baseURI;
+        emit BaseURISet(oldBaseURI, _baseURI);
+    }
+
+    // View functions
     function contractURI() external view returns (string memory) {
         return string.concat(baseURI, "contract");
     }
 
     function uri(uint256 tokenId) external view returns (string memory) {
         return string.concat(baseURI, Strings.toString(tokenId));
-    }
-
-    function setBaseURI(string memory _baseURI) external onlyOwner {
-        string memory oldBaseURI = baseURI;
-        baseURI = _baseURI;
-        emit BaseURISet(oldBaseURI, _baseURI);
     }
 }
