@@ -5,9 +5,12 @@ Each task follows the TDD cycle: RED → GREEN → REFACTOR → COMMIT
 ## Guiding Principles
 - **KISS** (Keep It Simple, Stupid) - Choose the simplest solution
 - **YAGNI** (You Aren't Gonna Need It) - Don't add functionality until needed
-- **100% Test Coverage** - Every line of production code must be tested
+- **100% Test Coverage** - Every line of production code must be tested (verified with `python3 script/check-coverage.py`)
 - **Minimal Interfaces** - Start with empty interfaces, add functions only when tests require them
 - **Fuzz Test Upgrade** - After each GREEN phase, evaluate if unit tests can be upgraded to fuzz tests
+
+## Coverage Verification
+Before each commit, run `python3 script/check-coverage.py` to ensure 100% coverage for all production contracts. This script will fail if any production contract has less than 100% coverage on any metric (lines, statements, branches, or functions).
 
 ## Fuzz Test Upgrade Process
 After implementing each feature:
@@ -44,44 +47,63 @@ After implementing each feature:
 - [x] RED: Write test `test_Constructor_SetsOwner()`
 - [x] GREEN: Create CollectibleCast contract with constructor
 - [x] REFACTOR: Use OpenZeppelin Ownable2Step for ownership
+- [x] UPGRADE TO FUZZ: `testFuzz_Constructor_SetsOwner(address owner)`
 - [x] COMMIT: "feat: add CollectibleCast constructor with Ownable2Step"
 
 - [x] RED: Write test `test_SupportsERC1155Interface()`
 - [x] GREEN: Inherit from ERC-1155 
-- [x] COMMIT: "feat: implement ERC-1155 in CollectibleCast" (ready to commit)
+- [x] COMMIT: "feat: implement ERC-1155 in CollectibleCast"
 
-### 2.2 Minting with Max Supply
+### 2.2 Minting Authorization
 - [x] RED: Write test `test_Mint_RevertsWhenNotMinter()`
-- [x] GREEN: Add minter check in mint function
-- [x] COMMIT: "feat: add minter authorization to mint" (ready to commit)
+- [x] GREEN: Add minter check in mint function with custom error
+- [x] REFACTOR: Use custom error instead of require
+- [x] COMMIT: "feat: add minter authorization to mint"
 
+- [x] RED: Write test `test_SetMinter_OnlyOwner()`
+- [x] GREEN: Implement setMinter function with onlyOwner
+- [x] REFACTOR: Upgrade to fuzz test
+- [x] COMMIT: "feat: add setMinter function"
+
+### 2.3 Basic Minting
 - [x] RED: Write test `test_Mint_SucceedsFirstTime()`
-- [x] GREEN: Implement basic mint function with setMinter
-- [x] COMMIT: "feat: implement basic minting" (ready to commit)
+- [x] GREEN: Implement basic mint function
+- [x] COMMIT: "feat: implement basic minting"
 
-- [ ] RED: Write test `test_Mint_RevertsOnSecondMint()`
-- [ ] GREEN: Add max supply = 1 check
-- [ ] COMMIT: "feat: enforce max supply of 1 per token"
+- [x] RED: Write test `test_Mint_ToValidContract()` and `test_Mint_ToInvalidContract_Reverts()`
+- [x] GREEN: ERC1155 handles contract recipient validation
+- [x] REFACTOR: Add comprehensive tests for EOAs and contracts
+- [x] COMMIT: "test: add recipient validation tests"
 
-- [ ] RED: Write fuzz test `testFuzz_Mint_OnlyOncePerTokenId(uint256 tokenId)`
-- [ ] GREEN: Ensure implementation handles all token IDs
-- [ ] REFACTOR: Optimize storage if needed
-- [ ] COMMIT: "test: add fuzz test for mint max supply"
+### 2.4 Max Supply Enforcement
+- [x] RED: Write test `test_Mint_RevertsOnDoubleMint()`
+- [x] GREEN: Add hasMinted mapping and AlreadyMinted error
+- [x] REFACTOR: Upgrade to fuzz test
+- [x] COMMIT: "feat: enforce max supply of 1 per cast"
 
-### 2.3 Cast Hash to FID Mapping
-- [ ] RED: Write test `test_Mint_StoresCastHashToFid()`
-- [ ] GREEN: Add storage mapping and update in mint
-- [ ] COMMIT: "feat: store cast hash to FID mapping"
+### 2.5 Cast Hash to FID Mapping
+- [x] RED: Tests already verify castHashToFid storage in mint tests
+- [x] GREEN: Added castHashToFid mapping and storage in mint
+- [x] COMMIT: "feat: store cast hash to FID mapping"
 
-- [ ] RED: Write test `test_GetFidFromCastHash_ReturnsCorrectFid()`
-- [ ] GREEN: Add getter function for FID lookup
-- [ ] COMMIT: "feat: add FID lookup by cast hash"
+### 2.6 Event Emissions
+- [x] RED: Write test `test_SetMinter_EmitsEvent()`
+- [x] GREEN: Add MinterSet event to interface and implementation
+- [x] REFACTOR: Upgrade to fuzz test
+- [x] COMMIT: "feat: emit MinterSet event"
 
-- [ ] RED: Write test `test_Mint_EmitsEventWithFid()`
-- [ ] GREEN: Add event emission with FID
-- [ ] COMMIT: "feat: emit FID in mint event"
+- [x] RED: Write test `test_Mint_EmitsEvent()`
+- [x] GREEN: Add CastMinted event with all parameters
+- [x] COMMIT: "feat: emit CastMinted event"
 
-### 2.4 Module Management
+### Additional Patterns from emint-contracts Research
+- [x] Multiple recipient type tests (EOAs and contracts)
+- [x] MockERC1155Receiver for testing contract recipients
+- [x] Comprehensive event emission testing
+- [ ] Consider batch minting operations (if needed later)
+- [ ] Consider operator approval patterns (if needed later)
+
+### 2.7 Module Management
 - [ ] RED: Write test `test_SetMetadata_RevertsWhenNotOwner()`
 - [ ] GREEN: Add onlyOwner modifier to setMetadata
 - [ ] COMMIT: "feat: add owner-only metadata module setter"
@@ -97,7 +119,7 @@ After implementing each feature:
 - [ ] Repeat above pattern for Minter module: RED → GREEN → COMMIT
 - [ ] Repeat above pattern for TransferValidator module: RED → GREEN → COMMIT
 
-### 2.5 Transfer Integration
+### 2.8 Transfer Integration
 - [ ] RED: Write test `test_Transfer_ChecksTransferValidator()`
 - [ ] GREEN: Override _beforeTokenTransfer to check validator
 - [ ] COMMIT: "feat: integrate transfer validator checks"
@@ -107,7 +129,7 @@ After implementing each feature:
 - [ ] REFACTOR: Add custom error for clarity
 - [ ] COMMIT: "feat: revert transfers when validator denies"
 
-### 2.6 EIP-2981 Royalties
+### 2.9 EIP-2981 Royalties
 - [ ] RED: Write test `test_RoyaltyInfo_ReturnsCorrectAmounts()`
 - [ ] GREEN: Implement royaltyInfo function
 - [ ] COMMIT: "feat: implement EIP-2981 royalty info"
@@ -393,6 +415,25 @@ After implementing each feature:
 - [ ] Update README with deployment info
 - [ ] Add interaction examples
 - [ ] COMMIT: "docs: add deployment and usage documentation"
+
+## Progress Summary
+
+### Completed in Phase 2:
+- ✅ Constructor with Ownable2Step
+- ✅ ERC-1155 interface support
+- ✅ Minter authorization with custom errors
+- ✅ Basic minting functionality
+- ✅ Max supply enforcement (1 per cast)
+- ✅ Cast hash to FID mapping
+- ✅ Event emissions (MinterSet, CastMinted)
+- ✅ Comprehensive recipient validation (EOAs and contracts)
+- ✅ 100% test coverage with fuzz tests
+
+### Next Steps:
+1. Module Management (setMetadataAddress, etc.)
+2. Transfer Integration with TransferValidator
+3. EIP-2981 Royalties
+4. Move to Phase 3: Metadata Contract
 
 ## Notes
 

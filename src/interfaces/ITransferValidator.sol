@@ -2,5 +2,11 @@
 pragma solidity ^0.8.30;
 
 interface ITransferValidator {
-    // Minimal interface - we'll add functions as we need them
+    function validateTransfer(
+        address operator,
+        address from,
+        address to,
+        uint256[] calldata ids,
+        uint256[] calldata amounts
+    ) external view returns (bool);
 }

@@ -26,8 +26,12 @@ forge test -vvv         # Run tests with maximum verbosity (useful for debugging
 forge test --match-test testName  # Run specific test
 forge test --match-contract ContractName  # Run tests for specific contract
 forge test --gas-report  # Run tests with gas usage report
-forge test --fuzz-runs 10000  # Run with extensive fuzzing
-forge test --fuzz-runs 100000 --fuzz-seed 0x123  # Deterministic deep fuzzing
+
+# Fuzz testing profiles
+forge test                    # Default: 2048 fuzz runs
+FOUNDRY_PROFILE=ci forge test # CI: 10,000 fuzz runs
+FOUNDRY_PROFILE=deep forge test # Deep: 50,000 fuzz runs
+forge test --fuzz-runs 100000 --fuzz-seed 0x123  # Custom deterministic deep fuzzing
 ```
 
 ### Code Quality
@@ -38,6 +42,7 @@ forge fmt --check       # Check formatting without modifying files
 forge snapshot          # Generate gas usage snapshots
 forge snapshot --check  # Compare gas usage against .gas-snapshot
 forge coverage          # Generate test coverage report (minimum 94%)
+python3 script/check-coverage.py  # Verify 100% coverage for production contracts
 ```
 
 ### Local Development
@@ -86,6 +91,7 @@ forge script script/Counter.s.sol:CounterScript --rpc-url <RPC_URL> --private-ke
    ```bash
    forge test            # Final test run
    forge coverage        # Check coverage
+   python3 script/check-coverage.py  # Verify 100% coverage
    git add -A
    git commit -m "feat: implement feature with tests"
    ```
@@ -257,7 +263,7 @@ Every function must have tests for:
 
 - **Default to fuzz tests**: If a function takes parameters, write fuzz tests
 - **Use `_bound()` over `vm.assume()`**: More efficient for constraining inputs
-- **Standard fuzz runs**: 512 (default), 2500 (CI profile)
+- **Standard fuzz runs**: 2,048 (default), 10,000 (CI profile), 50,000 (deep profile)
 - **Test invariants**: Properties that should always hold true
 - **Helper functions for fuzzing**:
 
@@ -391,8 +397,9 @@ GitHub Actions workflow (.github/workflows/test.yml) should:
 
 **Foundry Profiles**:
 
-- `default`: Development profile with 512 fuzz runs
-- `ci`: CI profile with 2500 fuzz runs and stricter settings
+- `default`: Development profile with 2,048 fuzz runs
+- `ci`: CI profile with 10,000 fuzz runs for thorough testing
+- `deep`: Deep testing profile with 50,000 fuzz runs for comprehensive edge case discovery
 
 ### Foundry Configuration
 
@@ -402,10 +409,13 @@ Recommended `foundry.toml` settings:
 [profile.default]
 solc_version = "0.8.30"
 optimizer_runs = 100_000
-fuzz = { runs = 512 }
+fuzz = { runs = 2048 }
 line_length = 120
 tab_width = 4
 
 [profile.ci]
-fuzz = { runs = 2500 }
+fuzz = { runs = 10000 }
+
+[profile.deep]
+fuzz = { runs = 50000 }
 ```
