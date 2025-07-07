@@ -40,4 +40,15 @@ contract CollectibleCastTest is Test {
         bytes4 erc165InterfaceId = 0x01ffc9a7;
         assertTrue(token.supportsInterface(erc165InterfaceId));
     }
+    
+    function test_Mint_RevertsWhenNotMinter() public {
+        address notMinter = makeAddr("notMinter");
+        address recipient = makeAddr("recipient");
+        bytes32 castHash = keccak256("cast1");
+        uint256 fid = 1;
+        
+        vm.prank(notMinter);
+        vm.expectRevert("Unauthorized");
+        token.mint(recipient, castHash, fid);
+    }
 }

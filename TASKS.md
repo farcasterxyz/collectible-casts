@@ -43,9 +43,9 @@ Each task follows the TDD cycle: RED → GREEN → REFACTOR → COMMIT
 - [x] COMMIT: "feat: implement ERC-1155 in CollectibleCast" (ready to commit)
 
 ### 2.2 Minting with Max Supply
-- [ ] RED: Write test `test_Mint_RevertsWhenNotMinter()`
-- [ ] GREEN: Add minter check in mint function
-- [ ] COMMIT: "feat: add minter authorization to mint"
+- [x] RED: Write test `test_Mint_RevertsWhenNotMinter()`
+- [x] GREEN: Add minter check in mint function
+- [x] COMMIT: "feat: add minter authorization to mint" (ready to commit)
 
 - [ ] RED: Write test `test_Mint_SucceedsFirstTime()`
 - [ ] GREEN: Implement basic mint function

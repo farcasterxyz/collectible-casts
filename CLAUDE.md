@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Foundry-based Ethereum smart contract development project. Foundry is a Rust-based toolkit that provides a complete development environment for Solidity smart contracts.
 
+- **Foundry Documentation**: https://getfoundry.sh/
+
 ### Project Documentation
 
 - **[SPEC.md](./SPEC.md)** - Complete specification for the Collectible Casts system, including architecture, goals, and detailed contract requirements

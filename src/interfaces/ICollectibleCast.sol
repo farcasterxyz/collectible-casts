@@ -2,5 +2,5 @@
 pragma solidity ^0.8.30;
 
 interface ICollectibleCast {
-    // Minimal interface - we'll add functions as we need them
+    function mint(address to, bytes32 castHash, uint256 fid) external;
 }
