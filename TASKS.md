@@ -104,39 +104,52 @@ After implementing each feature:
 - [ ] Consider operator approval patterns (if needed later)
 
 ### 2.7 Module Management
-- [ ] RED: Write test `test_SetMetadata_RevertsWhenNotOwner()`
-- [ ] GREEN: Add onlyOwner modifier to setMetadata
-- [ ] COMMIT: "feat: add owner-only metadata module setter"
+- [x] RED: Write test `test_SetMetadata_RevertsWhenNotOwner()`
+- [x] GREEN: Add onlyOwner modifier to setMetadata
+- [x] COMMIT: "feat: add owner-only metadata module setter"
 
-- [ ] RED: Write test `test_SetMetadata_UpdatesModule()`
-- [ ] GREEN: Implement metadata module storage and setter
-- [ ] COMMIT: "feat: implement metadata module management"
+- [x] RED: Write test `test_SetMetadata_UpdatesModule()`
+- [x] GREEN: Implement metadata module storage and setter
+- [x] COMMIT: "feat: implement metadata module management"
 
-- [ ] RED: Write test `test_SetMetadata_EmitsEvent()`
-- [ ] GREEN: Add event emission
-- [ ] COMMIT: "feat: emit event on metadata module update"
+- [x] RED: Write test `test_SetMetadata_EmitsEvent()`
+- [x] GREEN: Add event emission
+- [x] COMMIT: "feat: emit event on metadata module update"
 
-- [ ] Repeat above pattern for Minter module: RED → GREEN → COMMIT
-- [ ] Repeat above pattern for TransferValidator module: RED → GREEN → COMMIT
+- [x] Repeat above pattern for Minter module: RED → GREEN → COMMIT
+- [x] Repeat above pattern for TransferValidator module: RED → GREEN → COMMIT
+- [x] Refactor: Rename to use "Module" suffix for consistency
 
 ### 2.8 Transfer Integration
-- [ ] RED: Write test `test_Transfer_ChecksTransferValidator()`
-- [ ] GREEN: Override _beforeTokenTransfer to check validator
-- [ ] COMMIT: "feat: integrate transfer validator checks"
+- [x] RED: Write test `test_Transfer_ChecksTransferValidator()`
+- [x] GREEN: Override _update to check validator (OpenZeppelin v5 pattern)
+- [x] COMMIT: "feat: integrate transfer validator checks"
 
-- [ ] RED: Write test `test_Transfer_RevertsWhenValidatorDenies()`
-- [ ] GREEN: Ensure revert on validation failure
-- [ ] REFACTOR: Add custom error for clarity
-- [ ] COMMIT: "feat: revert transfers when validator denies"
+- [x] RED: Write test `test_Transfer_RevertsWhenValidatorDenies()`
+- [x] GREEN: Ensure revert on validation failure
+- [x] REFACTOR: Add custom error for clarity
+- [x] COMMIT: "feat: revert transfers when validator denies"
+
+- [x] Additional tests for mint operations (not affected by validator)
+- [x] Fuzz tests for transfer validation with different parameters
 
 ### 2.9 EIP-2981 Royalties
-- [ ] RED: Write test `test_RoyaltyInfo_ReturnsCorrectAmounts()`
-- [ ] GREEN: Implement royaltyInfo function
-- [ ] COMMIT: "feat: implement EIP-2981 royalty info"
+- [x] RED: Write test `test_RoyaltyInfo_ReturnsCorrectAmounts()`
+- [x] GREEN: Implement royaltyInfo function (5% to creator)
+- [x] Updated mint to accept and store creator address
+- [x] COMMIT: "feat: implement EIP-2981 royalty info"
 
-- [ ] RED: Write fuzz test `testFuzz_RoyaltyInfo_CalculatesCorrectSplit(uint256 salePrice)`
-- [ ] GREEN: Ensure calculation handles all prices correctly
-- [ ] COMMIT: "test: fuzz test royalty calculations"
+- [x] RED: Write fuzz test `testFuzz_RoyaltyInfo_ReturnsCreatorRoyalty(uint256 salePrice)`
+- [x] GREEN: Ensure calculation handles all prices correctly
+- [x] Test edge cases (no module, no creator)
+- [x] COMMIT: "feat: simplify royalties to 5% direct to creator"
+
+### 2.10 Cleanup and Optimization
+- [x] Remove unused template files (Counter.sol, TestSuiteSetup.sol)
+- [x] Clean up redundant coverage scripts (keep Python, remove Bash)
+- [x] Upgrade unit tests to fuzz tests where appropriate
+- [x] Increase fuzz runs for better coverage (default: 2048, ci: 10000, deep: 50000)
+- [x] Achieve 100% test coverage on CollectibleCast
 
 ## Phase 3: Metadata Contract
 
@@ -427,13 +440,17 @@ After implementing each feature:
 - ✅ Cast hash to FID mapping
 - ✅ Event emissions (MinterSet, CastMinted)
 - ✅ Comprehensive recipient validation (EOAs and contracts)
-- ✅ 100% test coverage with fuzz tests
+- ✅ Module Management (Metadata, Minter, TransferValidator, Royalties)
+- ✅ Transfer Integration with TransferValidator hooks
+- ✅ EIP-2981 Royalties (5% to creator)
+- ✅ Creator address storage per token
+- ✅ 100% test coverage with extensive fuzz tests
 
 ### Next Steps:
-1. Module Management (setMetadataAddress, etc.)
-2. Transfer Integration with TransferValidator
-3. EIP-2981 Royalties
-4. Move to Phase 3: Metadata Contract
+1. Phase 3: Metadata Contract implementation
+2. Phase 4: Minter Contract with authorization
+3. Phase 5: TransferValidator with toggle and allowlist
+4. Phase 6-8: Auction Contract with signatures, bidding, and settlement
 
 ## Notes
 
