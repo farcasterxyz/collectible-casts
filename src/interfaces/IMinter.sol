@@ -2,5 +2,9 @@
 pragma solidity ^0.8.30;
 
 interface IMinter {
-// Minimal interface - we'll add functions as we need them
+    // Custom errors
+    error InvalidToken();
+
+    // Functions
+    function mint(address to, bytes32 castHash, uint256 fid, address creator) external;
 }
