@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Test} from "forge-std/Test.sol";
+import {TestSuiteSetup} from "../TestSuiteSetup.sol";
 import {Minter} from "../../src/Minter.sol";
 import {IMinter} from "../../src/interfaces/IMinter.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MinterTest is Test {
+contract MinterTest is TestSuiteSetup {
     Minter public minter;
     CollectibleCast public token;
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
         token = new CollectibleCast();
         minter = new Minter(address(token));
     }
@@ -30,12 +31,9 @@ contract MinterTest is Test {
         new Minter(address(0));
     }
 
-    function testFuzz_Mint_MintsTokenToRecipient(
-        address recipient,
-        bytes32 castHash,
-        uint256 fid,
-        address creator
-    ) public {
+    function testFuzz_Mint_MintsTokenToRecipient(address recipient, bytes32 castHash, uint256 fid, address creator)
+        public
+    {
         // Setup
         vm.assume(recipient != address(0));
         vm.assume(fid != 0); // FID must be non-zero

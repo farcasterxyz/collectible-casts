@@ -11,35 +11,25 @@ contract TransferValidator is ITransferValidator, Ownable2Step {
     // Operator allowlist for marketplace curation
     mapping(address => bool) public allowedOperators;
 
-    // Custom errors
-    error TransfersAlreadyEnabled();
-    error TransfersDisabled();
-
-    // Events
-    event TransfersEnabled();
-    event OperatorAllowed(address indexed operator);
-    event OperatorRemoved(address indexed operator);
-
     constructor() Ownable(msg.sender) {}
 
-    function validateTransfer(
-        address operator,
-        address from,
-        address,
-        uint256[] calldata,
-        uint256[] calldata
-    ) external view override returns (bool) {
+    function validateTransfer(address operator, address from, address, uint256[] calldata, uint256[] calldata)
+        external
+        view
+        override
+        returns (bool)
+    {
         // If transfers are not enabled, no transfers allowed at all
         if (!transfersEnabled) {
             return false;
         }
-        
+
         // Transfers are enabled, check if operator is allowed
         // Owner can always transfer their own tokens
         if (operator == from) {
             return true;
         }
-        
+
         // For third-party transfers, operator must be allowed
         return allowedOperators[operator];
     }

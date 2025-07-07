@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Test} from "forge-std/Test.sol";
+import {TestSuiteSetup} from "../TestSuiteSetup.sol";
 import {Metadata} from "../../src/Metadata.sol";
 import {IMetadata} from "../../src/interfaces/IMetadata.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MetadataTest is Test {
+contract MetadataTest is TestSuiteSetup {
     Metadata public metadata;
     string constant BASE_URI = "https://api.example.com/metadata/";
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
         metadata = new Metadata(BASE_URI);
     }
 
@@ -63,9 +64,9 @@ contract MetadataTest is Test {
 
     function test_SetBaseURI_UpdatesUris() public {
         string memory newBaseUri = "https://new.example.com/";
-        
+
         metadata.setBaseURI(newBaseUri);
-        
+
         assertEq(metadata.baseURI(), newBaseUri);
         assertEq(metadata.contractURI(), string.concat(newBaseUri, "contract"));
         assertEq(metadata.uri(123), string.concat(newBaseUri, "123"));
@@ -74,16 +75,16 @@ contract MetadataTest is Test {
     function test_SetBaseURI_EmitsEvent() public {
         string memory oldBaseUri = metadata.baseURI();
         string memory newBaseUri = "https://new.example.com/";
-        
+
         vm.expectEmit(true, true, false, true);
         emit IMetadata.BaseURISet(oldBaseUri, newBaseUri);
-        
+
         metadata.setBaseURI(newBaseUri);
     }
 
     function testFuzz_SetBaseURI_UpdatesUris(string memory newBaseUri) public {
         metadata.setBaseURI(newBaseUri);
-        
+
         assertEq(metadata.baseURI(), newBaseUri);
         assertEq(metadata.contractURI(), string.concat(newBaseUri, "contract"));
         assertEq(metadata.uri(0), string.concat(newBaseUri, "0"));

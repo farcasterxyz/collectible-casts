@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Test} from "forge-std/Test.sol";
+import {TestSuiteSetup} from "../TestSuiteSetup.sol";
 import {Royalties} from "../../src/Royalties.sol";
 
-contract RoyaltiesTest is Test {
+contract RoyaltiesTest is TestSuiteSetup {
     Royalties public royalties;
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
         royalties = new Royalties();
     }
 
@@ -22,11 +23,7 @@ contract RoyaltiesTest is Test {
         assertEq(royaltyAmount, 50 ether); // 5% of 1000
     }
 
-    function testFuzz_RoyaltyInfo_CalculatesCorrectly(
-        uint256 tokenId,
-        uint256 salePrice,
-        address creator
-    ) public {
+    function testFuzz_RoyaltyInfo_CalculatesCorrectly(uint256 tokenId, uint256 salePrice, address creator) public {
         vm.assume(creator != address(0));
         vm.assume(salePrice < type(uint256).max / 500); // Prevent overflow
 

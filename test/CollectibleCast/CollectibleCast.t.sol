@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Test} from "forge-std/Test.sol";
+import {TestSuiteSetup, MockERC1155Receiver, MockNonERC1155Receiver} from "../TestSuiteSetup.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {Royalties} from "../../src/Royalties.sol";
+import {TransferValidator} from "../../src/TransferValidator.sol";
+import {Metadata} from "../../src/Metadata.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {MockERC1155Receiver, MockNonERC1155Receiver} from "./mocks/MockERC1155Receiver.sol";
-import {MockTransferValidator} from "./mocks/MockTransferValidator.sol";
 
-contract CollectibleCastTest is Test {
+contract CollectibleCastTest is TestSuiteSetup {
     CollectibleCast public token;
     MockERC1155Receiver public validReceiver;
     MockNonERC1155Receiver public invalidReceiver;
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
         token = new CollectibleCast();
         validReceiver = new MockERC1155Receiver();
         invalidReceiver = new MockNonERC1155Receiver();
@@ -347,9 +348,10 @@ contract CollectibleCastTest is Test {
         vm.prank(minterAddr);
         token.mint(from, castHash, fid, makeAddr("creator"));
 
-        // Deploy a mock validator that denies all transfers
-        MockTransferValidator validator = new MockTransferValidator(false);
+        // Deploy a real validator with transfers disabled
+        TransferValidator validator = new TransferValidator();
         token.setModule("transferValidator", address(validator));
+        // transfersEnabled is false by default, so all transfers are denied
 
         // Attempt to transfer should revert
         vm.prank(from);
@@ -371,9 +373,11 @@ contract CollectibleCastTest is Test {
         vm.prank(minterAddr);
         token.mint(from, castHash, fid, makeAddr("creator"));
 
-        // Deploy a mock validator that allows all transfers
-        MockTransferValidator validator = new MockTransferValidator(true);
+        // Deploy a real validator with transfers enabled
+        TransferValidator validator = new TransferValidator();
         token.setModule("transferValidator", address(validator));
+        vm.prank(validator.owner());
+        validator.enableTransfers(); // Enable transfers
 
         // Transfer should succeed
         vm.prank(from);
@@ -417,9 +421,10 @@ contract CollectibleCastTest is Test {
         // Set minter
         token.setModule("minter", minterAddr);
 
-        // Deploy a mock validator that denies all transfers
-        MockTransferValidator validator = new MockTransferValidator(false);
+        // Deploy a real validator with transfers disabled
+        TransferValidator validator = new TransferValidator();
         token.setModule("transferValidator", address(validator));
+        // transfersEnabled is false by default, so all transfers are denied
 
         // Minting should still succeed even with restrictive validator
         vm.prank(minterAddr);
@@ -454,8 +459,12 @@ contract CollectibleCastTest is Test {
         token.mint(from, castHash, fid, makeAddr("creator"));
 
         // Set validator
-        MockTransferValidator validator = new MockTransferValidator(allowTransfer);
+        TransferValidator validator = new TransferValidator();
         token.setModule("transferValidator", address(validator));
+        if (allowTransfer) {
+            vm.prank(validator.owner());
+            validator.enableTransfers();
+        }
 
         // Attempt transfer
         vm.prank(from);
@@ -515,9 +524,9 @@ contract CollectibleCastTest is Test {
         bytes32 castHash = keccak256("royaltyTest");
         uint256 tokenId = uint256(castHash);
         uint256 salePrice = 1000 ether;
-        
+
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
-        
+
         // Should return zero
         assertEq(receiver, address(0));
         assertEq(royaltyAmount, 0);
@@ -527,13 +536,13 @@ contract CollectibleCastTest is Test {
         // Test royalty with module but no creator stored (unminted token)
         vm.prank(token.owner());
         token.setModule("royalties", makeAddr("royaltiesModule"));
-        
+
         bytes32 castHash = keccak256("unmintedToken");
         uint256 tokenId = uint256(castHash);
         uint256 salePrice = 1000 ether;
-        
+
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
-        
+
         // Should return zero since no creator
         assertEq(receiver, address(0));
         assertEq(royaltyAmount, 0);
@@ -546,55 +555,87 @@ contract CollectibleCastTest is Test {
         bytes32 castHash = keccak256("royaltyTest");
         uint256 tokenId = uint256(castHash);
         uint256 fid = 123;
-        
+
         // Mint token with creator
         token.setModule("minter", minterAddr);
         vm.prank(minterAddr);
         token.mint(makeAddr("recipient"), castHash, fid, creator);
-        
+
         // Deploy and set royalties module
         Royalties royaltiesModule = new Royalties();
         vm.prank(token.owner());
         token.setModule("royalties", address(royaltiesModule));
-        
+
         // Test royalty calculation
         uint256 salePrice = 1000 ether;
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
-        
+
         // Should return 5% to creator
         assertEq(receiver, creator);
         assertEq(royaltyAmount, salePrice * 500 / 10000); // 5%
     }
 
-    function testFuzz_RoyaltyInfo_ReturnsCreatorRoyalty(
-        uint256 salePrice,
-        bytes32 castHash,
-        address creator
-    ) public {
+    function testFuzz_RoyaltyInfo_ReturnsCreatorRoyalty(uint256 salePrice, bytes32 castHash, address creator) public {
         salePrice = _bound(salePrice, 0, 1000000 ether);
         vm.assume(creator != address(0));
-        
+
         // Set up a token with a creator
         address minterAddr = makeAddr("minter");
         uint256 tokenId = uint256(castHash);
         uint256 fid = 123;
-        
+
         // Mint token with creator
         token.setModule("minter", minterAddr);
         vm.prank(minterAddr);
         token.mint(makeAddr("recipient"), castHash, fid, creator);
-        
+
         // Deploy and set royalties module
         Royalties royaltiesModule = new Royalties();
         vm.prank(token.owner());
         token.setModule("royalties", address(royaltiesModule));
-        
+
         // Test royalty calculation
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
-        
+
         // Should return 5% to creator
         assertEq(receiver, creator);
         assertEq(royaltyAmount, salePrice * 500 / 10000); // 5%
         assertTrue(royaltyAmount <= salePrice);
+    }
+
+    function test_Uri_DelegatesToMetadataModule() public {
+        // Set up metadata module
+        string memory baseUri = "https://api.example.com/";
+        Metadata metadataModule = new Metadata(baseUri);
+        vm.prank(token.owner());
+        token.setModule("metadata", address(metadataModule));
+
+        // Test that uri delegates to metadata module
+        uint256 tokenId = 123;
+        string memory expectedUri = string.concat(baseUri, "123");
+        assertEq(token.uri(tokenId), expectedUri);
+    }
+
+    function test_Uri_ReturnsEmptyWhenNoMetadataModule() public view {
+        // When no metadata module is set, should return empty string
+        uint256 tokenId = 123;
+        assertEq(token.uri(tokenId), "");
+    }
+
+    function test_ContractURI_DelegatesToMetadataModule() public {
+        // Set up metadata module
+        string memory baseUri = "https://api.example.com/";
+        Metadata metadataModule = new Metadata(baseUri);
+        vm.prank(token.owner());
+        token.setModule("metadata", address(metadataModule));
+
+        // Test that contractURI delegates to metadata module
+        string memory expectedUri = string.concat(baseUri, "contract");
+        assertEq(token.contractURI(), expectedUri);
+    }
+
+    function test_ContractURI_ReturnsEmptyWhenNoMetadataModule() public view {
+        // When no metadata module is set, should return empty string
+        assertEq(token.contractURI(), "");
     }
 }

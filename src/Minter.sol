@@ -7,7 +7,7 @@ import {ICollectibleCast} from "./interfaces/ICollectibleCast.sol";
 
 contract Minter is IMinter, Ownable2Step {
     address public immutable token;
-    
+
     // Mapping to track allowed addresses
     mapping(address => bool) public allowed;
 

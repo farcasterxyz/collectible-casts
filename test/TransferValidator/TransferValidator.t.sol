@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Test} from "forge-std/Test.sol";
+import {TestSuiteSetup} from "../TestSuiteSetup.sol";
 import {TransferValidator} from "../../src/TransferValidator.sol";
 import {ITransferValidator} from "../../src/interfaces/ITransferValidator.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TransferValidatorTest is Test {
+contract TransferValidatorTest is TestSuiteSetup {
     TransferValidator public validator;
 
     // Events to match
@@ -14,7 +14,8 @@ contract TransferValidatorTest is Test {
     event OperatorAllowed(address indexed operator);
     event OperatorRemoved(address indexed operator);
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
         validator = new TransferValidator();
     }
 
@@ -37,7 +38,7 @@ contract TransferValidatorTest is Test {
 
         // Should block ALL transfers when disabled, even owner transfers
         assertFalse(validator.validateTransfer(owner, owner, to, ids, amounts));
-        
+
         // Should block even if operator is allowed
         validator.allowOperator(operator);
         assertFalse(validator.validateTransfer(operator, owner, to, ids, amounts));
@@ -97,7 +98,7 @@ contract TransferValidatorTest is Test {
         assertTrue(validator.transfersEnabled());
 
         // Try to enable again - should revert
-        vm.expectRevert(TransferValidator.TransfersAlreadyEnabled.selector);
+        vm.expectRevert(ITransferValidator.TransfersAlreadyEnabled.selector);
         validator.enableTransfers();
     }
 
@@ -119,13 +120,13 @@ contract TransferValidatorTest is Test {
 
     function test_AllowOperator_SetsAllowedStatus() public {
         address operator = makeAddr("operator");
-        
+
         // Initially not allowed
         assertFalse(validator.allowedOperators(operator));
 
         // Allow operator
         validator.allowOperator(operator);
-        
+
         // Now allowed
         assertTrue(validator.allowedOperators(operator));
     }
@@ -150,14 +151,14 @@ contract TransferValidatorTest is Test {
 
     function test_RemoveOperator_RemovesAllowedStatus() public {
         address operator = makeAddr("operator");
-        
+
         // First allow
         validator.allowOperator(operator);
         assertTrue(validator.allowedOperators(operator));
 
         // Then remove
         validator.removeOperator(operator);
-        
+
         // No longer allowed
         assertFalse(validator.allowedOperators(operator));
     }
@@ -171,11 +172,7 @@ contract TransferValidatorTest is Test {
         validator.removeOperator(operator);
     }
 
-    function testFuzz_ValidateTransfer_BlocksAllWhenDisabled(
-        address operator,
-        address from,
-        address to
-    ) public {
+    function testFuzz_ValidateTransfer_BlocksAllWhenDisabled(address operator, address from, address to) public {
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);
@@ -193,7 +190,7 @@ contract TransferValidatorTest is Test {
         bool isOperatorAllowed
     ) public {
         vm.assume(operator != from); // Test third-party transfers
-        
+
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);
@@ -211,10 +208,7 @@ contract TransferValidatorTest is Test {
         assertEq(isAllowed, isOperatorAllowed);
     }
 
-    function testFuzz_ValidateTransfer_AllowsOwnerTransfersWhenEnabled(
-        address owner,
-        address to
-    ) public {
+    function testFuzz_ValidateTransfer_AllowsOwnerTransfersWhenEnabled(address owner, address to) public {
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);

@@ -24,4 +24,15 @@ interface ICollectibleCast {
 
     function mint(address to, bytes32 castHash, uint256 fid, address creator) external;
     function setModule(bytes32 module, address addr) external;
+
+    // View functions
+    function minter() external view returns (address);
+    function metadataModule() external view returns (address);
+    function transferValidatorModule() external view returns (address);
+    function royaltiesModule() external view returns (address);
+    function tokenData(uint256 tokenId) external view returns (TokenData memory);
+    function castHashToFid(bytes32 castHash) external view returns (uint256);
+    function tokenCreator(uint256 tokenId) external view returns (address);
+    function uri(uint256 tokenId) external view returns (string memory);
+    function contractURI() external view returns (string memory);
 }

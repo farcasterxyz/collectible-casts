@@ -15,4 +15,5 @@ interface IMinter {
     function allow(address account) external;
     function deny(address account) external;
     function allowed(address account) external view returns (bool);
+    function token() external view returns (address);
 }
