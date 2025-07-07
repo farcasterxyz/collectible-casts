@@ -7,6 +7,7 @@ import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ICollectibleCast} from "./interfaces/ICollectibleCast.sol";
 import {ITransferValidator} from "./interfaces/ITransferValidator.sol";
+import {IRoyalties} from "./interfaces/IRoyalties.sol";
 
 contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     // Minter contract address
@@ -101,9 +102,8 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
             return (address(0), 0);
         }
         
-        // For now, return 5% royalty to the creator directly
-        receiver = creator;
-        royaltyAmount = (salePrice * 500) / 10000; // 5%
+        // Delegate to royalties module
+        return IRoyalties(royaltiesModule).royaltyInfo(tokenId, salePrice, creator);
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, IERC165) returns (bool) {

@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
+import {Royalties} from "../../src/Royalties.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {MockERC1155Receiver, MockNonERC1155Receiver} from "./mocks/MockERC1155Receiver.sol";
@@ -486,7 +487,7 @@ contract CollectibleCastTest is Test {
         assertTrue(token.supportsInterface(erc2981InterfaceId));
     }
 
-    function test_RoyaltyInfo_ReturnsZeroWhenNoRoyaltiesModule() public {
+    function test_RoyaltyInfo_ReturnsZeroWhenNoRoyaltiesModule() public view {
         // Test royalty without setting module
         bytes32 castHash = keccak256("royaltyTest");
         uint256 tokenId = uint256(castHash);
@@ -528,9 +529,10 @@ contract CollectibleCastTest is Test {
         vm.prank(minterAddr);
         token.mint(makeAddr("recipient"), castHash, fid, creator);
         
-        // Set any royalties module (simplified version doesn't use it)
+        // Deploy and set royalties module
+        Royalties royaltiesModule = new Royalties();
         vm.prank(token.owner());
-        token.setRoyaltiesModule(makeAddr("royaltiesModule"));
+        token.setRoyaltiesModule(address(royaltiesModule));
         
         // Test royalty calculation
         uint256 salePrice = 1000 ether;
@@ -559,9 +561,10 @@ contract CollectibleCastTest is Test {
         vm.prank(minterAddr);
         token.mint(makeAddr("recipient"), castHash, fid, creator);
         
-        // Set any royalties module (simplified version doesn't use it)
+        // Deploy and set royalties module
+        Royalties royaltiesModule = new Royalties();
         vm.prank(token.owner());
-        token.setRoyaltiesModule(makeAddr("royaltiesModule"));
+        token.setRoyaltiesModule(address(royaltiesModule));
         
         // Test royalty calculation
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
