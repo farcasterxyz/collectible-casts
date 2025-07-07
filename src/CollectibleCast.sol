@@ -43,7 +43,7 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         _tokenData[tokenId] = ICollectibleCast.TokenData({fid: fid, creator: creator});
 
         _mint(to, tokenId, 1, "");
-        emit CastMinted(to, castHash, tokenId, fid);
+        emit CastMinted(to, castHash, tokenId, fid, creator);
     }
 
     // External permissioned functions
@@ -59,6 +59,8 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
             address previousMetadata = metadata;
             metadata = addr;
             emit SetMetadata(previousMetadata, addr);
+            // Emit URI event to notify that all token URIs have potentially changed
+            emit URI("", 0);
         } else if (module == "transferValidator") {
             address previousValidator = transferValidator;
             transferValidator = addr;
@@ -126,6 +128,11 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         return _tokenData[tokenId];
     }
 
+    // Check if a token exists (has been minted)
+    function exists(uint256 tokenId) external view returns (bool) {
+        return _tokenData[tokenId].fid != 0;
+    }
+
     // Internal functions
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
         internal
@@ -134,8 +141,7 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     {
         // If transferValidator is set and this is not a mint operation, validate the transfer
         if (transferValidator != address(0) && from != address(0)) {
-            bool isAllowed =
-                ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids, values);
+            bool isAllowed = ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids, values);
             if (!isAllowed) revert TransferNotAllowed();
         }
 

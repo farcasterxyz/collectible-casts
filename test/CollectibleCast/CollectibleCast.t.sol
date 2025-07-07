@@ -9,6 +9,7 @@ import {TransferValidator} from "../../src/TransferValidator.sol";
 import {Metadata} from "../../src/Metadata.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 contract CollectibleCastTest is TestSuiteSetup {
     CollectibleCast public token;
@@ -135,7 +136,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Expect the CastMinted event
         vm.expectEmit(true, true, true, true);
-        emit ICollectibleCast.CastMinted(recipient, castHash, tokenId, fid);
+        emit ICollectibleCast.CastMinted(recipient, castHash, tokenId, fid, makeAddr("creator"));
 
         // Mint as the minter
         vm.prank(minterAddr);
@@ -286,6 +287,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         // First set
         vm.expectEmit(true, true, false, true);
         emit ICollectibleCast.SetMetadata(address(0), firstMetadata);
+        vm.expectEmit(false, false, false, true);
+        emit IERC1155.URI("", 0);
 
         vm.prank(token.owner());
         token.setModule("metadata", firstMetadata);
@@ -293,6 +296,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Second set
         vm.expectEmit(true, true, false, true);
         emit ICollectibleCast.SetMetadata(firstMetadata, secondMetadata);
+        vm.expectEmit(false, false, false, true);
+        emit IERC1155.URI("", 0);
 
         vm.prank(token.owner());
         token.setModule("metadata", secondMetadata);
@@ -670,5 +675,140 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Test tokenFid for unminted token returns 0
         uint256 tokenId = uint256(keccak256("unmintedFid"));
         assertEq(token.tokenFid(tokenId), 0);
+    }
+
+    function test_Exists_ReturnsTrueForMintedToken() public {
+        // Setup
+        address minterAddr = makeAddr("minter");
+        bytes32 castHash = keccak256("existsTest");
+        uint256 tokenId = uint256(castHash);
+        uint256 fid = 12345;
+
+        // Before minting, exists should return false
+        assertFalse(token.exists(tokenId));
+
+        // Mint a token
+        token.setModule("minter", minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, fid, makeAddr("creator"));
+
+        // After minting, exists should return true
+        assertTrue(token.exists(tokenId));
+    }
+
+    function test_Exists_ReturnsFalseForUnmintedToken() public view {
+        // For any unminted token, exists should return false
+        uint256 tokenId = uint256(keccak256("unmintedExists"));
+        assertFalse(token.exists(tokenId));
+    }
+
+    // Edge case tests
+    function test_Mint_MaxTokenId() public {
+        // Test minting with maximum possible token ID
+        address minterAddr = makeAddr("minter");
+        address recipient = makeAddr("recipient");
+        bytes32 maxCastHash = bytes32(type(uint256).max);
+        uint256 fid = 123;
+
+        token.setModule("minter", minterAddr);
+
+        vm.prank(minterAddr);
+        token.mint(recipient, maxCastHash, fid, makeAddr("creator"));
+
+        uint256 tokenId = uint256(maxCastHash);
+        assertEq(token.balanceOf(recipient, tokenId), 1);
+        assertEq(token.tokenFid(tokenId), fid);
+        assertTrue(token.exists(tokenId));
+    }
+
+    function test_Mint_ZeroTokenId() public {
+        // Test minting with zero token ID (bytes32(0))
+        address minterAddr = makeAddr("minter");
+        address recipient = makeAddr("recipient");
+        bytes32 zeroCastHash = bytes32(0);
+        uint256 fid = 123;
+
+        token.setModule("minter", minterAddr);
+
+        vm.prank(minterAddr);
+        token.mint(recipient, zeroCastHash, fid, makeAddr("creator"));
+
+        uint256 tokenId = uint256(zeroCastHash); // Should be 0
+        assertEq(token.balanceOf(recipient, tokenId), 1);
+        assertEq(token.tokenFid(tokenId), fid);
+        assertTrue(token.exists(tokenId));
+    }
+
+    function test_SetModule_WithZeroAddress() public {
+        // Test setting module to zero address (should be allowed - disables module)
+        vm.prank(token.owner());
+        token.setModule("metadata", address(0));
+
+        assertEq(token.metadata(), address(0));
+        // URI should return empty string when metadata module is zero
+        assertEq(token.uri(123), "");
+        assertEq(token.contractURI(), "");
+    }
+
+    function test_Transfer_ToZeroAddress_Reverts() public {
+        // Test transfer to zero address (should revert)
+        address minterAddr = makeAddr("minter");
+        address from = makeAddr("from");
+        bytes32 castHash = keccak256("transferToZero");
+        uint256 tokenId = uint256(castHash);
+        uint256 fid = 123;
+
+        // Mint token
+        token.setModule("minter", minterAddr);
+        vm.prank(minterAddr);
+        token.mint(from, castHash, fid, makeAddr("creator"));
+
+        // Try to transfer to zero address - should revert
+        vm.prank(from);
+        vm.expectRevert(); // ERC1155 should revert on transfer to zero address
+        token.safeTransferFrom(from, address(0), tokenId, 1, "");
+    }
+
+    function test_Transfer_ZeroAmount() public {
+        // Test transferring 0 amount (should succeed but do nothing)
+        address minterAddr = makeAddr("minter");
+        address from = makeAddr("from");
+        address to = makeAddr("to");
+        bytes32 castHash = keccak256("zeroAmountTransfer");
+        uint256 tokenId = uint256(castHash);
+        uint256 fid = 123;
+
+        // Mint token
+        token.setModule("minter", minterAddr);
+        vm.prank(minterAddr);
+        token.mint(from, castHash, fid, makeAddr("creator"));
+
+        // Transfer 0 amount should succeed but not change balances
+        vm.prank(from);
+        token.safeTransferFrom(from, to, tokenId, 0, "");
+
+        // Balances should be unchanged
+        assertEq(token.balanceOf(from, tokenId), 1);
+        assertEq(token.balanceOf(to, tokenId), 0);
+    }
+
+    function test_Transfer_MoreThanBalance_Reverts() public {
+        // Test transferring more than owned balance
+        address minterAddr = makeAddr("minter");
+        address from = makeAddr("from");
+        address to = makeAddr("to");
+        bytes32 castHash = keccak256("transferMoreThanBalance");
+        uint256 tokenId = uint256(castHash);
+        uint256 fid = 123;
+
+        // Mint token (balance = 1)
+        token.setModule("minter", minterAddr);
+        vm.prank(minterAddr);
+        token.mint(from, castHash, fid, makeAddr("creator"));
+
+        // Try to transfer more than balance - should revert
+        vm.prank(from);
+        vm.expectRevert(); // ERC1155 should revert
+        token.safeTransferFrom(from, to, tokenId, 2, "");
     }
 }

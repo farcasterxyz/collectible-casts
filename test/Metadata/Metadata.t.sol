@@ -89,4 +89,82 @@ contract MetadataTest is TestSuiteSetup {
         assertEq(metadata.contractURI(), string.concat(newBaseUri, "contract"));
         assertEq(metadata.uri(0), string.concat(newBaseUri, "0"));
     }
+
+    // Edge case tests
+    function test_Uri_MaxTokenId() public view {
+        // Test with maximum possible token ID
+        uint256 maxTokenId = type(uint256).max;
+        string memory uri = metadata.uri(maxTokenId);
+
+        // Should not revert and should include the token ID
+        assertTrue(bytes(uri).length > bytes(BASE_URI).length);
+
+        string memory expectedUri = string.concat(BASE_URI, vm.toString(maxTokenId));
+        assertEq(uri, expectedUri);
+    }
+
+    function test_Uri_ZeroTokenId() public view {
+        // Test with zero token ID
+        string memory expectedUri = string.concat(BASE_URI, "0");
+        assertEq(metadata.uri(0), expectedUri);
+    }
+
+    function test_SetBaseURI_EmptyString() public {
+        // Test setting empty base URI
+        metadata.setBaseURI("");
+
+        // URI should just be the token ID
+        assertEq(metadata.uri(123), "123");
+        assertEq(metadata.contractURI(), "contract");
+        assertEq(metadata.baseURI(), "");
+    }
+
+    function test_SetBaseURI_VeryLongString() public {
+        // Test with very long base URI
+        string memory longBaseUri = "";
+        for (uint256 i = 0; i < 50; i++) {
+            longBaseUri = string.concat(longBaseUri, "verylongstringpart");
+        }
+
+        metadata.setBaseURI(longBaseUri);
+
+        // Should handle long strings without issues
+        string memory uri = metadata.uri(123);
+        assertTrue(bytes(uri).length > 500); // Should be very long
+        assertEq(metadata.baseURI(), longBaseUri);
+    }
+
+    function testFuzz_SetBaseURI_HandlesSpecialCharacters(string memory baseUri) public {
+        // Test with various special characters and edge cases
+        vm.assume(bytes(baseUri).length < 1000); // Reasonable length limit to avoid gas issues
+
+        metadata.setBaseURI(baseUri);
+
+        // Should not revert and should return concatenated string
+        string memory uri = metadata.uri(123);
+        assertEq(metadata.baseURI(), baseUri);
+
+        // Verify concatenation works correctly
+        string memory expectedUri = string.concat(baseUri, "123");
+        assertEq(uri, expectedUri);
+    }
+
+    function test_ContractURI_WithSpecialCharacters() public {
+        // Test contract URI with special characters in base URI
+        string memory specialBaseUri = "https://api.example.com/special!@#$%^&*()_+/";
+        metadata.setBaseURI(specialBaseUri);
+
+        string memory expectedContractUri = string.concat(specialBaseUri, "contract");
+        assertEq(metadata.contractURI(), expectedContractUri);
+    }
+
+    function test_SetBaseURI_WithUnicodeCharacters() public {
+        // Test with Unicode characters
+        string memory unicodeBaseUri = unicode"https://api.example.com/🚀🌟/";
+        metadata.setBaseURI(unicodeBaseUri);
+
+        assertEq(metadata.baseURI(), unicodeBaseUri);
+        string memory uri = metadata.uri(123);
+        assertEq(uri, string.concat(unicodeBaseUri, "123"));
+    }
 }

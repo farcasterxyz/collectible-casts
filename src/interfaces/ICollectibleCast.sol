@@ -16,7 +16,9 @@ interface ICollectibleCast {
     error InvalidFid();
 
     // Events
-    event CastMinted(address indexed to, bytes32 indexed castHash, uint256 indexed tokenId, uint256 fid);
+    event CastMinted(
+        address indexed to, bytes32 indexed castHash, uint256 indexed tokenId, uint256 fid, address creator
+    );
     event SetMinter(address indexed previousMinter, address indexed newMinter);
     event SetMetadata(address indexed previousMetadata, address indexed newMetadata);
     event SetTransferValidator(address indexed previousValidator, address indexed newValidator);
@@ -33,6 +35,7 @@ interface ICollectibleCast {
     function tokenData(uint256 tokenId) external view returns (TokenData memory);
     function tokenFid(uint256 tokenId) external view returns (uint256);
     function tokenCreator(uint256 tokenId) external view returns (address);
+    function exists(uint256 tokenId) external view returns (bool);
     function uri(uint256 tokenId) external view returns (string memory);
     function contractURI() external view returns (string memory);
 }
