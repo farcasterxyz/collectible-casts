@@ -10,8 +10,9 @@ contract TransferValidatorTest is Test {
     TransferValidator public validator;
 
     // Events to match
-    event Paused();
-    event Unpaused();
+    event TransfersEnabled();
+    event OperatorAllowed(address indexed operator);
+    event OperatorRemoved(address indexed operator);
 
     function setUp() public {
         validator = new TransferValidator();
@@ -21,7 +22,11 @@ contract TransferValidatorTest is Test {
         assertEq(validator.owner(), address(this));
     }
 
-    function test_ValidateTransfer_AllowsAllTransfers() public {
+    function test_TransfersEnabled_InitiallyFalse() public view {
+        assertFalse(validator.transfersEnabled());
+    }
+
+    function test_ValidateTransfer_BlocksWhenTransfersDisabled() public {
         address operator = makeAddr("operator");
         address from = makeAddr("from");
         address to = makeAddr("to");
@@ -30,150 +35,192 @@ contract TransferValidatorTest is Test {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
+        // Should block when transfers disabled and operator not allowed
         bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
-        assertTrue(isAllowed);
+        assertFalse(isAllowed);
     }
 
-    function testFuzz_ValidateTransfer_AllowsAllTransfers(
-        address operator,
-        address from,
-        address to,
-        uint256 tokenId,
-        uint256 amount
-    ) public {
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = tokenId;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = amount;
-
-        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
-        assertTrue(isAllowed);
-    }
-
-    function testFuzz_ValidateTransfer_AllowsMultipleTokens(
-        address operator,
-        address from,
-        address to,
-        uint8 arrayLength
-    ) public {
-        // Bound array length to reasonable size
-        arrayLength = uint8(_bound(arrayLength, 1, 10));
-        
-        uint256[] memory ids = new uint256[](arrayLength);
-        uint256[] memory amounts = new uint256[](arrayLength);
-        
-        // Fill arrays with some data
-        for (uint256 i = 0; i < arrayLength; i++) {
-            ids[i] = i + 1;
-            amounts[i] = i + 100;
-        }
-
-        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
-        assertTrue(isAllowed);
-    }
-
-    function test_ValidateTransfer_AllowsZeroAddresses() public {
-        // Even with zero addresses, should allow (basic implementation)
+    function test_ValidateTransfer_AllowsOperatorWhenTransfersDisabled() public {
+        address operator = makeAddr("operator");
+        address from = makeAddr("from");
+        address to = makeAddr("to");
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
-        bool isAllowed = validator.validateTransfer(address(0), address(0), address(0), ids, amounts);
+        // Allow the operator
+        validator.allowOperator(operator);
+
+        // Should allow when operator is allowed even if transfers disabled
+        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
         assertTrue(isAllowed);
     }
 
-    function test_Pause_BlocksTransfers() public {
-        // Setup
+    function test_ValidateTransfer_AllowsAllWhenTransfersEnabled() public {
+        address operator = makeAddr("operator");
+        address from = makeAddr("from");
+        address to = makeAddr("to");
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
-        // Initially should allow
-        assertTrue(validator.validateTransfer(makeAddr("op"), makeAddr("from"), makeAddr("to"), ids, amounts));
+        // Enable transfers
+        validator.enableTransfers();
 
-        // Pause
-        validator.pause();
-
-        // Now should block
-        assertFalse(validator.validateTransfer(makeAddr("op"), makeAddr("from"), makeAddr("to"), ids, amounts));
+        // Should allow any operator when transfers enabled
+        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
+        assertTrue(isAllowed);
     }
 
-    function test_Unpause_AllowsTransfers() public {
-        // Setup
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 1;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
-
-        // Pause first
-        validator.pause();
-        assertFalse(validator.validateTransfer(makeAddr("op"), makeAddr("from"), makeAddr("to"), ids, amounts));
-
-        // Unpause
-        validator.unpause();
-
-        // Should allow again
-        assertTrue(validator.validateTransfer(makeAddr("op"), makeAddr("from"), makeAddr("to"), ids, amounts));
-    }
-
-    function test_Pause_OnlyOwner() public {
+    function test_EnableTransfers_OnlyOwner() public {
         address notOwner = makeAddr("notOwner");
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        validator.pause();
+        validator.enableTransfers();
     }
 
-    function test_Unpause_OnlyOwner() public {
+    function test_EnableTransfers_OneWaySwitch() public {
+        // Enable transfers
+        validator.enableTransfers();
+        assertTrue(validator.transfersEnabled());
+
+        // Try to enable again - should revert
+        vm.expectRevert(TransferValidator.TransfersAlreadyEnabled.selector);
+        validator.enableTransfers();
+    }
+
+    function test_EnableTransfers_EmitsEvent() public {
+        vm.expectEmit(false, false, false, true);
+        emit TransfersEnabled();
+
+        validator.enableTransfers();
+    }
+
+    function test_AllowOperator_OnlyOwner() public {
         address notOwner = makeAddr("notOwner");
-        
-        // Pause first as owner
-        validator.pause();
+        address operator = makeAddr("operator");
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        validator.unpause();
+        validator.allowOperator(operator);
     }
 
-    function test_Pause_EmitsEvent() public {
-        vm.expectEmit(false, false, false, true);
-        emit Paused();
+    function test_AllowOperator_SetsAllowedStatus() public {
+        address operator = makeAddr("operator");
+        
+        // Initially not allowed
+        assertFalse(validator.allowedOperators(operator));
 
-        validator.pause();
+        // Allow operator
+        validator.allowOperator(operator);
+        
+        // Now allowed
+        assertTrue(validator.allowedOperators(operator));
     }
 
-    function test_Unpause_EmitsEvent() public {
-        // Pause first
-        validator.pause();
+    function test_AllowOperator_EmitsEvent() public {
+        address operator = makeAddr("operator");
 
-        vm.expectEmit(false, false, false, true);
-        emit Unpaused();
+        vm.expectEmit(true, false, false, true);
+        emit OperatorAllowed(operator);
 
-        validator.unpause();
+        validator.allowOperator(operator);
     }
 
-    function test_Paused_InitiallyFalse() public view {
-        assertFalse(validator.paused());
+    function test_RemoveOperator_OnlyOwner() public {
+        address notOwner = makeAddr("notOwner");
+        address operator = makeAddr("operator");
+
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        validator.removeOperator(operator);
     }
 
-    function testFuzz_ValidateTransfer_RespectsState(
+    function test_RemoveOperator_RemovesAllowedStatus() public {
+        address operator = makeAddr("operator");
+        
+        // First allow
+        validator.allowOperator(operator);
+        assertTrue(validator.allowedOperators(operator));
+
+        // Then remove
+        validator.removeOperator(operator);
+        
+        // No longer allowed
+        assertFalse(validator.allowedOperators(operator));
+    }
+
+    function test_RemoveOperator_EmitsEvent() public {
+        address operator = makeAddr("operator");
+
+        vm.expectEmit(true, false, false, true);
+        emit OperatorRemoved(operator);
+
+        validator.removeOperator(operator);
+    }
+
+    function testFuzz_ValidateTransfer_RespectsOperatorAllowlist(
         address operator,
         address from,
         address to,
-        bool isPaused
+        bool isOperatorAllowed
     ) public {
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
-        if (isPaused) {
-            validator.pause();
+        if (isOperatorAllowed) {
+            validator.allowOperator(operator);
         }
 
+        // When transfers disabled, should respect operator allowlist
         bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
-        assertEq(isAllowed, !isPaused);
+        assertEq(isAllowed, isOperatorAllowed);
+    }
+
+    function testFuzz_ValidateTransfer_AllowsAllWhenEnabled(
+        address operator,
+        address from,
+        address to
+    ) public {
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 1;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        // Enable transfers
+        validator.enableTransfers();
+
+        // Should always allow when transfers enabled
+        bool isAllowed = validator.validateTransfer(operator, from, to, ids, amounts);
+        assertTrue(isAllowed);
+    }
+
+    function testFuzz_MultipleOperators(address[3] memory operators) public {
+        // Ensure unique operators
+        for (uint256 i = 0; i < operators.length; i++) {
+            for (uint256 j = i + 1; j < operators.length; j++) {
+                vm.assume(operators[i] != operators[j]);
+            }
+        }
+
+        // Allow all operators
+        for (uint256 i = 0; i < operators.length; i++) {
+            validator.allowOperator(operators[i]);
+            assertTrue(validator.allowedOperators(operators[i]));
+        }
+
+        // Remove first operator
+        validator.removeOperator(operators[0]);
+        assertFalse(validator.allowedOperators(operators[0]));
+
+        // Others should still be allowed
+        for (uint256 i = 1; i < operators.length; i++) {
+            assertTrue(validator.allowedOperators(operators[i]));
+        }
     }
 }
