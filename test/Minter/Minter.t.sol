@@ -14,11 +14,18 @@ contract MinterTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCast();
-        minter = new Minter(address(token));
+        token = new CollectibleCast(
+            address(this),
+            address(0),
+            address(0),
+            address(0),
+            address(0)
+        );
+        minter = new Minter(address(this));
+        minter.setToken(address(token));
     }
 
-    function test_Constructor_SetsTokenAddress() public view {
+    function test_SetToken_SetsTokenAddress() public view {
         assertEq(minter.token(), address(token));
     }
 
@@ -26,9 +33,21 @@ contract MinterTest is TestSuiteSetup {
         assertEq(minter.owner(), address(this));
     }
 
-    function test_Constructor_RevertsWithZeroAddress() public {
+    function test_SetToken_RevertsWithZeroAddress() public {
+        Minter newMinter = new Minter(address(this));
         vm.expectRevert(IMinter.InvalidToken.selector);
-        new Minter(address(0));
+        newMinter.setToken(address(0));
+    }
+
+    function test_SetToken_RevertsWhenAlreadySet() public {
+        Minter newMinter = new Minter(address(this));
+        
+        // Set token once
+        newMinter.setToken(address(token));
+        
+        // Try to set again - should fail
+        vm.expectRevert(IMinter.TokenAlreadySet.selector);
+        newMinter.setToken(makeAddr("anotherToken"));
     }
 
     function testFuzz_Mint_MintsTokenToRecipient(address recipient, bytes32 castHash, uint256 fid, address creator)

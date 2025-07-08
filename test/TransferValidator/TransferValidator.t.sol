@@ -16,7 +16,7 @@ contract TransferValidatorTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        validator = new TransferValidator();
+        validator = new TransferValidator(address(this));
     }
 
     function test_Constructor_SetsOwner() public view {

@@ -8,7 +8,7 @@ import {IMetadata} from "./interfaces/IMetadata.sol";
 contract Metadata is IMetadata, Ownable2Step {
     string public baseURI;
 
-    constructor(string memory _baseURI) Ownable(msg.sender) {
+    constructor(string memory _baseURI, address _owner) Ownable(_owner) {
         baseURI = _baseURI;
     }
 

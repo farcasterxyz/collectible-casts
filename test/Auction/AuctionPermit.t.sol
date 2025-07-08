@@ -27,7 +27,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
     function setUp() public {
         usdc = new MockUSDCWithPermit();
-        auction = new Auction(MINTER, address(usdc), TREASURY);
+        auction = new Auction(MINTER, address(usdc), TREASURY, address(this));
 
         (authorizer, authorizerKey) = makeAddrAndKey("authorizer");
         vm.prank(auction.owner());
@@ -58,14 +58,14 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Create permit signature
         uint256 permitDeadline = block.timestamp + 1 hours;
         bytes32 permitHash = _getPermitHash(bidder, address(auction), amount, 0, permitDeadline);
         (uint8 permitV, bytes32 permitR, bytes32 permitS) = vm.sign(bidderKey, permitHash);
-        
+
         IAuction.PermitData memory permit = createPermitData(permitDeadline, permitV, permitR, permitS);
 
         // Give bidder USDC but don't approve
@@ -154,14 +154,14 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Create expired permit signature
         uint256 permitDeadline = block.timestamp - 1; // Already expired
         bytes32 permitHash = _getPermitHash(bidder, address(auction), amount, 0, permitDeadline);
         (uint8 permitV, bytes32 permitR, bytes32 permitS) = vm.sign(bidderKey, permitHash);
-        
+
         IAuction.PermitData memory permit = createPermitData(permitDeadline, permitV, permitR, permitS);
 
         usdc.mint(bidder, amount);
@@ -195,7 +195,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Give invalid permit signature but approve normally
@@ -208,7 +208,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         uint8 permitV = 27;
         bytes32 permitR = bytes32(uint256(1));
         bytes32 permitS = bytes32(uint256(2));
-        
+
         IAuction.PermitData memory permit = createPermitData(permitDeadline, permitV, permitR, permitS);
 
         // Should succeed using approval
@@ -269,16 +269,14 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
         IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
-        IAuction.AuctionParams memory params = createAuctionParams(
-            1e6, 1000, 24 hours, 15 minutes, 15 minutes, 1000
-        );
+        IAuction.AuctionParams memory params = createAuctionParams(1e6, 1000, 24 hours, 15 minutes, 15 minutes, 1000);
 
         bytes32 messageHash = auction.hashStartAuthorization(
             TEST_CAST_HASH, CREATOR, CREATOR_FID, bidder, bidderFid, amount, params, nonce, deadline
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Create invalid permit data that will fail
@@ -372,7 +370,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);

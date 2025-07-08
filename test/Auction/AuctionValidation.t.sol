@@ -23,7 +23,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
 
     function setUp() public {
         usdc = new MockERC20("USD Coin", "USDC");
-        auction = new Auction(MINTER, address(usdc), TREASURY);
+        auction = new Auction(MINTER, address(usdc), TREASURY, address(this));
 
         (authorizer, authorizerKey) = makeAddrAndKey("authorizer");
         vm.prank(auction.owner());
@@ -54,7 +54,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);
@@ -89,7 +89,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);
@@ -124,7 +124,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);
@@ -158,7 +158,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(CREATOR, amount);
@@ -336,7 +336,6 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 
-
     function _startAuction(address bidder, uint256 bidderFid, uint256 amount) internal {
         bytes32 nonce = keccak256("start-nonce");
         uint256 deadline = block.timestamp + 1 hours;
@@ -357,7 +356,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);

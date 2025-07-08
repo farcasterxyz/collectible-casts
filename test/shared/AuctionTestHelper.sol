@@ -5,52 +5,32 @@ import {IAuction} from "../../src/interfaces/IAuction.sol";
 
 contract AuctionTestHelper {
     // Helper functions to create structs for cleaner tests
-    function createCastData(
-        bytes32 castHash,
-        address creator,
-        uint256 creatorFid
-    ) internal pure returns (IAuction.CastData memory) {
-        return IAuction.CastData({
-            castHash: castHash,
-            creator: creator,
-            creatorFid: creatorFid
-        });
+    function createCastData(bytes32 castHash, address creator, uint256 creatorFid)
+        internal
+        pure
+        returns (IAuction.CastData memory)
+    {
+        return IAuction.CastData({castHash: castHash, creator: creator, creatorFid: creatorFid});
     }
 
-    function createBidData(
-        uint256 bidderFid,
-        uint256 amount
-    ) internal pure returns (IAuction.BidData memory) {
-        return IAuction.BidData({
-            bidderFid: bidderFid,
-            amount: amount
-        });
+    function createBidData(uint256 bidderFid, uint256 amount) internal pure returns (IAuction.BidData memory) {
+        return IAuction.BidData({bidderFid: bidderFid, amount: amount});
     }
 
-    function createAuthData(
-        bytes32 nonce,
-        uint256 deadline,
-        bytes memory signature
-    ) internal pure returns (IAuction.AuthData memory) {
-        return IAuction.AuthData({
-            nonce: nonce,
-            deadline: deadline,
-            signature: signature
-        });
+    function createAuthData(bytes32 nonce, uint256 deadline, bytes memory signature)
+        internal
+        pure
+        returns (IAuction.AuthData memory)
+    {
+        return IAuction.AuthData({nonce: nonce, deadline: deadline, signature: signature});
     }
 
-    function createPermitData(
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) internal pure returns (IAuction.PermitData memory) {
-        return IAuction.PermitData({
-            deadline: deadline,
-            v: v,
-            r: r,
-            s: s
-        });
+    function createPermitData(uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        internal
+        pure
+        returns (IAuction.PermitData memory)
+    {
+        return IAuction.PermitData({deadline: deadline, v: v, r: r, s: s});
     }
 
     function createAuctionParams(

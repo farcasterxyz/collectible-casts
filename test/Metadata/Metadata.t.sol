@@ -12,7 +12,7 @@ contract MetadataTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        metadata = new Metadata(BASE_URI);
+        metadata = new Metadata(BASE_URI, address(this));
     }
 
     function test_Constructor_SetsOwnerAndBaseUri() public {
@@ -20,7 +20,7 @@ contract MetadataTest is TestSuiteSetup {
         string memory baseUri = "https://api.example.com/metadata/";
 
         vm.prank(owner);
-        metadata = new Metadata(baseUri);
+        metadata = new Metadata(baseUri, owner);
 
         assertEq(metadata.owner(), owner);
         assertEq(metadata.baseURI(), baseUri);
@@ -30,7 +30,7 @@ contract MetadataTest is TestSuiteSetup {
         vm.assume(owner != address(0));
 
         vm.prank(owner);
-        metadata = new Metadata(baseUri);
+        metadata = new Metadata(baseUri, owner);
 
         assertEq(metadata.owner(), owner);
         assertEq(metadata.baseURI(), baseUri);

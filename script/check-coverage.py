@@ -16,7 +16,8 @@ PRODUCTION_CONTRACTS = [
     "src/Metadata.sol",
     "src/Minter.sol",
     "src/TransferValidator.sol",
-    "src/Auction.sol"
+    "src/Auction.sol",
+    "src/Royalties.sol"
 ]
 
 def main():
@@ -25,7 +26,7 @@ def main():
     # Run forge coverage
     try:
         result = subprocess.run(
-            ["forge", "coverage", "--report", "summary"],
+            ["forge", "coverage", "--ir-minimum", "--report", "summary"],
             capture_output=True,
             text=True,
             check=True

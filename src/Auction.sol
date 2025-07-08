@@ -33,8 +33,8 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
     mapping(bytes32 => bool) public usedNonces;
     mapping(bytes32 => AuctionData) public auctions;
 
-    constructor(address _minter, address _usdc, address _treasury)
-        Ownable(msg.sender)
+    constructor(address _minter, address _usdc, address _treasury, address _owner)
+        Ownable(_owner)
         EIP712("CollectibleCastAuction", "1")
     {
         if (_minter == address(0)) revert InvalidAddress();
@@ -48,12 +48,9 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
 
     // ========== PUBLIC/EXTERNAL FUNCTIONS ==========
 
-    function start(
-        CastData memory castData,
-        BidData memory bidData,
-        AuctionParams memory params,
-        AuthData memory auth
-    ) external {
+    function start(CastData memory castData, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
+        external
+    {
         _start(castData, bidData, params, auth);
         IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
     }
@@ -69,11 +66,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         _permitAndTransfer(bidData.amount, permit);
     }
 
-    function bid(
-        bytes32 castHash,
-        BidData memory bidData,
-        AuthData memory auth
-    ) external {
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth) external {
         (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
         IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
@@ -82,12 +75,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         }
     }
 
-    function bid(
-        bytes32 castHash,
-        BidData memory bidData,
-        AuthData memory auth,
-        PermitData memory permit
-    ) external {
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth, PermitData memory permit) external {
         (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
         _permitAndTransfer(bidData.amount, permit);
@@ -238,12 +226,9 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         return a >= b ? a : b;
     }
 
-    function _start(
-        CastData memory castData,
-        BidData memory bidData,
-        AuctionParams memory params,
-        AuthData memory auth
-    ) internal {
+    function _start(CastData memory castData, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
+        internal
+    {
         if (getAuctionState(castData.castHash) != AuctionState.None) revert AuctionAlreadyExists();
 
         // Validate cast hash
@@ -302,11 +287,10 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         emit BidPlaced(castData.castHash, msg.sender, bidData.bidderFid, bidData.amount);
     }
 
-    function _bid(
-        bytes32 castHash,
-        BidData memory bidData,
-        AuthData memory auth
-    ) internal returns (address previousBidder, uint256 previousBid) {
+    function _bid(bytes32 castHash, BidData memory bidData, AuthData memory auth)
+        internal
+        returns (address previousBidder, uint256 previousBid)
+    {
         AuctionState state = getAuctionState(castHash);
         if (state != AuctionState.Active) {
             if (state == AuctionState.None) revert AuctionDoesNotExist();
@@ -321,7 +305,11 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         if (msg.sender == auctionData.creator) revert SelfBidding();
 
         // Verify bid authorization
-        if (!verifyBidAuthorization(castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline, auth.signature)) {
+        if (
+            !verifyBidAuthorization(
+                castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline, auth.signature
+            )
+        ) {
             revert UnauthorizedBidder();
         }
 
@@ -356,7 +344,8 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
 
     function _permitAndTransfer(uint256 amount, PermitData memory permit) internal {
         // Try to use permit - it might fail if permit was already used
-        try IERC20Permit(usdc).permit(msg.sender, address(this), amount, permit.deadline, permit.v, permit.r, permit.s) {
+        try IERC20Permit(usdc).permit(msg.sender, address(this), amount, permit.deadline, permit.v, permit.r, permit.s)
+        {
             // Permit succeeded
         } catch {
             // Permit failed, check if we have approval anyway

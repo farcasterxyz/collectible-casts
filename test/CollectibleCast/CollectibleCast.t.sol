@@ -18,7 +18,13 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCast();
+        token = new CollectibleCast(
+            address(this),
+            address(0),
+            address(0),
+            address(0),
+            address(0)
+        );
         validReceiver = new MockERC1155Receiver();
         invalidReceiver = new MockNonERC1155Receiver();
     }
@@ -61,7 +67,13 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(owner != address(this));
 
         vm.prank(owner);
-        CollectibleCast newToken = new CollectibleCast();
+        CollectibleCast newToken = new CollectibleCast(
+            owner,
+            address(0),
+            address(0),
+            address(0),
+            address(0)
+        );
 
         assertEq(newToken.owner(), owner);
     }
@@ -354,7 +366,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(from, castHash, fid, makeAddr("creator"));
 
         // Deploy a real validator with transfers disabled
-        TransferValidator validator = new TransferValidator();
+        TransferValidator validator = new TransferValidator(address(this));
         token.setModule("transferValidator", address(validator));
         // transfersEnabled is false by default, so all transfers are denied
 
@@ -379,7 +391,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(from, castHash, fid, makeAddr("creator"));
 
         // Deploy a real validator with transfers enabled
-        TransferValidator validator = new TransferValidator();
+        TransferValidator validator = new TransferValidator(address(this));
         token.setModule("transferValidator", address(validator));
         vm.prank(validator.owner());
         validator.enableTransfers(); // Enable transfers
@@ -427,7 +439,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.setModule("minter", minterAddr);
 
         // Deploy a real validator with transfers disabled
-        TransferValidator validator = new TransferValidator();
+        TransferValidator validator = new TransferValidator(address(this));
         token.setModule("transferValidator", address(validator));
         // transfersEnabled is false by default, so all transfers are denied
 
@@ -464,7 +476,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(from, castHash, fid, makeAddr("creator"));
 
         // Set validator
-        TransferValidator validator = new TransferValidator();
+        TransferValidator validator = new TransferValidator(address(this));
         token.setModule("transferValidator", address(validator));
         if (allowTransfer) {
             vm.prank(validator.owner());
@@ -611,7 +623,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function test_Uri_DelegatesToMetadataModule() public {
         // Set up metadata module
         string memory baseUri = "https://api.example.com/";
-        Metadata metadataModule = new Metadata(baseUri);
+        Metadata metadataModule = new Metadata(baseUri, address(this));
         vm.prank(token.owner());
         token.setModule("metadata", address(metadataModule));
 
@@ -630,7 +642,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function test_ContractURI_DelegatesToMetadataModule() public {
         // Set up metadata module
         string memory baseUri = "https://api.example.com/";
-        Metadata metadataModule = new Metadata(baseUri);
+        Metadata metadataModule = new Metadata(baseUri, address(this));
         vm.prank(token.owner());
         token.setModule("metadata", address(metadataModule));
 

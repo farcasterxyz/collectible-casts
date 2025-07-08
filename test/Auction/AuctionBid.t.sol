@@ -28,7 +28,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         usdc = new MockERC20("USD Coin", "USDC");
 
         // Deploy auction with mock USDC
-        auction = new Auction(MINTER, address(usdc), TREASURY);
+        auction = new Auction(MINTER, address(usdc), TREASURY, address(this));
 
         // Setup authorizer
         (authorizer, authorizerKey) = makeAddrAndKey("authorizer");
@@ -65,7 +65,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Setup: Give bidder some USDC and approve auction contract
@@ -122,7 +122,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Setup: Give bidder some USDC and approve auction contract
@@ -165,7 +165,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Setup: Give bidder some USDC and approve auction contract
@@ -224,9 +224,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // First, use the nonce by starting an auction
         IAuction.CastData memory castData1 = createCastData(castHash, creator, creatorFid);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
-        IAuction.AuctionParams memory params = createAuctionParams(
-            1e6, 1000, 24 hours, 15 minutes, 15 minutes, 1000
-        );
+        IAuction.AuctionParams memory params = createAuctionParams(1e6, 1000, 24 hours, 15 minutes, 15 minutes, 1000);
 
         bytes32 messageHash1 = auction.hashStartAuthorization(
             castHash, creator, creatorFid, bidder, bidderFid, amount, params, reusedNonce, deadline
@@ -245,7 +243,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Now try to start another auction with the same nonce but different cast
         bytes32 differentCastHash = keccak256("different-cast");
         IAuction.CastData memory castData2 = createCastData(differentCastHash, creator, creatorFid);
-        
+
         bytes32 messageHash2 = auction.hashStartAuthorization(
             differentCastHash, creator, creatorFid, bidder, bidderFid, amount, params, reusedNonce, deadline
         );
@@ -258,7 +256,6 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         vm.expectRevert(IAuction.NonceAlreadyUsed.selector);
         auction.start(castData2, bidData, params, auth2);
     }
-
 
     function test_Start_RevertsWithZeroExtension() public {
         address bidder = address(0x123);
@@ -283,7 +280,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);
@@ -318,7 +315,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);
@@ -354,7 +351,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);
@@ -390,7 +387,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);

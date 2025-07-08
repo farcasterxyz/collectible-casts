@@ -87,12 +87,8 @@ interface IAuction {
     event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint256 winnerFid, uint256 amount);
 
     // Main auction functions
-    function start(
-        CastData memory castData,
-        BidData memory bidData,
-        AuctionParams memory params,
-        AuthData memory auth
-    ) external;
+    function start(CastData memory castData, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
+        external;
 
     function start(
         CastData memory castData,
@@ -102,18 +98,9 @@ interface IAuction {
         PermitData memory permit
     ) external;
 
-    function bid(
-        bytes32 castHash,
-        BidData memory bidData,
-        AuthData memory auth
-    ) external;
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth) external;
 
-    function bid(
-        bytes32 castHash,
-        BidData memory bidData,
-        AuthData memory auth,
-        PermitData memory permit
-    ) external;
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth, PermitData memory permit) external;
 
     function settle(bytes32 castHash) external;
 

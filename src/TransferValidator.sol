@@ -11,7 +11,7 @@ contract TransferValidator is ITransferValidator, Ownable2Step {
     // Operator allowlist for marketplace curation
     mapping(address => bool) public allowedOperators;
 
-    constructor() Ownable(msg.sender) {}
+    constructor(address _owner) Ownable(_owner) {}
 
     // External permissioned functions
     // One-way switch to enable transfers

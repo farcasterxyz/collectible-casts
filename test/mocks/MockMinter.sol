@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {IMinter} from "../../src/interfaces/IMinter.sol";
 
 contract MockMinter is IMinter {
-    address public immutable token;
+    address public token;
     mapping(address => bool) public allowed;
 
     // Track last mint call
@@ -14,7 +14,9 @@ contract MockMinter is IMinter {
     uint256 public lastFid;
     address public lastCreator;
 
-    constructor(address _token) {
+    constructor() {}
+
+    function setToken(address _token) external {
         token = _token;
     }
 

@@ -25,8 +25,9 @@ contract AuctionStateTest is Test, AuctionTestHelper {
     function setUp() public {
         usdc = new MockERC20("USD Coin", "USDC");
         collectibleCast = new MockCollectibleCast();
-        minter = new MockMinter(address(collectibleCast));
-        auction = new Auction(address(minter), address(usdc), TREASURY);
+        minter = new MockMinter();
+        minter.setToken(address(collectibleCast));
+        auction = new Auction(address(minter), address(usdc), TREASURY, address(this));
 
         // Allow auction contract to mint
         minter.allow(address(auction));
@@ -87,7 +88,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);
@@ -103,7 +104,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         // Try to bid on non-existent auction
         IAuction.BidData memory bidData = createBidData(12345, 2e6);
         IAuction.AuthData memory auth = createAuthData(keccak256("nonce"), block.timestamp + 1 hours, "");
-        
+
         vm.expectRevert(IAuction.AuctionDoesNotExist.selector);
         auction.bid(TEST_CAST_HASH, bidData, auth);
 
@@ -170,7 +171,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         usdc.mint(bidder, amount);

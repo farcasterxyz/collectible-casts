@@ -420,7 +420,7 @@ fuzz = { runs = 10000 }
 fuzz = { runs = 50000 }
 ```
 
-# Session Notes (Last Updated: 2025-01-07)
+# Session Notes (Last Updated: 2025-01-08)
 
 ## Current Status
 - **All contracts implemented and fully tested**
@@ -428,7 +428,7 @@ fuzz = { runs = 50000 }
 - **109 comprehensive tests** including edge cases
 - **ERC-1155 implementation complete** with all standard features
 - **Clean codebase** - removed redundant interface tests
-- **All changes committed** to git (31 commits ahead of origin)
+- **Deployment scripts complete** following Farcaster patterns
 
 ## Recent Accomplishments
 1. **Enhanced ERC-1155 Implementation**:
@@ -491,15 +491,33 @@ fuzz = { runs = 50000 }
 - Removed: `test/interfaces/` directory (5 redundant test files)
 
 ## Next Session Priorities
-1. **If continuing edge case testing**: Implement remaining high-priority edge cases from the analysis
-2. **If moving to deployment**: Set up deployment scripts and mainnet configuration
-3. **If adding features**: Any new functionality requested by user
-4. **If optimizing**: Gas optimization and performance improvements
+1. **Test deployment scripts**: Run `forge test --match-contract DeployCollectibleCastsTest` to verify fork tests work
+2. **Deploy to testnet/mainnet**: Use `forge script script/DeployCollectibleCasts.s.sol` 
+3. **If deployment successful**: Document deployed contract addresses
+4. **If adding features**: Any new functionality requested by user
+
+## Latest Session Updates (2025-01-08)
+1. **Deployment Infrastructure Complete**:
+   - Created `DeployCollectibleCasts.s.sol` following exact Farcaster patterns
+   - Uses `ImmutableCreate2Deployer.sol` (exact copy from Farcaster, only pragma updated)
+   - Implements lifecycle methods: `run()`, `runDeploy()`, `runSetup()`, `loadDeploymentParams()`
+   - Hardcoded to Base mainnet USDC: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+   - Removed `Deploy.s.sol` as requested (DeployCollectibleCasts.s.sol is the main script)
+
+2. **Firewall Configuration Updated**:
+   - Added `base-mainnet.g.alchemy.com` to `.devcontainer/init-firewall.sh`
+   - Container needs restart to apply firewall changes
+   - Once restarted, deployment tests should work with the RPC
+
+3. **Known Issue**:
+   - Fork tests were timing out due to firewall blocking Alchemy RPC
+   - This should be resolved after container restart with updated firewall
 
 ## Important Commands for Next Session
 - `forge test` - Run all tests (currently 109 tests, all passing)
+- `forge test --match-contract DeployCollectibleCastsTest` - Run deployment fork tests
+- `forge script script/DeployCollectibleCasts.s.sol --rpc-url <BASE_RPC> --broadcast` - Deploy contracts
 - `forge coverage` - Verify 100% coverage maintained
 - `forge fmt` - Format code
 - `python3 script/check-coverage.py` - Verify 100% coverage for production contracts
 - `forge build --sizes` - Check contract sizes
-- `forge snapshot` - Generate gas usage snapshots

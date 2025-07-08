@@ -35,7 +35,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     );
 
     function setUp() public {
-        auction = new Auction(MINTER, USDC, TREASURY);
+        auction = new Auction(MINTER, USDC, TREASURY, address(this));
     }
 
     function test_Constructor_SetsConfiguration() public view {
@@ -50,19 +50,18 @@ contract AuctionTest is Test, AuctionTestHelper {
 
     function test_Constructor_RevertsIfMinterIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(address(0), USDC, TREASURY);
+        new Auction(address(0), USDC, TREASURY, address(this));
     }
 
     function test_Constructor_RevertsIfUSDCIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(MINTER, address(0), TREASURY);
+        new Auction(MINTER, address(0), TREASURY, address(this));
     }
 
     function test_Constructor_RevertsIfTreasuryIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(MINTER, USDC, address(0));
+        new Auction(MINTER, USDC, address(0), address(this));
     }
-
 
     function test_AllowAuthorizer_OnlyOwner() public {
         address authorizer = address(0x456);
@@ -276,7 +275,7 @@ contract AuctionTest is Test, AuctionTestHelper {
 
     function test_Constructor_SetsDomainSeparator() public {
         // Deploy new auction to test domain separator is set in constructor
-        Auction newAuction = new Auction(MINTER, USDC, TREASURY);
+        Auction newAuction = new Auction(MINTER, USDC, TREASURY, address(this));
 
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
@@ -291,7 +290,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         vm.assume(chainId > 0 && chainId < type(uint64).max);
         vm.chainId(chainId);
 
-        Auction newAuction = new Auction(MINTER, USDC, TREASURY);
+        Auction newAuction = new Auction(MINTER, USDC, TREASURY, address(this));
 
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
@@ -440,7 +439,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertTrue(hash1 != hash2);
     }
 
-
     function test_VerifyBidAuthorization_WrongChainId() public {
         // Setup test values
         BidParams memory params = BidParams({
@@ -457,7 +455,7 @@ contract AuctionTest is Test, AuctionTestHelper {
 
         // Deploy auction on different chain
         vm.chainId(999);
-        Auction wrongChainAuction = new Auction(MINTER, USDC, TREASURY);
+        Auction wrongChainAuction = new Auction(MINTER, USDC, TREASURY, address(this));
 
         // Allow the authorizer on wrong chain auction
         vm.prank(wrongChainAuction.owner());

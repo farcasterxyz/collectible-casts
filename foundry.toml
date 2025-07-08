@@ -5,7 +5,7 @@ libs = ["lib"]
 solc_version = "0.8.30"
 optimizer_runs = 100_000
 via_ir = true
-fuzz = { runs = 2048 }
+fuzz = { runs = 10000 }
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
 ]
@@ -17,9 +17,9 @@ quote_style = "double"
 bracket_spacing = false
 
 [profile.ci]
-fuzz = { runs = 10000 }
+fuzz = { runs = 100000 }
 
 [profile.deep]
-fuzz = { runs = 50000 }
+fuzz = { runs = 500000 }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

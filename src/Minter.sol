@@ -6,15 +6,12 @@ import {IMinter} from "./interfaces/IMinter.sol";
 import {ICollectibleCast} from "./interfaces/ICollectibleCast.sol";
 
 contract Minter is IMinter, Ownable2Step {
-    address public immutable token;
+    address public token;
 
     // Mapping to track allowed addresses
     mapping(address => bool) public allowed;
 
-    constructor(address _token) Ownable(msg.sender) {
-        if (_token == address(0)) revert InvalidToken();
-        token = _token;
-    }
+    constructor(address _owner) Ownable(_owner) {}
 
     modifier onlyAllowed() {
         if (!allowed[msg.sender]) revert Unauthorized();
@@ -27,6 +24,13 @@ contract Minter is IMinter, Ownable2Step {
     }
 
     // External permissioned functions
+    function setToken(address _token) external onlyOwner {
+        if (_token == address(0)) revert InvalidToken();
+        if (token != address(0)) revert TokenAlreadySet();
+        token = _token;
+        emit TokenSet(_token);
+    }
+
     function allow(address account) external onlyOwner {
         allowed[account] = true;
         emit Allow(account);
