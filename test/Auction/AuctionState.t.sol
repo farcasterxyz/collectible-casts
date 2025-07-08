@@ -4,16 +4,16 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {MockMinter} from "../mocks/MockMinter.sol";
-import {MockCollectibleCast} from "../mocks/MockCollectibleCast.sol";
-import {AuctionTestHelper} from "../shared/AuctionTestHelper.sol";
+import {MockUSDC} from "../mocks/MockUSDC.sol";
+import {Minter} from "../../src/Minter.sol";
+import {CollectibleCast} from "../../src/CollectibleCast.sol";
+import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionStateTest is Test, AuctionTestHelper {
     Auction public auction;
-    MockERC20 public usdc;
-    MockMinter public minter;
-    MockCollectibleCast public collectibleCast;
+    MockUSDC public usdc;
+    Minter public minter;
+    CollectibleCast public collectibleCast;
 
     address public constant TREASURY = address(0x4);
 
@@ -23,9 +23,19 @@ contract AuctionStateTest is Test, AuctionTestHelper {
     bytes32 public constant TEST_CAST_HASH = keccak256("test-cast");
 
     function setUp() public {
-        usdc = new MockERC20("USD Coin", "USDC");
-        collectibleCast = new MockCollectibleCast();
-        minter = new MockMinter();
+        usdc = new MockUSDC();
+        // Deploy real contracts
+        address owner = address(this);
+        minter = new Minter(owner);
+        collectibleCast = new CollectibleCast(
+            owner,
+            address(minter),
+            address(0), // metadata - not needed for auction tests
+            address(0), // transferValidator - not needed
+            address(0)  // royalties - not needed
+        );
+        
+        // Configure real contracts
         minter.setToken(address(collectibleCast));
         auction = new Auction(address(minter), address(usdc), TREASURY, address(this));
 

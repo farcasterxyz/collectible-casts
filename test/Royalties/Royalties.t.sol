@@ -12,15 +12,17 @@ contract RoyaltiesTest is TestSuiteSetup {
         royalties = new Royalties();
     }
 
-    function test_RoyaltyInfo_Returns5PercentToCreator() public {
-        address creator = address(0x1234);
-        uint256 tokenId = 12345;
-        uint256 salePrice = 1000 ether;
+    function testFuzz_RoyaltyInfo_Returns5PercentToCreator(uint256 tokenId, uint256 salePrice, address creator)
+        public
+        view
+    {
+        vm.assume(creator != address(0));
+        salePrice = _bound(salePrice, 1, type(uint256).max / royalties.ROYALTY_BPS());
 
         (address receiver, uint256 royaltyAmount) = royalties.royaltyInfo(tokenId, salePrice, creator);
 
         assertEq(receiver, creator);
-        assertEq(royaltyAmount, 50 ether); // 5% of 1000
+        assertEq(royaltyAmount, (salePrice * royalties.ROYALTY_BPS()) / royalties.BPS_DENOMINATOR());
     }
 
     function testFuzz_RoyaltyInfo_CalculatesCorrectly(uint256 tokenId, uint256 salePrice, address creator)

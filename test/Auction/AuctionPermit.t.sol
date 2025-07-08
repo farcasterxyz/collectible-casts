@@ -4,12 +4,12 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
-import {MockUSDCWithPermit} from "../mocks/MockUSDCWithPermit.sol";
-import {AuctionTestHelper} from "../shared/AuctionTestHelper.sol";
+import {MockUSDC} from "../mocks/MockUSDC.sol";
+import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionPermitTest is Test, AuctionTestHelper {
     Auction public auction;
-    MockUSDCWithPermit public usdc;
+    MockUSDC public usdc;
 
     address public constant MINTER = address(0x2);
     address public constant TREASURY = address(0x4);
@@ -26,7 +26,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 
     function setUp() public {
-        usdc = new MockUSDCWithPermit();
+        usdc = new MockUSDC();
         auction = new Auction(MINTER, address(usdc), TREASURY, address(this));
 
         (authorizer, authorizerKey) = makeAddrAndKey("authorizer");

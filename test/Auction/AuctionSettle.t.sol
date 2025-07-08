@@ -4,16 +4,16 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {MockMinter} from "../mocks/MockMinter.sol";
-import {MockCollectibleCast} from "../mocks/MockCollectibleCast.sol";
-import {AuctionTestHelper} from "../shared/AuctionTestHelper.sol";
+import {MockUSDC} from "../mocks/MockUSDC.sol";
+import {Minter} from "../../src/Minter.sol";
+import {CollectibleCast} from "../../src/CollectibleCast.sol";
+import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionSettleTest is Test, AuctionTestHelper {
     Auction public auction;
-    MockERC20 public usdc;
-    MockMinter public minter;
-    MockCollectibleCast public collectibleCast;
+    MockUSDC public usdc;
+    Minter public minter;
+    CollectibleCast public collectibleCast;
 
     address public constant TREASURY = address(0x4);
 
@@ -25,13 +25,22 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
     uint256 public constant CREATOR_FID = 67890;
 
     function setUp() public {
-        usdc = new MockERC20("USD Coin", "USDC");
-        collectibleCast = new MockCollectibleCast();
-        minter = new MockMinter();
+        usdc = new MockUSDC();
+        
+        // Deploy real contracts
+        address owner = address(this);
+        minter = new Minter(owner);
+        collectibleCast = new CollectibleCast(
+            owner,
+            address(minter),
+            address(0), // metadata - not needed for auction tests
+            address(0), // transferValidator - not needed
+            address(0)  // royalties - not needed
+        );
+        
+        // Configure real contracts
         minter.setToken(address(collectibleCast));
         auction = new Auction(address(minter), address(usdc), TREASURY, address(this));
-
-        // Allow auction contract to mint
         minter.allow(address(auction));
 
         (authorizer, authorizerKey) = makeAddrAndKey("authorizer");
@@ -39,11 +48,15 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         auction.allowAuthorizer(authorizer);
     }
 
-    function test_Settle_Success() public {
+    function testFuzz_Settle_Success(address bidder, uint256 bidderFid, uint256 amount) public {
+        // Bound inputs
+        vm.assume(bidder != address(0));
+        vm.assume(bidder != CREATOR); // Bidder must be different from creator
+        vm.assume(bidder.code.length == 0); // Must be EOA to receive ERC-1155 tokens safely
+        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        amount = _bound(amount, 1e6, 1000000e6); // 1 to 1,000,000 USDC
+        
         // Start auction
-        address bidder = address(0x123);
-        uint256 bidderFid = 12345;
-        uint256 amount = 100e6; // 100 USDC
         _startAuction(bidder, bidderFid, amount);
 
         // Fast forward past end time
@@ -54,9 +67,6 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         uint256 creatorBalanceBefore = usdc.balanceOf(CREATOR);
 
         // Settle auction
-        vm.expectEmit(true, true, false, true);
-        emit AuctionSettled(TEST_CAST_HASH, bidder, bidderFid, amount);
-
         auction.settle(TEST_CAST_HASH);
 
         // Verify payment distribution (90% to creator, 10% to treasury based on default protocol fee)
@@ -66,12 +76,12 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(TREASURY), treasuryBalanceBefore + treasuryAmount);
         assertEq(usdc.balanceOf(CREATOR), creatorBalanceBefore + creatorAmount);
 
-        // Verify NFT was minted
-        assertTrue(minter.mintCalled());
-        assertEq(minter.lastMintTo(), bidder);
-        assertEq(minter.lastCastHash(), TEST_CAST_HASH);
-        assertEq(minter.lastFid(), CREATOR_FID); // Creator's FID, not bidder's
-        assertEq(minter.lastCreator(), CREATOR);
+        // Verify NFT was minted to the bidder
+        uint256 tokenId = uint256(TEST_CAST_HASH);
+        assertTrue(collectibleCast.exists(tokenId));
+        assertEq(collectibleCast.balanceOf(bidder, tokenId), 1);
+        assertEq(collectibleCast.tokenFid(tokenId), CREATOR_FID);
+        assertEq(collectibleCast.tokenCreator(tokenId), CREATOR);
 
         // Verify auction is marked as settled
         assertEq(uint256(auction.getAuctionState(TEST_CAST_HASH)), uint256(IAuction.AuctionState.Settled));

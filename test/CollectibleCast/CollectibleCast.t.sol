@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {TestSuiteSetup, MockERC1155Receiver, MockNonERC1155Receiver} from "../TestSuiteSetup.sol";
+import {TestSuiteSetup} from "../TestSuiteSetup.sol";
+import {MockERC1155Receiver} from "../mocks/MockERC1155Receiver.sol";
+import {MockNonERC1155Receiver} from "../mocks/MockNonERC1155Receiver.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {Royalties} from "../../src/Royalties.sol";

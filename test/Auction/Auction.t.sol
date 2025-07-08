@@ -7,8 +7,8 @@ import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {IMinter} from "../../src/interfaces/IMinter.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {AuctionTestHelper} from "../shared/AuctionTestHelper.sol";
+import {MockUSDC} from "../mocks/MockUSDC.sol";
+import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionTest is Test, AuctionTestHelper {
     Auction public auction;
