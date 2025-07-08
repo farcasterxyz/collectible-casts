@@ -16,12 +16,15 @@ contract Auction is IAuction, Ownable2Step {
         uint256 antiSnipeThreshold;
     }
 
+    event BackendSignerSet(address indexed oldSigner, address indexed newSigner);
+
     address public immutable collectibleCast;
     address public immutable minter;
     address public immutable usdc;
     address public immutable treasury;
 
     AuctionParams private _defaultParams;
+    address public backendSigner;
 
     constructor(address _collectibleCast, address _minter, address _usdc, address _treasury) Ownable(msg.sender) {
         if (_collectibleCast == address(0)) revert InvalidAddress();
@@ -50,5 +53,11 @@ contract Auction is IAuction, Ownable2Step {
 
     function defaultParams() external view returns (AuctionParams memory) {
         return _defaultParams;
+    }
+
+    function setBackendSigner(address _backendSigner) external onlyOwner {
+        address oldSigner = backendSigner;
+        backendSigner = _backendSigner;
+        emit BackendSignerSet(oldSigner, _backendSigner);
     }
 }

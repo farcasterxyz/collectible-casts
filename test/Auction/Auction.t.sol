@@ -89,4 +89,41 @@ contract AuctionTest is Test {
         assertEq(params.antiSnipeExtension, 15 minutes);
         assertEq(params.antiSnipeThreshold, 15 minutes);
     }
+
+    function test_SetBackendSigner_OnlyOwner() public {
+        address newSigner = address(0x456);
+        address notOwner = address(0x123);
+
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        auction.setBackendSigner(newSigner);
+    }
+
+    function test_SetBackendSigner_UpdatesSigner() public {
+        address newSigner = address(0x456);
+
+        vm.prank(auction.owner());
+        auction.setBackendSigner(newSigner);
+
+        assertEq(auction.backendSigner(), newSigner);
+    }
+
+    function test_SetBackendSigner_EmitsEvent() public {
+        address newSigner = address(0x456);
+
+        vm.expectEmit(true, true, false, false);
+        emit BackendSignerSet(address(0), newSigner);
+
+        vm.prank(auction.owner());
+        auction.setBackendSigner(newSigner);
+    }
+
+    function test_SetBackendSigner_AllowsZeroAddress() public {
+        vm.prank(auction.owner());
+        auction.setBackendSigner(address(0));
+
+        assertEq(auction.backendSigner(), address(0));
+    }
+
+    event BackendSignerSet(address indexed oldSigner, address indexed newSigner);
 }
