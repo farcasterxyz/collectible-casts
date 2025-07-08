@@ -51,8 +51,8 @@ contract AuctionTest is Test {
             minBid: 1e6, // 1 USDC (6 decimals)
             minBidIncrement: 1000, // 10% in basis points
             duration: 24 hours,
-            antiSnipeExtension: 15 minutes,
-            antiSnipeThreshold: 15 minutes
+            extension: 15 minutes,
+            extensionThreshold: 15 minutes
         });
 
         vm.prank(auction.owner());
@@ -62,8 +62,8 @@ contract AuctionTest is Test {
         assertEq(storedParams.minBid, 1e6);
         assertEq(storedParams.minBidIncrement, 1000);
         assertEq(storedParams.duration, 24 hours);
-        assertEq(storedParams.antiSnipeExtension, 15 minutes);
-        assertEq(storedParams.antiSnipeThreshold, 15 minutes);
+        assertEq(storedParams.extension, 15 minutes);
+        assertEq(storedParams.extensionThreshold, 15 minutes);
     }
 
     function test_SetDefaultParams_OnlyOwner() public {
@@ -71,8 +71,8 @@ contract AuctionTest is Test {
             minBid: 1e6,
             minBidIncrement: 1000,
             duration: 24 hours,
-            antiSnipeExtension: 15 minutes,
-            antiSnipeThreshold: 15 minutes
+            extension: 15 minutes,
+            extensionThreshold: 15 minutes
         });
 
         address notOwner = address(0x123);
@@ -86,44 +86,123 @@ contract AuctionTest is Test {
         assertEq(params.minBid, 1e6); // 1 USDC
         assertEq(params.minBidIncrement, 1000); // 10%
         assertEq(params.duration, 24 hours);
-        assertEq(params.antiSnipeExtension, 15 minutes);
-        assertEq(params.antiSnipeThreshold, 15 minutes);
+        assertEq(params.extension, 15 minutes);
+        assertEq(params.extensionThreshold, 15 minutes);
     }
 
-    function test_SetBackendSigner_OnlyOwner() public {
-        address newSigner = address(0x456);
+    function test_AllowAuthorizer_OnlyOwner() public {
+        address authorizer = address(0x456);
         address notOwner = address(0x123);
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        auction.setBackendSigner(newSigner);
+        auction.allowAuthorizer(authorizer);
     }
 
-    function test_SetBackendSigner_UpdatesSigner() public {
-        address newSigner = address(0x456);
+    function test_AllowAuthorizer_UpdatesAllowlist() public {
+        address authorizer = address(0x456);
 
         vm.prank(auction.owner());
-        auction.setBackendSigner(newSigner);
+        auction.allowAuthorizer(authorizer);
 
-        assertEq(auction.backendSigner(), newSigner);
+        assertTrue(auction.authorizers(authorizer));
     }
 
-    function test_SetBackendSigner_EmitsEvent() public {
-        address newSigner = address(0x456);
+    function test_AllowAuthorizer_EmitsEvent() public {
+        address authorizer = address(0x456);
+
+        vm.expectEmit(true, false, false, false);
+        emit AuthorizerAllowed(authorizer);
+
+        vm.prank(auction.owner());
+        auction.allowAuthorizer(authorizer);
+    }
+
+    function test_AllowAuthorizer_RevertsIfZeroAddress() public {
+        vm.prank(auction.owner());
+        vm.expectRevert(Auction.InvalidAddress.selector);
+        auction.allowAuthorizer(address(0));
+    }
+
+    function test_DenyAuthorizer_OnlyOwner() public {
+        address authorizer = address(0x456);
+        address notOwner = address(0x123);
+
+        // First allow the authorizer
+        vm.prank(auction.owner());
+        auction.allowAuthorizer(authorizer);
+
+        // Try to deny as non-owner
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        auction.denyAuthorizer(authorizer);
+    }
+
+    function test_DenyAuthorizer_UpdatesAllowlist() public {
+        address authorizer = address(0x456);
+
+        // First allow the authorizer
+        vm.prank(auction.owner());
+        auction.allowAuthorizer(authorizer);
+        assertTrue(auction.authorizers(authorizer));
+
+        // Then deny the authorizer
+        vm.prank(auction.owner());
+        auction.denyAuthorizer(authorizer);
+        assertFalse(auction.authorizers(authorizer));
+    }
+
+    function test_DenyAuthorizer_EmitsEvent() public {
+        address authorizer = address(0x456);
+
+        // First allow the authorizer
+        vm.prank(auction.owner());
+        auction.allowAuthorizer(authorizer);
+
+        // Then deny with event check
+        vm.expectEmit(true, false, false, false);
+        emit AuthorizerDenied(authorizer);
+
+        vm.prank(auction.owner());
+        auction.denyAuthorizer(authorizer);
+    }
+
+    event AuthorizerAllowed(address indexed authorizer);
+    event AuthorizerDenied(address indexed authorizer);
+
+    function test_SetTreasury_OnlyOwner() public {
+        address newTreasury = address(0x789);
+        address notOwner = address(0x123);
+
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        auction.setTreasury(newTreasury);
+    }
+
+    function test_SetTreasury_UpdatesTreasury() public {
+        address newTreasury = address(0x789);
+
+        vm.prank(auction.owner());
+        auction.setTreasury(newTreasury);
+
+        assertEq(auction.treasury(), newTreasury);
+    }
+
+    function test_SetTreasury_EmitsEvent() public {
+        address newTreasury = address(0x789);
 
         vm.expectEmit(true, true, false, false);
-        emit BackendSignerSet(address(0), newSigner);
+        emit TreasurySet(TREASURY, newTreasury);
 
         vm.prank(auction.owner());
-        auction.setBackendSigner(newSigner);
+        auction.setTreasury(newTreasury);
     }
 
-    function test_SetBackendSigner_AllowsZeroAddress() public {
+    function test_SetTreasury_RevertsIfZeroAddress() public {
         vm.prank(auction.owner());
-        auction.setBackendSigner(address(0));
-
-        assertEq(auction.backendSigner(), address(0));
+        vm.expectRevert(Auction.InvalidAddress.selector);
+        auction.setTreasury(address(0));
     }
 
-    event BackendSignerSet(address indexed oldSigner, address indexed newSigner);
+    event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
 }

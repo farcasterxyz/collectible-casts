@@ -12,19 +12,21 @@ contract Auction is IAuction, Ownable2Step {
         uint256 minBid;
         uint256 minBidIncrement; // in basis points (10000 = 100%)
         uint256 duration;
-        uint256 antiSnipeExtension;
-        uint256 antiSnipeThreshold;
+        uint256 extension;
+        uint256 extensionThreshold;
     }
 
-    event BackendSignerSet(address indexed oldSigner, address indexed newSigner);
+    event AuthorizerAllowed(address indexed authorizer);
+    event AuthorizerDenied(address indexed authorizer);
+    event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
 
     address public immutable collectibleCast;
     address public immutable minter;
     address public immutable usdc;
-    address public immutable treasury;
+    address public treasury;
 
     AuctionParams private _defaultParams;
-    address public backendSigner;
+    mapping(address => bool) public authorizers;
 
     constructor(address _collectibleCast, address _minter, address _usdc, address _treasury) Ownable(msg.sender) {
         if (_collectibleCast == address(0)) revert InvalidAddress();
@@ -42,8 +44,8 @@ contract Auction is IAuction, Ownable2Step {
             minBid: 1e6, // 1 USDC (6 decimals)
             minBidIncrement: 1000, // 10% in basis points
             duration: 24 hours,
-            antiSnipeExtension: 15 minutes,
-            antiSnipeThreshold: 15 minutes
+            extension: 15 minutes,
+            extensionThreshold: 15 minutes
         });
     }
 
@@ -55,9 +57,21 @@ contract Auction is IAuction, Ownable2Step {
         return _defaultParams;
     }
 
-    function setBackendSigner(address _backendSigner) external onlyOwner {
-        address oldSigner = backendSigner;
-        backendSigner = _backendSigner;
-        emit BackendSignerSet(oldSigner, _backendSigner);
+    function allowAuthorizer(address authorizer) external onlyOwner {
+        if (authorizer == address(0)) revert InvalidAddress();
+        authorizers[authorizer] = true;
+        emit AuthorizerAllowed(authorizer);
+    }
+
+    function denyAuthorizer(address authorizer) external onlyOwner {
+        authorizers[authorizer] = false;
+        emit AuthorizerDenied(authorizer);
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        if (_treasury == address(0)) revert InvalidAddress();
+        address oldTreasury = treasury;
+        treasury = _treasury;
+        emit TreasurySet(oldTreasury, _treasury);
     }
 }

@@ -59,7 +59,7 @@ The Auction contract is the most complex component. Let's break it down into man
 
 #### 6.2 Auction Parameters
 - [ ] RED: Write test `test_AuctionParams_StoresCorrectly()`
-- [ ] GREEN: Define AuctionParams struct (minBid, minBidIncrement, duration, antiSnipeExtension)
+- [ ] GREEN: Define AuctionParams struct (minBid, minBidIncrement, duration, extension, extensionThreshold)
 - [ ] COMMIT: "feat: add auction parameter storage"
 
 #### 6.3 Backend Signer Setup
