@@ -4,6 +4,7 @@ out = "out"
 libs = ["lib"]
 solc_version = "0.8.30"
 optimizer_runs = 100_000
+via_ir = true
 fuzz = { runs = 2048 }
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",

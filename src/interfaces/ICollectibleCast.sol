@@ -24,7 +24,7 @@ interface ICollectibleCast {
     event SetTransferValidator(address indexed previousValidator, address indexed newValidator);
     event SetRoyalties(address indexed previousRoyalties, address indexed newRoyalties);
 
-    function mint(address to, bytes32 castHash, uint256 fid, address creator) external;
+    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator) external;
     function setModule(bytes32 module, address addr) external;
 
     // View functions

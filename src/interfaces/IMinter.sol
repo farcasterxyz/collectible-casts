@@ -11,7 +11,7 @@ interface IMinter {
     event Deny(address indexed account);
 
     // Functions
-    function mint(address to, bytes32 castHash, uint256 fid, address creator) external;
+    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator) external;
     function allow(address account) external;
     function deny(address account) external;
     function allowed(address account) external view returns (bool);

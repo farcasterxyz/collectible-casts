@@ -2,60 +2,126 @@
 pragma solidity ^0.8.30;
 
 import {IAuction} from "./interfaces/IAuction.sol";
-import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IMinter} from "./interfaces/IMinter.sol";
+import {IERC20Permit} from "./interfaces/IERC20Permit.sol";
+import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
+import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-contract Auction is IAuction, Ownable2Step {
-    error InvalidAddress();
+contract Auction is IAuction, Ownable2Step, EIP712 {
+    bytes32 private constant START_AUTHORIZATION_TYPEHASH = keccak256(
+        "StartAuthorization(bytes32 castHash,address creator,uint256 creatorFid,address bidder,uint256 bidderFid,uint256 amount,uint256 minBid,uint256 minBidIncrement,uint256 duration,uint256 extension,uint256 extensionThreshold,uint256 protocolFee,bytes32 nonce,uint256 deadline)"
+    );
 
-    struct AuctionParams {
-        uint256 minBid;
-        uint256 minBidIncrement; // in basis points (10000 = 100%)
-        uint256 duration;
-        uint256 extension;
-        uint256 extensionThreshold;
-    }
+    bytes32 private constant BID_AUTHORIZATION_TYPEHASH = keccak256(
+        "BidAuthorization(bytes32 castHash,address bidder,uint256 bidderFid,uint256 amount,bytes32 nonce,uint256 deadline)"
+    );
 
-    event AuthorizerAllowed(address indexed authorizer);
-    event AuthorizerDenied(address indexed authorizer);
-    event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
+    uint256 private constant BPS_DENOMINATOR = 10000;
+    uint256 private constant MIN_BID_AMOUNT = 1e6;
+    uint256 private constant MIN_AUCTION_DURATION = 1 hours;
+    uint256 private constant MAX_AUCTION_DURATION = 30 days;
+    uint256 private constant MAX_EXTENSION = 24 hours;
 
-    address public immutable collectibleCast;
     address public immutable minter;
     address public immutable usdc;
+
     address public treasury;
 
-    AuctionParams private _defaultParams;
     mapping(address => bool) public authorizers;
+    mapping(bytes32 => bool) public usedNonces;
+    mapping(bytes32 => AuctionData) public auctions;
 
-    constructor(address _collectibleCast, address _minter, address _usdc, address _treasury) Ownable(msg.sender) {
-        if (_collectibleCast == address(0)) revert InvalidAddress();
+    constructor(address _minter, address _usdc, address _treasury)
+        Ownable(msg.sender)
+        EIP712("CollectibleCastAuction", "1")
+    {
         if (_minter == address(0)) revert InvalidAddress();
         if (_usdc == address(0)) revert InvalidAddress();
         if (_treasury == address(0)) revert InvalidAddress();
 
-        collectibleCast = _collectibleCast;
         minter = _minter;
         usdc = _usdc;
         treasury = _treasury;
-
-        // Set default parameters
-        _defaultParams = AuctionParams({
-            minBid: 1e6, // 1 USDC (6 decimals)
-            minBidIncrement: 1000, // 10% in basis points
-            duration: 24 hours,
-            extension: 15 minutes,
-            extensionThreshold: 15 minutes
-        });
     }
 
-    function setDefaultParams(AuctionParams memory params) external onlyOwner {
-        _defaultParams = params;
+    // ========== PUBLIC/EXTERNAL FUNCTIONS ==========
+
+    function start(
+        CastData memory castData,
+        BidData memory bidData,
+        AuctionParams memory params,
+        AuthData memory auth
+    ) external {
+        _start(castData, bidData, params, auth);
+        IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
     }
 
-    function defaultParams() external view returns (AuctionParams memory) {
-        return _defaultParams;
+    function start(
+        CastData memory castData,
+        BidData memory bidData,
+        AuctionParams memory params,
+        AuthData memory auth,
+        PermitData memory permit
+    ) external {
+        _start(castData, bidData, params, auth);
+        _permitAndTransfer(bidData.amount, permit);
     }
+
+    function bid(
+        bytes32 castHash,
+        BidData memory bidData,
+        AuthData memory auth
+    ) external {
+        (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
+
+        IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
+        if (previousBidder != address(0)) {
+            IERC20(usdc).transfer(previousBidder, previousBid);
+        }
+    }
+
+    function bid(
+        bytes32 castHash,
+        BidData memory bidData,
+        AuthData memory auth,
+        PermitData memory permit
+    ) external {
+        (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
+
+        _permitAndTransfer(bidData.amount, permit);
+        if (previousBidder != address(0)) {
+            IERC20(usdc).transfer(previousBidder, previousBid);
+        }
+    }
+
+    function settle(bytes32 castHash) external {
+        AuctionState state = getAuctionState(castHash);
+        if (state == AuctionState.None) revert AuctionDoesNotExist();
+        if (state == AuctionState.Active) revert AuctionNotEnded();
+        if (state == AuctionState.Settled) revert AuctionAlreadySettled();
+
+        // Mark as settled
+        AuctionData storage auctionData = auctions[castHash];
+        auctionData.settled = true;
+
+        // Calculate payment distribution based on protocol fee
+        uint256 totalAmount = auctionData.highestBid;
+        uint256 treasuryAmount = (totalAmount * auctionData.params.protocolFee) / BPS_DENOMINATOR;
+        uint256 creatorAmount = totalAmount - treasuryAmount;
+
+        // Transfer payments
+        IERC20(usdc).transfer(treasury, treasuryAmount);
+        IERC20(usdc).transfer(auctionData.creator, creatorAmount);
+
+        // Mint NFT to the winner
+        IMinter(minter).mint(auctionData.highestBidder, castHash, auctionData.creatorFid, auctionData.creator);
+
+        emit AuctionSettled(castHash, auctionData.highestBidder, auctionData.highestBidderFid, auctionData.highestBid);
+    }
+
+    // ========== PERMISSIONED FUNCTIONS ==========
 
     function allowAuthorizer(address authorizer) external onlyOwner {
         if (authorizer == address(0)) revert InvalidAddress();
@@ -73,5 +139,269 @@ contract Auction is IAuction, Ownable2Step {
         address oldTreasury = treasury;
         treasury = _treasury;
         emit TreasurySet(oldTreasury, _treasury);
+    }
+
+    // ========== VIEW FUNCTIONS ==========
+
+    function getAuctionState(bytes32 castHash) public view returns (AuctionState) {
+        AuctionData storage auctionData = auctions[castHash];
+
+        if (auctionData.endTime == 0) {
+            return AuctionState.None;
+        }
+
+        if (auctionData.settled) {
+            return AuctionState.Settled;
+        }
+
+        if (block.timestamp < auctionData.endTime) {
+            return AuctionState.Active;
+        }
+
+        return AuctionState.Ended;
+    }
+
+    function hashBidAuthorization(
+        bytes32 castHash,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 deadline
+    ) public view returns (bytes32) {
+        bytes32 structHash =
+            keccak256(abi.encode(BID_AUTHORIZATION_TYPEHASH, castHash, bidder, bidderFid, amount, nonce, deadline));
+        return _hashTypedDataV4(structHash);
+    }
+
+    function hashStartAuthorization(
+        bytes32 castHash,
+        address creator,
+        uint256 creatorFid,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        AuctionParams memory params,
+        bytes32 nonce,
+        uint256 deadline
+    ) public view returns (bytes32) {
+        bytes32 structHash;
+        {
+            structHash = keccak256(
+                abi.encode(
+                    START_AUTHORIZATION_TYPEHASH,
+                    castHash,
+                    creator,
+                    creatorFid,
+                    bidder,
+                    bidderFid,
+                    amount,
+                    params.minBid,
+                    params.minBidIncrement,
+                    params.duration,
+                    params.extension,
+                    params.extensionThreshold,
+                    params.protocolFee,
+                    nonce,
+                    deadline
+                )
+            );
+        }
+        return _hashTypedDataV4(structHash);
+    }
+
+    function verifyBidAuthorization(
+        bytes32 castHash,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 deadline,
+        bytes memory signature
+    ) public view returns (bool) {
+        if (block.timestamp > deadline) return false;
+
+        bytes32 digest = hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline);
+        (address signer, ECDSA.RecoverError error,) = ECDSA.tryRecover(digest, signature);
+
+        return error == ECDSA.RecoverError.NoError && authorizers[signer];
+    }
+
+    // Helper view to expose the domain separator for external consumers
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
+    // ========== INTERNAL FUNCTIONS ==========
+
+    function max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a >= b ? a : b;
+    }
+
+    function _start(
+        CastData memory castData,
+        BidData memory bidData,
+        AuctionParams memory params,
+        AuthData memory auth
+    ) internal {
+        if (getAuctionState(castData.castHash) != AuctionState.None) revert AuctionAlreadyExists();
+
+        // Validate cast hash
+        if (castData.castHash == bytes32(0)) revert InvalidCastHash();
+
+        // Validate creator
+        if (castData.creator == address(0)) revert InvalidAddress();
+        if (castData.creatorFid == 0) revert InvalidCreatorFid();
+
+        // Validate auction parameters
+        _validateAuctionParams(params);
+
+        // Prevent self-bidding on own auction
+        if (msg.sender == castData.creator) revert SelfBidding();
+
+        // Verify authorization
+        bytes32 digest = hashStartAuthorization(
+            castData.castHash,
+            castData.creator,
+            castData.creatorFid,
+            msg.sender, // bidder must be msg.sender
+            bidData.bidderFid,
+            bidData.amount,
+            params,
+            auth.nonce,
+            auth.deadline
+        );
+
+        // Check deadline
+        if (block.timestamp > auth.deadline) revert DeadlineExpired();
+
+        // Verify signature
+        (address signer, ECDSA.RecoverError error,) = ECDSA.tryRecover(digest, auth.signature);
+        if (error != ECDSA.RecoverError.NoError || !authorizers[signer]) {
+            revert UnauthorizedBidder();
+        }
+
+        // Check nonce
+        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
+        usedNonces[auth.nonce] = true;
+
+        // Validate bid amount
+        if (bidData.amount < params.minBid) revert InvalidBidAmount();
+
+        // Create auction
+        AuctionData storage auctionData = auctions[castData.castHash];
+        auctionData.creator = castData.creator;
+        auctionData.creatorFid = castData.creatorFid;
+        auctionData.highestBidder = msg.sender;
+        auctionData.highestBidderFid = bidData.bidderFid;
+        auctionData.highestBid = bidData.amount;
+        auctionData.endTime = block.timestamp + params.duration;
+        auctionData.params = params;
+
+        emit AuctionStarted(castData.castHash, castData.creator, castData.creatorFid);
+        emit BidPlaced(castData.castHash, msg.sender, bidData.bidderFid, bidData.amount);
+    }
+
+    function _bid(
+        bytes32 castHash,
+        BidData memory bidData,
+        AuthData memory auth
+    ) internal returns (address previousBidder, uint256 previousBid) {
+        AuctionState state = getAuctionState(castHash);
+        if (state != AuctionState.Active) {
+            if (state == AuctionState.None) revert AuctionDoesNotExist();
+            if (state == AuctionState.Ended) revert AuctionNotActive();
+            if (state == AuctionState.Settled) revert AuctionAlreadySettled();
+        }
+
+        // Get auction data to check creator
+        AuctionData storage auctionData = auctions[castHash];
+
+        // Prevent self-bidding
+        if (msg.sender == auctionData.creator) revert SelfBidding();
+
+        // Verify bid authorization
+        if (!verifyBidAuthorization(castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline, auth.signature)) {
+            revert UnauthorizedBidder();
+        }
+
+        // Check nonce
+        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
+        usedNonces[auth.nonce] = true;
+
+        // Calculate minimum acceptable bid
+        uint256 incrementAmount = (auctionData.highestBid * auctionData.params.minBidIncrement) / BPS_DENOMINATOR;
+        uint256 minBid = auctionData.highestBid + max(MIN_BID_AMOUNT, incrementAmount);
+
+        if (bidData.amount < minBid) revert InvalidBidAmount();
+
+        // Store previous bidder info for refund
+        previousBidder = auctionData.highestBidder;
+        previousBid = auctionData.highestBid;
+
+        // Update auction with new bid
+        auctionData.highestBidder = msg.sender;
+        auctionData.highestBidderFid = bidData.bidderFid;
+        auctionData.highestBid = bidData.amount;
+
+        // Check if we need to extend the auction
+        uint256 timeLeft = auctionData.endTime - block.timestamp;
+        if (timeLeft <= auctionData.params.extensionThreshold) {
+            auctionData.endTime += auctionData.params.extension;
+            emit AuctionExtended(castHash, auctionData.endTime);
+        }
+
+        emit BidPlaced(castHash, msg.sender, bidData.bidderFid, bidData.amount);
+    }
+
+    function _permitAndTransfer(uint256 amount, PermitData memory permit) internal {
+        // Try to use permit - it might fail if permit was already used
+        try IERC20Permit(usdc).permit(msg.sender, address(this), amount, permit.deadline, permit.v, permit.r, permit.s) {
+            // Permit succeeded
+        } catch {
+            // Permit failed, check if we have approval anyway
+            uint256 allowance = IERC20(usdc).allowance(msg.sender, address(this));
+            if (allowance < amount) {
+                revert InsufficientAllowance();
+            }
+        }
+
+        // Transfer USDC
+        IERC20(usdc).transferFrom(msg.sender, address(this), amount);
+    }
+
+    function _validateAuctionParams(AuctionParams memory params) internal pure {
+        // Validate protocol fee
+        if (params.protocolFee > BPS_DENOMINATOR) revert InvalidProtocolFee();
+
+        // Validate durations
+        if (params.duration < MIN_AUCTION_DURATION || params.duration > MAX_AUCTION_DURATION) {
+            revert InvalidAuctionParams();
+        }
+
+        // Validate extension
+        if (params.extension == 0 || params.extension > MAX_EXTENSION) {
+            revert InvalidAuctionParams();
+        }
+
+        // Validate extension threshold
+        if (params.extensionThreshold == 0 || params.extensionThreshold > params.duration) {
+            revert InvalidAuctionParams();
+        }
+
+        // Validate extension is not greater than duration
+        if (params.extension > params.duration) {
+            revert InvalidAuctionParams();
+        }
+
+        // Validate minimum bid increment
+        if (params.minBidIncrement == 0 || params.minBidIncrement > BPS_DENOMINATOR) {
+            revert InvalidAuctionParams();
+        }
+
+        // Validate minimum bid
+        if (params.minBid < MIN_BID_AMOUNT) {
+            revert InvalidAuctionParams();
+        }
     }
 }

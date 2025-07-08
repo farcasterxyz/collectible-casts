@@ -22,8 +22,8 @@ contract Minter is IMinter, Ownable2Step {
     }
 
     // External/public state-changing functions
-    function mint(address to, bytes32 castHash, uint256 fid, address creator) external onlyAllowed {
-        ICollectibleCast(token).mint(to, castHash, fid, creator);
+    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator) external onlyAllowed {
+        ICollectibleCast(token).mint(to, castHash, creatorFid, creator);
     }
 
     // External permissioned functions

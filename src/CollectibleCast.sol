@@ -23,7 +23,7 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     // Transfer validator contract address
     address public transferValidator;
 
-    // Royalties module address
+    // Royalties contract address
     address public royalties;
 
     // Mapping from token ID to token data
@@ -32,18 +32,18 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     constructor() ERC1155("") Ownable(msg.sender) {}
 
     // External/public state-changing functions
-    function mint(address to, bytes32 castHash, uint256 fid, address creator) external {
+    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator) external {
         if (msg.sender != minter) revert Unauthorized();
-        if (fid == 0) revert InvalidFid();
+        if (creatorFid == 0) revert InvalidFid();
 
         uint256 tokenId = uint256(castHash);
         // Check if already minted by checking if FID is non-zero
         if (_tokenData[tokenId].fid != 0) revert AlreadyMinted();
 
-        _tokenData[tokenId] = ICollectibleCast.TokenData({fid: fid, creator: creator});
+        _tokenData[tokenId] = ICollectibleCast.TokenData({fid: creatorFid, creator: creator});
 
         _mint(to, tokenId, 1, "");
-        emit CastMinted(to, castHash, tokenId, fid, creator);
+        emit CastMinted(to, castHash, tokenId, creatorFid, creator);
     }
 
     // External permissioned functions
