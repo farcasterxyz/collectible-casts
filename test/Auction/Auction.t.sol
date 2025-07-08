@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {IMinter} from "../../src/interfaces/IMinter.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract AuctionTest is Test {
     Auction public auction;
@@ -43,5 +44,49 @@ contract AuctionTest is Test {
     function test_Constructor_RevertsIfTreasuryIsZero() public {
         vm.expectRevert(Auction.InvalidAddress.selector);
         new Auction(COLLECTIBLE_CAST, MINTER, USDC, address(0));
+    }
+
+    function test_SetDefaultParams_StoresCorrectly() public {
+        Auction.AuctionParams memory params = Auction.AuctionParams({
+            minBid: 1e6, // 1 USDC (6 decimals)
+            minBidIncrement: 1000, // 10% in basis points
+            duration: 24 hours,
+            antiSnipeExtension: 15 minutes,
+            antiSnipeThreshold: 15 minutes
+        });
+
+        vm.prank(auction.owner());
+        auction.setDefaultParams(params);
+
+        Auction.AuctionParams memory storedParams = auction.defaultParams();
+        assertEq(storedParams.minBid, 1e6);
+        assertEq(storedParams.minBidIncrement, 1000);
+        assertEq(storedParams.duration, 24 hours);
+        assertEq(storedParams.antiSnipeExtension, 15 minutes);
+        assertEq(storedParams.antiSnipeThreshold, 15 minutes);
+    }
+
+    function test_SetDefaultParams_OnlyOwner() public {
+        Auction.AuctionParams memory params = Auction.AuctionParams({
+            minBid: 1e6,
+            minBidIncrement: 1000,
+            duration: 24 hours,
+            antiSnipeExtension: 15 minutes,
+            antiSnipeThreshold: 15 minutes
+        });
+
+        address notOwner = address(0x123);
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        auction.setDefaultParams(params);
+    }
+
+    function test_Constructor_SetsDefaultParams() public view {
+        Auction.AuctionParams memory params = auction.defaultParams();
+        assertEq(params.minBid, 1e6); // 1 USDC
+        assertEq(params.minBidIncrement, 1000); // 10%
+        assertEq(params.duration, 24 hours);
+        assertEq(params.antiSnipeExtension, 15 minutes);
+        assertEq(params.antiSnipeThreshold, 15 minutes);
     }
 }
