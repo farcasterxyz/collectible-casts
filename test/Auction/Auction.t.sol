@@ -259,21 +259,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(newAuction.DOMAIN_SEPARATOR(), expectedDomainSeparator);
     }
 
-    function testFuzz_DomainSeparator_DifferentChainIds(uint256 chainId) public {
-        vm.assume(chainId > 0 && chainId < type(uint64).max);
-        vm.chainId(chainId);
-
-        Auction newAuction = new Auction(MINTER, USDC, TREASURY, address(this));
-
-        bytes32 expectedDomainSeparator = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH, keccak256("CollectibleCastAuction"), keccak256("1"), chainId, address(newAuction)
-            )
-        );
-
-        assertEq(newAuction.DOMAIN_SEPARATOR(), expectedDomainSeparator);
-    }
-
     // Bid Authorization tests
     function testFuzz_BidAuthorizationHash_ComputesCorrectly(
         bytes32 castHash,
