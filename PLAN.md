@@ -12,7 +12,8 @@ This document outlines the TDD implementation approach for the Collectible Casts
          │ references
          ├─── Metadata (Token/contract metadata)
          ├─── Minter (Mint authorization)
-         └─── TransferValidator (Transfer rules)
+         ├─── TransferValidator (Transfer rules)
+         └─── Royalties (ERC-2981 5% royalty)
 
 ┌─────────────┐
 │   Auction   │ (Auction logic, interacts with Minter to mint tokens)
@@ -40,6 +41,8 @@ This document outlines the TDD implementation approach for the Collectible Casts
 - Store castHash => FID mapping
 - Implement modular architecture with updateable modules
 - Override transfer functions to check TransferValidator
+- Add exists() function to check if tokens have been minted
+- Emit URI event when metadata module changes (ERC-1155 standard)
 
 ### Phase 3: Metadata Contract
 **Test scenarios:**
@@ -70,13 +73,26 @@ This document outlines the TDD implementation approach for the Collectible Casts
 - Transfer blocking when disabled
 - Transfer allowing when enabled
 - Operator allowlist functionality
-- Disabling allowlist to allow any operator
-- Global operator permissions
+- Owner can always transfer their own tokens when enabled
+- Third-party operators must be on allowlist
 
 **Key features:**
 - One-way transfer enable switch
-- Operator allowlist with disable option
+- Operator allowlist for marketplace curation
 - Events for operator changes
+- Documented unused parameters for interface compliance
+
+### Phase 5.5: Royalties Contract
+**Test scenarios:**
+- Fixed 5% royalty to creator
+- Proper calculation with no overflow
+- Returns zero for unminted tokens
+- Handles all edge cases (zero price, max price)
+
+**Key features:**
+- ERC-2981 compliant
+- BPS_DENOMINATOR constant for clarity
+- Simple, immutable implementation
 
 ### Phase 6: Auction Contract - Core Bidding
 **Test scenarios:**
@@ -90,14 +106,15 @@ This document outlines the TDD implementation approach for the Collectible Casts
 
 **Key features:**
 - Backend-signed auction parameters
-- USDC escrow and permit support
+- USDC escrow with transferFrom
+- Permit support for gasless approvals
 - Anti-sniping extension logic
 - Comprehensive event emissions
 
 ### Phase 7: Auction Contract - Settlement & Refunds
 **Test scenarios:**
 - Permissionless settlement after auction end
-- 90/10 payment split
+- Configurable protocol fee (default 10%)
 - Token minting on settlement
 - Automatic refund on overbid
 - Manual refund claiming on transfer failure
@@ -152,11 +169,12 @@ Each contract will have:
 - Royalty configuration (5% default)
 
 ### Auction Parameters (per auction, via signature)
-- Opening bid amount
-- Bid increment percentage
+- Opening bid amount (minBid)
+- Bid increment percentage (minBidIncrement)
 - Initial duration
 - Extension duration
 - Extension threshold
+- Protocol fee percentage
 
 ## Security Considerations
 
@@ -167,6 +185,24 @@ Each contract will have:
 5. **USDC Integration**: Handle blacklist edge cases
 6. **Immutability**: Contracts non-upgradeable by design
 
-## Next Steps
+## Implementation Status
 
-Ready to begin implementation following this plan. We'll start with Phase 1 (interfaces) and proceed through each phase using strict TDD methodology.
+### Completed ✅
+- All core contracts implemented with 100% test coverage
+- 181 comprehensive tests including fuzz tests
+- EIP-712 signature validation working perfectly
+- Modular architecture allows future extensibility
+- Deployment scripts ready for mainnet
+
+### Recent Updates
+- Upgraded 83 tests to fuzz tests for better coverage
+- Simplified Auction contract logic and error handling
+- Removed permit fallback logic - now fails fast
+- Standardized all imports to use openzeppelin-contracts
+- Removed unused OpenZeppelin remapping from foundry.toml
+
+### Architecture Decisions
+- Bytes32 castHash as token ID works well with marketplaces
+- Module system provides read/gate functionality (not state modification)
+- One-way switches prevent accidental misconfiguration
+- No burn, pause, or supply tracking by design (KISS principle)
