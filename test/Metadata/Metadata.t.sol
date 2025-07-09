@@ -15,7 +15,6 @@ contract MetadataTest is TestSuiteSetup {
         metadata = new Metadata(BASE_URI, address(this));
     }
 
-    
     function testFuzz_Constructor_SetsOwnerAndBaseUri(address owner, string memory baseUri) public {
         vm.assume(owner != address(0));
 
@@ -31,7 +30,6 @@ contract MetadataTest is TestSuiteSetup {
         assertEq(contractUri, string.concat(BASE_URI, "contract"));
     }
 
-
     function testFuzz_Uri_HandlesAllTokenIds(uint256 tokenId) public view {
         string memory tokenUri = metadata.uri(tokenId);
         string memory expectedUri = string.concat(BASE_URI, vm.toString(tokenId));
@@ -46,7 +44,6 @@ contract MetadataTest is TestSuiteSetup {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         metadata.setBaseURI(newBaseUri);
     }
-
 
     function test_SetBaseURI_EmitsEvent() public {
         string memory oldBaseUri = metadata.baseURI();

@@ -29,18 +29,15 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     // Mapping from token ID to token data
     mapping(uint256 => ICollectibleCast.TokenData) internal _tokenData;
 
-    constructor(
-        address _owner,
-        address _minter,
-        address _metadata,
-        address _transferValidator,
-        address _royalties
-    ) ERC1155("") Ownable(_owner) {
+    constructor(address _owner, address _minter, address _metadata, address _transferValidator, address _royalties)
+        ERC1155("")
+        Ownable(_owner)
+    {
         minter = _minter;
         metadata = _metadata;
         transferValidator = _transferValidator;
         royalties = _royalties;
-        
+
         emit SetMinter(address(0), _minter);
         emit SetMetadata(address(0), _metadata);
         emit SetTransferValidator(address(0), _transferValidator);

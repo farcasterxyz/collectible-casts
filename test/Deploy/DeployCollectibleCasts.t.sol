@@ -88,7 +88,11 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         // Check modules are set correctly
         assertEq(deployed.collectibleCast.metadata(), address(deployed.metadata), "Metadata module incorrect");
         assertEq(deployed.collectibleCast.minter(), address(deployed.minter), "Minter module incorrect");
-        assertEq(deployed.collectibleCast.transferValidator(), address(deployed.transferValidator), "TransferValidator module incorrect");
+        assertEq(
+            deployed.collectibleCast.transferValidator(),
+            address(deployed.transferValidator),
+            "TransferValidator module incorrect"
+        );
         assertEq(deployed.collectibleCast.royalties(), address(deployed.royalties), "Royalties module incorrect");
 
         // Check ownership
@@ -157,16 +161,10 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         deal(USDC_BASE, bidder, bidAmount * 2);
 
         // Create auction parameters
-        IAuction.CastData memory castData = IAuction.CastData({
-            castHash: castHash,
-            creator: creator,
-            creatorFid: creatorFid
-        });
+        IAuction.CastData memory castData =
+            IAuction.CastData({castHash: castHash, creator: creator, creatorFid: creatorFid});
 
-        IAuction.BidData memory bidData = IAuction.BidData({
-            bidderFid: bidderFid,
-            amount: bidAmount
-        });
+        IAuction.BidData memory bidData = IAuction.BidData({bidderFid: bidderFid, amount: bidAmount});
 
         IAuction.AuctionParams memory params = IAuction.AuctionParams({
             minBid: 1e6,
@@ -184,25 +182,13 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         // For testing, we'll use the backend signer to create a valid signature
         vm.startPrank(backendSigner);
         bytes32 messageHash = deployed.auction.hashStartAuthorization(
-            castHash,
-            creator,
-            creatorFid,
-            bidder,
-            bidderFid,
-            bidAmount,
-            params,
-            nonce,
-            deadline
+            castHash, creator, creatorFid, bidder, bidderFid, bidAmount, params, nonce, deadline
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(backendSignerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
         vm.stopPrank();
 
-        IAuction.AuthData memory auth = IAuction.AuthData({
-            nonce: nonce,
-            deadline: deadline,
-            signature: signature
-        });
+        IAuction.AuthData memory auth = IAuction.AuthData({nonce: nonce, deadline: deadline, signature: signature});
 
         // Approve USDC
         vm.startPrank(bidder);

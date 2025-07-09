@@ -275,7 +275,14 @@ contract AuctionTest is Test, AuctionTestHelper {
     }
 
     // Bid Authorization tests
-    function testFuzz_BidAuthorizationHash_ComputesCorrectly(bytes32 castHash, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce, uint256 deadline) public view {
+    function testFuzz_BidAuthorizationHash_ComputesCorrectly(
+        bytes32 castHash,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 deadline
+    ) public view {
         bytes32 structHash =
             keccak256(abi.encode(BID_AUTHORIZATION_TYPEHASH, castHash, bidder, bidderFid, amount, nonce, deadline));
 
@@ -304,7 +311,13 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(auction.hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline), expectedHash);
     }
 
-    function testFuzz_VerifyBidAuthorization_ValidSignature(bytes32 castHash, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_VerifyBidAuthorization_ValidSignature(
+        bytes32 castHash,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Generate authorizer key
@@ -325,7 +338,13 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertTrue(auction.verifyBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline, signature));
     }
 
-    function testFuzz_VerifyBidAuthorization_InvalidSignature(bytes32 castHash, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_VerifyBidAuthorization_InvalidSignature(
+        bytes32 castHash,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Generate authorizer key (but don't allow it)
@@ -342,7 +361,13 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertFalse(auction.verifyBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline, signature));
     }
 
-    function testFuzz_VerifyBidAuthorization_ExpiredDeadline(bytes32 castHash, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_VerifyBidAuthorization_ExpiredDeadline(
+        bytes32 castHash,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         uint256 deadline = block.timestamp - 1; // Already expired
 
         // Generate authorizer key
@@ -368,7 +393,15 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertFalse(auction.usedNonces(testNonce));
     }
 
-    function testFuzz_BidAuthorizationHash_DifferentFids(bytes32 castHash, address bidder, uint256 amount, bytes32 nonce, uint256 deadline, uint256 fid1, uint256 fid2) public view {
+    function testFuzz_BidAuthorizationHash_DifferentFids(
+        bytes32 castHash,
+        address bidder,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 deadline,
+        uint256 fid1,
+        uint256 fid2
+    ) public view {
         vm.assume(fid1 != fid2);
 
         // Get hash with first FID

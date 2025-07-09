@@ -6,19 +6,17 @@ import "forge-std/console.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 interface ImmutableCreate2Factory {
-    function hasBeenDeployed(
-        address deploymentAddress
-    ) external view returns (bool);
+    function hasBeenDeployed(address deploymentAddress) external view returns (bool);
 
-    function findCreate2Address(
-        bytes32 salt,
-        bytes calldata initializationCode
-    ) external view returns (address deploymentAddress);
+    function findCreate2Address(bytes32 salt, bytes calldata initializationCode)
+        external
+        view
+        returns (address deploymentAddress);
 
-    function safeCreate2(
-        bytes32 salt,
-        bytes calldata initializationCode
-    ) external payable returns (address deploymentAddress);
+    function safeCreate2(bytes32 salt, bytes calldata initializationCode)
+        external
+        payable
+        returns (address deploymentAddress);
 }
 
 abstract contract ImmutableCreate2Deployer is Script {
@@ -89,11 +87,10 @@ abstract contract ImmutableCreate2Deployer is Script {
      * @param creationCode    Contract creationCode bytes
      * @param constructorArgs ABI-encoded constructor argument bytes
      */
-    function register(
-        string memory name,
-        bytes memory creationCode,
-        bytes memory constructorArgs
-    ) internal returns (address) {
+    function register(string memory name, bytes memory creationCode, bytes memory constructorArgs)
+        internal
+        returns (address)
+    {
         return register(name, DEFAULT_SALT, creationCode, constructorArgs);
     }
 
@@ -105,12 +102,10 @@ abstract contract ImmutableCreate2Deployer is Script {
      * @param creationCode    Contract creationCode bytes
      * @param constructorArgs ABI-encoded constructor argument bytes
      */
-    function register(
-        string memory name,
-        bytes32 salt,
-        bytes memory creationCode,
-        bytes memory constructorArgs
-    ) internal returns (address) {
+    function register(string memory name, bytes32 salt, bytes memory creationCode, bytes memory constructorArgs)
+        internal
+        returns (address)
+    {
         bytes memory initCode = bytes.concat(creationCode, constructorArgs);
         bytes32 initCodeHash = keccak256(initCode);
         address deploymentAddress = address(
@@ -134,9 +129,7 @@ abstract contract ImmutableCreate2Deployer is Script {
     /**
      * @dev Deploy all registered contracts.
      */
-    function deploy(
-        bool broadcast
-    ) internal {
+    function deploy(bool broadcast) internal {
         console.log(pad("State", 10), pad("Name", 27), pad("Address", 43), "Initcode hash");
         for (uint256 i; i < names.length; i++) {
             _deploy(names[i], broadcast);
@@ -157,9 +150,7 @@ abstract contract ImmutableCreate2Deployer is Script {
         _deploy(name, broadcast);
     }
 
-    function deploy(
-        string memory name
-    ) internal {
+    function deploy(string memory name) internal {
         deploy(name, true);
     }
 

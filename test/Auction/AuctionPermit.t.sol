@@ -82,7 +82,14 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(bidder), 0);
     }
 
-    function testFuzz_BidWithPermit_Success(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, uint256 secondBidderFid, uint256 bidIncrement, bytes32 nonce) public {
+    function testFuzz_BidWithPermit_Success(
+        address firstBidder,
+        uint256 firstBidderFid,
+        uint256 firstAmount,
+        uint256 secondBidderFid,
+        uint256 bidIncrement,
+        bytes32 nonce
+    ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0));
         vm.assume(firstBidder != CREATOR);
@@ -92,13 +99,13 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
         firstAmount = _bound(firstAmount, 1e6, 1000e6); // 1 to 1000 USDC
         secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
-        
+
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
         if (minIncrement < 1e6) minIncrement = 1e6;
         bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
         uint256 secondAmount = firstAmount + bidIncrement;
-        
+
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Second bidder with permit
@@ -139,7 +146,12 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(firstBidder), firstBidderBalanceBefore + firstAmount); // Refunded
     }
 
-    function testFuzz_StartWithPermit_ExpiredPermit(uint256 bidderFid, uint256 amount, bytes32 nonce, uint256 expiredOffset) public {
+    function testFuzz_StartWithPermit_ExpiredPermit(
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 expiredOffset
+    ) public {
         (address bidder, uint256 bidderKey) = makeAddrAndKey("bidder");
         bidderFid = _bound(bidderFid, 1, type(uint256).max);
         amount = _bound(amount, 1e6, 10000e6);
@@ -222,7 +234,13 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth, permit);
     }
 
-    function testFuzz_BidWithPermit_PermitAlreadyUsed(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, uint256 secondBidderFid, uint256 bidIncrement) public {
+    function testFuzz_BidWithPermit_PermitAlreadyUsed(
+        address firstBidder,
+        uint256 firstBidderFid,
+        uint256 firstAmount,
+        uint256 secondBidderFid,
+        uint256 bidIncrement
+    ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0));
         vm.assume(firstBidder != CREATOR);
@@ -231,13 +249,13 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
         secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
-        
+
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
         if (minIncrement < 1e6) minIncrement = 1e6;
         bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
         uint256 amount = firstAmount + bidIncrement;
-        
+
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Second bidder setup
@@ -272,7 +290,11 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         auction.bid(TEST_CAST_HASH, bidData, auth, permit);
     }
 
-    function testFuzz_StartWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_StartWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         (address bidder,) = makeAddrAndKey("bidder-no-allowance");
         bidderFid = _bound(bidderFid, 1, type(uint256).max);
         amount = _bound(amount, 1e6, 10000e6);
@@ -307,7 +329,14 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth, invalidPermit);
     }
 
-    function testFuzz_BidWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, uint256 secondBidderFid, uint256 bidIncrement, bytes32 nonce) public {
+    function testFuzz_BidWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(
+        address firstBidder,
+        uint256 firstBidderFid,
+        uint256 firstAmount,
+        uint256 secondBidderFid,
+        uint256 bidIncrement,
+        bytes32 nonce
+    ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0));
         vm.assume(firstBidder != CREATOR);
@@ -315,13 +344,13 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
         secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
-        
+
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
         if (minIncrement < 1e6) minIncrement = 1e6;
         bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
         uint256 secondAmount = firstAmount + bidIncrement;
-        
+
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Second bidder with invalid permit and no approval

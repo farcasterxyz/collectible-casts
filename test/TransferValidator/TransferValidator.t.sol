@@ -27,7 +27,13 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertFalse(validator.transfersEnabled());
     }
 
-    function testFuzz_ValidateTransfer_BlocksAllWhenTransfersDisabled(address owner, address operator, address to, uint256 tokenId, uint256 amount) public {
+    function testFuzz_ValidateTransfer_BlocksAllWhenTransfersDisabled(
+        address owner,
+        address operator,
+        address to,
+        uint256 tokenId,
+        uint256 amount
+    ) public {
         uint256[] memory ids = new uint256[](1);
         ids[0] = tokenId;
         uint256[] memory amounts = new uint256[](1);
@@ -41,10 +47,15 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertFalse(validator.validateTransfer(operator, owner, to, ids, amounts));
     }
 
-    function testFuzz_ValidateTransfer_AllowsOwnerWhenTransfersEnabled(address owner, address to, uint256 tokenId, uint256 amount) public {
+    function testFuzz_ValidateTransfer_AllowsOwnerWhenTransfersEnabled(
+        address owner,
+        address to,
+        uint256 tokenId,
+        uint256 amount
+    ) public {
         vm.assume(owner != address(0));
         vm.assume(to != address(0));
-        
+
         uint256[] memory ids = new uint256[](1);
         ids[0] = tokenId;
         uint256[] memory amounts = new uint256[](1);
@@ -58,9 +69,15 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertTrue(isAllowed);
     }
 
-    function testFuzz_ValidateTransfer_RequiresOperatorAllowlistWhenTransfersEnabled(address operator, address from, address to, uint256 tokenId, uint256 amount) public {
+    function testFuzz_ValidateTransfer_RequiresOperatorAllowlistWhenTransfersEnabled(
+        address operator,
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 amount
+    ) public {
         vm.assume(operator != from); // Operator must be different from owner
-        
+
         uint256[] memory ids = new uint256[](1);
         ids[0] = tokenId;
         uint256[] memory amounts = new uint256[](1);

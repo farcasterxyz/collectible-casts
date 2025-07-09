@@ -20,13 +20,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCast(
-            address(this),
-            address(0),
-            address(0),
-            address(0),
-            address(0)
-        );
+        token = new CollectibleCast(address(this), address(0), address(0), address(0), address(0));
         validReceiver = new MockERC1155Receiver();
         invalidReceiver = new MockNonERC1155Receiver();
     }
@@ -69,13 +63,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(owner != address(this));
 
         vm.prank(owner);
-        CollectibleCast newToken = new CollectibleCast(
-            owner,
-            address(0),
-            address(0),
-            address(0),
-            address(0)
-        );
+        CollectibleCast newToken = new CollectibleCast(owner, address(0), address(0), address(0), address(0));
 
         assertEq(newToken.owner(), owner);
     }
@@ -106,7 +94,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_Mint_RevertsWhenFidIsZero(address recipient, bytes32 castHash) public {
         // Bound inputs
         vm.assume(recipient != address(0));
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
 
@@ -162,7 +150,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_Mint_ToValidContract(bytes32 castHash, uint256 fid) public {
         // Bound inputs
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
@@ -180,7 +168,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_Mint_ToInvalidContract_Reverts(bytes32 castHash, uint256 fid) public {
         // Bound inputs
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
 
@@ -245,7 +233,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(recipient != address(0));
         vm.assume(recipient.code.length == 0); // EOA for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
 
@@ -364,13 +352,15 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     // Transfer Validation Integration Tests
 
-    function testFuzz_Transfer_ChecksValidator_WhenValidatorSet(address from, address to, bytes32 castHash, uint256 fid) public {
+    function testFuzz_Transfer_ChecksValidator_WhenValidatorSet(address from, address to, bytes32 castHash, uint256 fid)
+        public
+    {
         // Bound inputs
         vm.assume(from != address(0) && to != address(0));
         vm.assume(from != to);
         vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
@@ -391,13 +381,15 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.safeTransferFrom(from, to, tokenId, 1, "");
     }
 
-    function testFuzz_Transfer_AllowedWhenValidatorAllows(address from, address to, bytes32 castHash, uint256 fid) public {
+    function testFuzz_Transfer_AllowedWhenValidatorAllows(address from, address to, bytes32 castHash, uint256 fid)
+        public
+    {
         // Bound inputs
         vm.assume(from != address(0) && to != address(0));
         vm.assume(from != to);
         vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
@@ -422,13 +414,15 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertEq(token.balanceOf(to, tokenId), 1);
     }
 
-    function testFuzz_Transfer_AllowedWhenNoValidatorSet(address from, address to, bytes32 castHash, uint256 fid) public {
+    function testFuzz_Transfer_AllowedWhenNoValidatorSet(address from, address to, bytes32 castHash, uint256 fid)
+        public
+    {
         // Bound inputs
         vm.assume(from != address(0) && to != address(0));
         vm.assume(from != to);
         vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
@@ -452,7 +446,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(recipient != address(0));
         vm.assume(recipient.code.length == 0); // EOA for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
 
@@ -681,7 +675,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Bound inputs
         vm.assume(creator != address(0));
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         uint256 tokenId = uint256(castHash);
 
@@ -713,7 +707,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_Exists_ReturnsTrueForMintedToken(bytes32 castHash, uint256 fid) public {
         // Bound inputs
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
@@ -742,7 +736,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(recipient != address(0));
         vm.assume(recipient.code.length == 0); // EOA for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         bytes32 maxCastHash = bytes32(type(uint256).max);
@@ -763,7 +757,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(recipient != address(0));
         vm.assume(recipient.code.length == 0); // EOA for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         bytes32 zeroCastHash = bytes32(0);
@@ -795,7 +789,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(from != address(0));
         vm.assume(from.code.length == 0); // EOA for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
@@ -817,7 +811,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(from != to);
         vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
@@ -836,14 +830,20 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertEq(token.balanceOf(to, tokenId), 0);
     }
 
-    function testFuzz_Transfer_MoreThanBalance_Reverts(address from, address to, bytes32 castHash, uint256 fid, uint256 excessAmount) public {
+    function testFuzz_Transfer_MoreThanBalance_Reverts(
+        address from,
+        address to,
+        bytes32 castHash,
+        uint256 fid,
+        uint256 excessAmount
+    ) public {
         // Bound inputs
         vm.assume(from != address(0) && to != address(0));
         vm.assume(from != to);
         vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
         excessAmount = _bound(excessAmount, 2, type(uint256).max); // At least 2 (more than balance of 1)
-        
+
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
@@ -852,7 +852,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.setModule("minter", minterAddr);
         vm.prank(minterAddr);
         token.mint(from, castHash, fid, creator);
-        
+
         // Verify balance is 1
         assertEq(token.balanceOf(from, tokenId), 1);
 

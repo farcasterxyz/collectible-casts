@@ -26,7 +26,7 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
 
     function setUp() public {
         usdc = new MockUSDC();
-        
+
         // Deploy real contracts
         address owner = address(this);
         minter = new Minter(owner);
@@ -35,9 +35,9 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
             address(minter),
             address(0), // metadata - not needed for auction tests
             address(0), // transferValidator - not needed
-            address(0)  // royalties - not needed
+            address(0) // royalties - not needed
         );
-        
+
         // Configure real contracts
         minter.setToken(address(collectibleCast));
         auction = new Auction(address(minter), address(usdc), TREASURY, address(this));
@@ -55,7 +55,7 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         vm.assume(bidder.code.length == 0); // Must be EOA to receive ERC-1155 tokens safely
         bidderFid = _bound(bidderFid, 1, type(uint256).max);
         amount = _bound(amount, 1e6, 1000000e6); // 1 to 1,000,000 USDC
-        
+
         // Start auction
         _startAuction(bidder, bidderFid, amount);
 

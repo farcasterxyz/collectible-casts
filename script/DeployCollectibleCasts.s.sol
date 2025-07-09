@@ -18,7 +18,6 @@ import {Auction} from "../src/Auction.sol";
  *         Following the Farcaster deployment pattern
  */
 contract DeployCollectibleCasts is ImmutableCreate2Deployer {
-
     struct Salts {
         bytes32 collectibleCast;
         bytes32 metadata;
@@ -97,18 +96,10 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
 
         // Deploy modules first (they don't depend on CollectibleCast)
         addrs.metadata = register(
-            "Metadata",
-            params.salts.metadata,
-            type(Metadata).creationCode,
-            abi.encode(params.baseURI, params.deployer)
+            "Metadata", params.salts.metadata, type(Metadata).creationCode, abi.encode(params.baseURI, params.deployer)
         );
 
-        addrs.minter = register(
-            "Minter",
-            params.salts.minter,
-            type(Minter).creationCode,
-            abi.encode(params.deployer)
-        );
+        addrs.minter = register("Minter", params.salts.minter, type(Minter).creationCode, abi.encode(params.deployer));
 
         addrs.transferValidator = register(
             "TransferValidator",
@@ -117,11 +108,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             abi.encode(params.deployer)
         );
 
-        addrs.royalties = register(
-            "Royalties",
-            params.salts.royalties,
-            type(Royalties).creationCode
-        );
+        addrs.royalties = register("Royalties", params.salts.royalties, type(Royalties).creationCode);
 
         // Deploy CollectibleCast with all module addresses
         addrs.collectibleCast = register(

@@ -36,7 +36,15 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.allowAuthorizer(authorizer);
     }
 
-    function testFuzz_Start_Success(bytes32 castHash, address creator, uint256 creatorFid, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_Start_Success(
+        bytes32 castHash,
+        address creator,
+        uint256 creatorFid,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         // Bound inputs
         vm.assume(castHash != bytes32(0));
         vm.assume(creator != address(0));
@@ -103,7 +111,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         duration = _bound(duration, 1 hours, 7 days);
         extension = _bound(extension, 5 minutes, 1 hours);
         protocolFee = _bound(protocolFee, 0, 10000); // 0 to 100%
-        
+
         // Use fixed addresses to avoid event issues
         bytes32 castHash = keccak256(abi.encodePacked("fuzz", duration, amount));
         address creator = address(0x789);
@@ -154,7 +162,16 @@ contract AuctionStartTest is Test, AuctionTestHelper {
     event AuctionStarted(bytes32 indexed castHash, address indexed creator, uint256 creatorFid);
     event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint256 bidderFid, uint256 amount);
 
-    function testFuzz_Start_RevertsInvalidProtocolFee(bytes32 castHash, address creator, uint256 creatorFid, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce, uint256 invalidFee) public {
+    function testFuzz_Start_RevertsInvalidProtocolFee(
+        bytes32 castHash,
+        address creator,
+        uint256 creatorFid,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 invalidFee
+    ) public {
         vm.assume(castHash != bytes32(0));
         vm.assume(creator != address(0));
         vm.assume(bidder != address(0));
@@ -198,7 +215,15 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsBelowMinimum(bytes32 castHash, address creator, uint256 creatorFid, address bidder, uint256 bidderFid, uint256 belowMinAmount, bytes32 nonce) public {
+    function testFuzz_Start_RevertsBelowMinimum(
+        bytes32 castHash,
+        address creator,
+        uint256 creatorFid,
+        address bidder,
+        uint256 bidderFid,
+        uint256 belowMinAmount,
+        bytes32 nonce
+    ) public {
         vm.assume(castHash != bytes32(0));
         vm.assume(creator != address(0));
         vm.assume(bidder != address(0));
@@ -241,7 +266,12 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsWithInvalidSignature(address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_Start_RevertsWithInvalidSignature(
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         vm.assume(bidder != address(0));
         vm.assume(bidder != CREATOR); // Avoid self-bidding error
         vm.assume(bidderFid != 0);
@@ -273,7 +303,15 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsWithUsedNonce(bytes32 castHash, address creator, uint256 creatorFid, address bidder, uint256 bidderFid, uint256 amount, bytes32 reusedNonce) public {
+    function testFuzz_Start_RevertsWithUsedNonce(
+        bytes32 castHash,
+        address creator,
+        uint256 creatorFid,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 reusedNonce
+    ) public {
         vm.assume(castHash != bytes32(0));
         vm.assume(creator != address(0));
         vm.assume(bidder != address(0));
@@ -321,7 +359,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData2, bidData, params, auth2);
     }
 
-    function testFuzz_Start_RevertsWithZeroExtension(address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_Start_RevertsWithZeroExtension(address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce)
+        public
+    {
         vm.assume(bidder != address(0));
         vm.assume(bidderFid != 0);
         amount = _bound(amount, 1e6, 10000e6);
@@ -355,7 +395,12 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsWithZeroExtensionThreshold(address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_Start_RevertsWithZeroExtensionThreshold(
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         vm.assume(bidder != address(0));
         vm.assume(bidderFid != 0);
         amount = _bound(amount, 1e6, 10000e6);
@@ -389,7 +434,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsWithLowMinBid(address bidder, uint256 bidderFid, uint256 lowAmount, bytes32 nonce) public {
+    function testFuzz_Start_RevertsWithLowMinBid(address bidder, uint256 bidderFid, uint256 lowAmount, bytes32 nonce)
+        public
+    {
         vm.assume(bidder != address(0));
         vm.assume(bidderFid != 0);
         lowAmount = _bound(lowAmount, 1, 0.99e6); // Below 1 USDC minimum
@@ -424,7 +471,13 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsWithExpiredDeadline(address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce, uint256 expiredOffset) public {
+    function testFuzz_Start_RevertsWithExpiredDeadline(
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 expiredOffset
+    ) public {
         vm.assume(bidder != address(0));
         vm.assume(bidder != CREATOR); // Avoid self-bidding error
         vm.assume(bidderFid != 0);

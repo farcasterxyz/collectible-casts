@@ -26,7 +26,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
 
     function setUp() public {
         usdc = new MockUSDC();
-        
+
         // Deploy real contracts
         address owner = address(this);
         minter = new Minter(owner);
@@ -35,9 +35,9 @@ contract AuctionBidTest is Test, AuctionTestHelper {
             address(minter),
             address(0), // metadata - not needed for auction tests
             address(0), // transferValidator - not needed
-            address(0)  // royalties - not needed
+            address(0) // royalties - not needed
         );
-        
+
         // Configure real contracts
         minter.setToken(address(collectibleCast));
         auction = new Auction(address(minter), address(usdc), TREASURY, address(this));
@@ -48,7 +48,14 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         auction.allowAuthorizer(authorizer);
     }
 
-    function testFuzz_Bid_Success(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, address secondBidder, uint256 secondBidderFid, uint256 bidIncrement) public {
+    function testFuzz_Bid_Success(
+        address firstBidder,
+        uint256 firstBidderFid,
+        uint256 firstAmount,
+        address secondBidder,
+        uint256 secondBidderFid,
+        uint256 bidIncrement
+    ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
@@ -62,7 +69,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         if (minIncrement < 1e6) minIncrement = 1e6; // At least 1 USDC
         bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
         uint256 secondAmount = firstAmount + bidIncrement;
-        
+
         // Start auction first
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
@@ -102,7 +109,14 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(address(auction)), secondAmount);
     }
 
-    function testFuzz_Bid_InsufficientIncrement(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, address secondBidder, uint256 secondBidderFid, uint256 insufficientIncrement) public {
+    function testFuzz_Bid_InsufficientIncrement(
+        address firstBidder,
+        uint256 firstBidderFid,
+        uint256 firstAmount,
+        address secondBidder,
+        uint256 secondBidderFid,
+        uint256 insufficientIncrement
+    ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
@@ -110,15 +124,15 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
         secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
         firstAmount = _bound(firstAmount, 1e6, 1000e6); // 1 to 1000 USDC
-        
+
         // Calculate minimum required increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
         if (minIncrement < 1e6) minIncrement = 1e6; // At least 1 USDC
-        
+
         // Bound insufficient increment to be less than minimum
         insufficientIncrement = _bound(insufficientIncrement, 1, minIncrement - 1);
         uint256 secondAmount = firstAmount + insufficientIncrement;
-        
+
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Try to bid with insufficient increment
@@ -148,16 +162,16 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         address secondBidder = makeAddr("secondBidder");
         uint256 secondBidderFid = 54321;
         uint256 bidAmount = 2e6; // 2 USDC
-        
+
         // Start auction
         address firstBidder = address(0x123);
         uint256 firstBidderFid = 12345;
         uint256 firstAmount = 1e6;
-        
+
         // Store the original start time before starting auction
         uint256 auctionStartTime = block.timestamp;
         _startAuction(firstBidder, firstBidderFid, firstAmount);
-        
+
         // Fast forward to within extension threshold
         vm.warp(auctionStartTime + 24 hours - timeBeforeEnd);
 
@@ -185,8 +199,13 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(secondBidder), 0);
         assertEq(usdc.balanceOf(address(auction)), bidAmount);
     }
-    
-    function testFuzz_Bid_ExtendAuction(uint256 timeBeforeEnd, address secondBidder, uint256 secondBidderFid, uint256 bidAmount) public {
+
+    function testFuzz_Bid_ExtendAuction(
+        uint256 timeBeforeEnd,
+        address secondBidder,
+        uint256 secondBidderFid,
+        uint256 bidAmount
+    ) public {
         // Bound inputs
         timeBeforeEnd = _bound(timeBeforeEnd, 1, 15 minutes - 1); // Within extension threshold
         vm.assume(secondBidder != address(0));
@@ -199,16 +218,16 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Calculate minimum bid to outbid initial 1 USDC bid
         // minBid = 1e6 + max(1e6, 1e6 * 10%) = 1e6 + 1e6 = 2e6
         bidAmount = _bound(bidAmount, 2e6, 1000e6); // At least 2 USDC to outbid initial 1 USDC
-        
+
         // Start auction
         address firstBidder = address(0x123);
         uint256 firstBidderFid = 12345;
         uint256 firstAmount = 1e6;
         _startAuction(firstBidder, firstBidderFid, firstAmount);
-        
+
         // Fast forward to within extension threshold
         vm.warp(block.timestamp + 24 hours - timeBeforeEnd);
-        
+
         // Place bid
         bytes32 nonce = keccak256(abi.encodePacked("bid-extend", secondBidder, bidAmount));
         uint256 deadline = block.timestamp + 1 hours;
@@ -234,7 +253,14 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(address(auction)), bidAmount);
     }
 
-    function testFuzz_Bid_RevertsNonceReuse(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, address secondBidder, uint256 secondBidderFid, uint256 bidIncrement) public {
+    function testFuzz_Bid_RevertsNonceReuse(
+        address firstBidder,
+        uint256 firstBidderFid,
+        uint256 firstAmount,
+        address secondBidder,
+        uint256 secondBidderFid,
+        uint256 bidIncrement
+    ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
@@ -242,13 +268,13 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
         secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
-        
+
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
         if (minIncrement < 1e6) minIncrement = 1e6;
         bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
         uint256 secondAmount = firstAmount + bidIncrement;
-        
+
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Try to bid with a reused nonce
@@ -272,7 +298,15 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 
-    function testFuzz_Bid_RevertsExpiredDeadline(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, address secondBidder, uint256 secondBidderFid, uint256 bidIncrement, uint256 expiredOffset) public {
+    function testFuzz_Bid_RevertsExpiredDeadline(
+        address firstBidder,
+        uint256 firstBidderFid,
+        uint256 firstAmount,
+        address secondBidder,
+        uint256 secondBidderFid,
+        uint256 bidIncrement,
+        uint256 expiredOffset
+    ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
@@ -280,13 +314,13 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
         secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
-        
+
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
         if (minIncrement < 1e6) minIncrement = 1e6;
         bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
         uint256 secondAmount = firstAmount + bidIncrement;
-        
+
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Try to bid with expired deadline
@@ -311,7 +345,13 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 
-    function testFuzz_Bid_RevertsOnNonExistentAuction(bytes32 nonExistentTokenId, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_Bid_RevertsOnNonExistentAuction(
+        bytes32 nonExistentTokenId,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         vm.assume(bidder != address(0));
         vm.assume(nonExistentTokenId != bytes32(0));
         bidderFid = _bound(bidderFid, 1, type(uint256).max);
@@ -331,7 +371,14 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         auction.bid(nonExistentTokenId, bidData, auth);
     }
 
-    function testFuzz_Bid_RevertsOnSettledAuction(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, address secondBidder, uint256 secondBidderFid, uint256 bidIncrement) public {
+    function testFuzz_Bid_RevertsOnSettledAuction(
+        address firstBidder,
+        uint256 firstBidderFid,
+        uint256 firstAmount,
+        address secondBidder,
+        uint256 secondBidderFid,
+        uint256 bidIncrement
+    ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
@@ -340,13 +387,13 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
         secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
-        
+
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
         if (minIncrement < 1e6) minIncrement = 1e6;
         bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
         uint256 secondAmount = firstAmount + bidIncrement;
-        
+
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Fast forward past end time and settle

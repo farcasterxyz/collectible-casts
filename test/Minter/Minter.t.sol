@@ -14,13 +14,7 @@ contract MinterTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCast(
-            address(this),
-            address(0),
-            address(0),
-            address(0),
-            address(0)
-        );
+        token = new CollectibleCast(address(this), address(0), address(0), address(0), address(0));
         minter = new Minter(address(this));
         minter.setToken(address(token));
     }
@@ -41,10 +35,10 @@ contract MinterTest is TestSuiteSetup {
 
     function test_SetToken_RevertsWhenAlreadySet() public {
         Minter newMinter = new Minter(address(this));
-        
+
         // Set token once
         newMinter.setToken(address(token));
-        
+
         // Try to set again - should fail
         vm.expectRevert(IMinter.TokenAlreadySet.selector);
         newMinter.setToken(makeAddr("anotherToken"));
@@ -76,7 +70,13 @@ contract MinterTest is TestSuiteSetup {
         assertEq(token.tokenCreator(tokenId), creator);
     }
 
-    function testFuzz_Mint_RevertsWhenCallerNotAllowed(address recipient, bytes32 castHash, uint256 fid, address creator, address unauthorizedCaller) public {
+    function testFuzz_Mint_RevertsWhenCallerNotAllowed(
+        address recipient,
+        bytes32 castHash,
+        uint256 fid,
+        address creator,
+        address unauthorizedCaller
+    ) public {
         // Setup
         vm.assume(recipient != address(0));
         vm.assume(fid != 0);
@@ -92,7 +92,9 @@ contract MinterTest is TestSuiteSetup {
         minter.mint(recipient, castHash, fid, creator);
     }
 
-    function testFuzz_Mint_RevertsOnDoubleMint(address recipient, bytes32 castHash, uint256 fid, address creator) public {
+    function testFuzz_Mint_RevertsOnDoubleMint(address recipient, bytes32 castHash, uint256 fid, address creator)
+        public
+    {
         // Setup
         vm.assume(recipient != address(0));
         vm.assume(fid != 0);

@@ -32,9 +32,9 @@ contract AuctionStateTest is Test, AuctionTestHelper {
             address(minter),
             address(0), // metadata - not needed for auction tests
             address(0), // transferValidator - not needed
-            address(0)  // royalties - not needed
+            address(0) // royalties - not needed
         );
-        
+
         // Configure real contracts
         minter.setToken(address(collectibleCast));
         auction = new Auction(address(minter), address(usdc), TREASURY, address(this));
@@ -71,7 +71,15 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Settled));
     }
 
-    function testFuzz_CannotStartAuctionTwice(bytes32 castHash, address creator, uint256 creatorFid, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_CannotStartAuctionTwice(
+        bytes32 castHash,
+        address creator,
+        uint256 creatorFid,
+        address bidder,
+        uint256 bidderFid,
+        uint256 amount,
+        bytes32 nonce
+    ) public {
         vm.assume(castHash != bytes32(0));
         vm.assume(creator != address(0));
         vm.assume(bidder != address(0));
@@ -80,7 +88,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         bidderFid = _bound(bidderFid, 1, type(uint256).max);
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
-        
+
         _startAuction(castHash);
 
         // Try to start again
