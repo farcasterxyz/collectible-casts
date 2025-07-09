@@ -340,17 +340,8 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
     }
 
     function _permitAndTransfer(uint256 amount, PermitData memory permit) internal {
-        // Try to use permit - it might fail if permit was already used
-        try IERC20Permit(usdc).permit(msg.sender, address(this), amount, permit.deadline, permit.v, permit.r, permit.s)
-        {
-            // Permit succeeded
-        } catch {
-            // Permit failed, check if we have approval anyway
-            uint256 allowance = IERC20(usdc).allowance(msg.sender, address(this));
-            if (allowance < amount) {
-                revert InsufficientAllowance();
-            }
-        }
+        // Use permit
+        IERC20Permit(usdc).permit(msg.sender, address(this), amount, permit.deadline, permit.v, permit.r, permit.s);
 
         // Transfer USDC
         IERC20(usdc).transferFrom(msg.sender, address(this), amount);

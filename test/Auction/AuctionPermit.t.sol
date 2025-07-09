@@ -174,14 +174,14 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
         usdc.mint(bidder, amount);
 
-        // Should revert with InsufficientAllowance since permit fails and no approval exists
+        // Should revert when permit fails (expired deadline)
         vm.prank(bidder);
-        vm.expectRevert(IAuction.InsufficientAllowance.selector);
+        vm.expectRevert(); // Will revert with ERC20Permit: expired deadline
         auction.start(castData, bidData, params, auth, permit);
     }
 
-    function testFuzz_StartWithPermit_FallbackToApproval(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
-        (address bidder, uint256 bidderKey) = makeAddrAndKey("bidder");
+    function testFuzz_StartWithPermit_InvalidSignature(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+        (address bidder,) = makeAddrAndKey("bidder");
         bidderFid = _bound(bidderFid, 1, type(uint256).max);
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
@@ -205,10 +205,8 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
-        // Give invalid permit signature but approve normally
+        // Give bidder USDC
         usdc.mint(bidder, amount);
-        vm.prank(bidder);
-        usdc.approve(address(auction), amount);
 
         // Use invalid permit signature
         uint256 permitDeadline = block.timestamp + 1 hours;
@@ -218,11 +216,10 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
         IAuction.PermitData memory permit = createPermitData(permitDeadline, permitV, permitR, permitS);
 
-        // Should succeed using approval
+        // Should revert due to invalid permit
         vm.prank(bidder);
+        vm.expectRevert(); // Will revert with ERC20Permit: invalid signature
         auction.start(castData, bidData, params, auth, permit);
-
-        assertEq(usdc.balanceOf(address(auction)), amount);
     }
 
     function testFuzz_BidWithPermit_PermitAlreadyUsed(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, uint256 secondBidderFid, uint256 bidIncrement) public {
@@ -256,7 +253,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         vm.prank(secondBidder);
         usdc.permit(secondBidder, address(auction), amount, permitDeadline, permitV, permitR, permitS);
 
-        // Now try to bid with same permit (should succeed using existing approval)
+        // Now try to bid with same permit (should revert since permit already used)
         bytes32 nonce = keccak256("bid-nonce-1");
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -269,11 +266,10 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
         IAuction.PermitData memory permit = createPermitData(permitDeadline, permitV, permitR, permitS);
 
+        // Should revert since permit was already used
         vm.prank(secondBidder);
+        vm.expectRevert(); // Will revert with ERC20Permit: invalid signature (nonce already used)
         auction.bid(TEST_CAST_HASH, bidData, auth, permit);
-
-        // Should succeed using the approval from the already-used permit
-        assertEq(usdc.balanceOf(address(auction)), amount);
     }
 
     function testFuzz_StartWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
@@ -304,10 +300,10 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
         // Give bidder USDC but don't approve and use invalid permit
         usdc.mint(bidder, amount);
-        // No approval and invalid permit should cause InsufficientAllowance error
+        // No approval and invalid permit should cause permit to fail
 
         vm.prank(bidder);
-        vm.expectRevert(IAuction.InsufficientAllowance.selector);
+        vm.expectRevert(); // Will revert with ERC20Permit: invalid signature
         auction.start(castData, bidData, params, auth, invalidPermit);
     }
 
@@ -355,9 +351,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         // Verify no approval exists
         assertEq(usdc.allowance(secondBidder, address(auction)), 0);
 
-        // Should revert with InsufficientAllowance since permit fails and no approval exists
+        // Should revert since permit fails
         vm.prank(secondBidder);
-        vm.expectRevert(IAuction.InsufficientAllowance.selector);
+        vm.expectRevert(); // Will revert with ERC20Permit: invalid signature
         auction.bid(TEST_CAST_HASH, bidData, authData, invalidPermit);
     }
 
