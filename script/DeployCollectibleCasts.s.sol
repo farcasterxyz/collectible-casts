@@ -18,7 +18,7 @@ import {Auction} from "../src/Auction.sol";
  *         Following the Farcaster deployment pattern
  */
 contract DeployCollectibleCasts is ImmutableCreate2Deployer {
-    
+
     struct Salts {
         bytes32 collectibleCast;
         bytes32 metadata;
@@ -62,7 +62,8 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     function run() public returns (Contracts memory contracts) {
         bool broadcast = vm.envOr("BROADCAST", true);
         DeploymentParams memory params = loadDeploymentParams();
-        
+
+        console.log("");
         console.log("========================================");
         console.log("Deploying CollectibleCasts contracts...");
         console.log("========================================");
@@ -73,17 +74,18 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         console.log("Backend Signer:", params.backendSigner);
         console.log("Base URI:", params.baseURI);
         console.log("========================================");
+        console.log("");
 
         contracts = runDeploy(broadcast, params);
-        
+
         if (deploymentChanged()) {
             runSetup(broadcast, params, contracts);
         }
-        
+        console.log("");
         console.log("========================================");
         console.log("Deployment complete!");
         console.log("========================================");
-        
+
         return contracts;
     }
 
@@ -100,27 +102,27 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             type(Metadata).creationCode,
             abi.encode(params.baseURI, params.owner)
         );
-        
+
         addrs.minter = register(
             "Minter",
             params.salts.minter,
             type(Minter).creationCode,
             abi.encode(params.owner)
         );
-        
+
         addrs.transferValidator = register(
             "TransferValidator",
             params.salts.transferValidator,
             type(TransferValidator).creationCode,
             abi.encode(params.owner)
         );
-        
+
         addrs.royalties = register(
             "Royalties",
             params.salts.royalties,
             type(Royalties).creationCode
         );
-        
+
         // Deploy CollectibleCast with all module addresses
         addrs.collectibleCast = register(
             "CollectibleCast",
@@ -128,7 +130,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             type(CollectibleCast).creationCode,
             abi.encode(params.owner, addrs.minter, addrs.metadata, addrs.transferValidator, addrs.royalties)
         );
-        
+
         // 3. Deploy Auction (needs minter, USDC, treasury, and owner)
         addrs.auction = register(
             "Auction",
@@ -155,29 +157,22 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
      * @notice Configure contracts post-deployment
      */
     function runSetup(bool broadcast, DeploymentParams memory params, Contracts memory contracts) internal {
+        console.log("");
+        console.log("========================================");
         console.log("Configuring contracts...");
+        console.log("========================================");
 
-        // All setup operations must be done by the owner
-        vm.startPrank(params.owner);
-
-        // Set token on Minter
         console.log("Setting token on Minter...");
         if (broadcast) vm.broadcast();
         contracts.minter.setToken(address(contracts.collectibleCast));
 
-        // Allow Auction to mint
         console.log("Allowing Auction on Minter...");
         if (broadcast) vm.broadcast();
         contracts.minter.allow(address(contracts.auction));
 
-        // Add backend signer as authorizer
         console.log("Adding backend signer as authorizer...");
         if (broadcast) vm.broadcast();
         contracts.auction.allowAuthorizer(params.backendSigner);
-
-        vm.stopPrank();
-
-        // No need to transfer ownership - contracts are deployed with correct owner
 
         console.log("Configuration complete!");
     }
@@ -192,7 +187,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         // Base mainnet USDC
         params.usdc = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
         params.backendSigner = vm.envAddress("BACKEND_SIGNER_ADDRESS");
-        params.baseURI = vm.envOr("BASE_URI", string("https://api.farcaster.xyz/v1/collectibleCast/"));
+        params.baseURI = vm.envOr("BASE_URI", string("https://api.farcaster.xyz/v1/collectible-cast-metadata/"));
 
         // Load salts from environment or use defaults
         params.salts = Salts({
