@@ -76,13 +76,12 @@ contract MinterTest is TestSuiteSetup {
         assertEq(token.tokenCreator(tokenId), creator);
     }
 
-    function test_Mint_RevertsWhenCallerNotAllowed() public {
+    function testFuzz_Mint_RevertsWhenCallerNotAllowed(address recipient, bytes32 castHash, uint256 fid, address creator, address unauthorizedCaller) public {
         // Setup
-        address recipient = makeAddr("recipient");
-        bytes32 castHash = keccak256("test cast");
-        uint256 fid = 123;
-        address creator = makeAddr("creator");
-        address unauthorizedCaller = makeAddr("unauthorizedCaller");
+        vm.assume(recipient != address(0));
+        vm.assume(fid != 0);
+        vm.assume(creator != address(0));
+        vm.assume(!minter.allowed(unauthorizedCaller)); // Ensure caller is not allowed
 
         // Set the minter as the minter on the token
         token.setModule("minter", address(minter));
@@ -93,12 +92,12 @@ contract MinterTest is TestSuiteSetup {
         minter.mint(recipient, castHash, fid, creator);
     }
 
-    function test_Mint_RevertsOnDoubleMint() public {
+    function testFuzz_Mint_RevertsOnDoubleMint(address recipient, bytes32 castHash, uint256 fid, address creator) public {
         // Setup
-        address recipient = makeAddr("recipient");
-        bytes32 castHash = keccak256("test cast");
-        uint256 fid = 123;
-        address creator = makeAddr("creator");
+        vm.assume(recipient != address(0));
+        vm.assume(fid != 0);
+        vm.assume(creator != address(0));
+        vm.assume(recipient.code.length == 0); // EOA for safe minting
 
         // Set the minter as the minter on the token
         token.setModule("minter", address(minter));
@@ -138,18 +137,18 @@ contract MinterTest is TestSuiteSetup {
         assertFalse(minter.allowed(account));
     }
 
-    function test_Allow_OnlyOwner() public {
-        address notOwner = makeAddr("notOwner");
-        address toAllow = makeAddr("toAllow");
+    function testFuzz_Allow_OnlyOwner(address notOwner, address toAllow) public {
+        vm.assume(notOwner != minter.owner());
+        vm.assume(notOwner != address(0));
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         minter.allow(toAllow);
     }
 
-    function test_Deny_OnlyOwner() public {
-        address notOwner = makeAddr("notOwner");
-        address toDeny = makeAddr("toDeny");
+    function testFuzz_Deny_OnlyOwner(address notOwner, address toDeny) public {
+        vm.assume(notOwner != minter.owner());
+        vm.assume(notOwner != address(0));
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));

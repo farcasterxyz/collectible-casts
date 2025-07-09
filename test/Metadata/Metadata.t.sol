@@ -15,17 +15,7 @@ contract MetadataTest is TestSuiteSetup {
         metadata = new Metadata(BASE_URI, address(this));
     }
 
-    function test_Constructor_SetsOwnerAndBaseUri() public {
-        address owner = makeAddr("owner");
-        string memory baseUri = "https://api.example.com/metadata/";
-
-        vm.prank(owner);
-        metadata = new Metadata(baseUri, owner);
-
-        assertEq(metadata.owner(), owner);
-        assertEq(metadata.baseURI(), baseUri);
-    }
-
+    
     function testFuzz_Constructor_SetsOwnerAndBaseUri(address owner, string memory baseUri) public {
         vm.assume(owner != address(0));
 
@@ -41,11 +31,6 @@ contract MetadataTest is TestSuiteSetup {
         assertEq(contractUri, string.concat(BASE_URI, "contract"));
     }
 
-    function test_Uri_ReturnsCorrectTokenUri() public view {
-        uint256 tokenId = 12345;
-        string memory tokenUri = metadata.uri(tokenId);
-        assertEq(tokenUri, string.concat(BASE_URI, "12345"));
-    }
 
     function testFuzz_Uri_HandlesAllTokenIds(uint256 tokenId) public view {
         string memory tokenUri = metadata.uri(tokenId);
@@ -62,15 +47,6 @@ contract MetadataTest is TestSuiteSetup {
         metadata.setBaseURI(newBaseUri);
     }
 
-    function test_SetBaseURI_UpdatesUris() public {
-        string memory newBaseUri = "https://new.example.com/";
-
-        metadata.setBaseURI(newBaseUri);
-
-        assertEq(metadata.baseURI(), newBaseUri);
-        assertEq(metadata.contractURI(), string.concat(newBaseUri, "contract"));
-        assertEq(metadata.uri(123), string.concat(newBaseUri, "123"));
-    }
 
     function test_SetBaseURI_EmitsEvent() public {
         string memory oldBaseUri = metadata.baseURI();
@@ -91,7 +67,7 @@ contract MetadataTest is TestSuiteSetup {
     }
 
     // Edge case tests
-    function test_Uri_MaxTokenId() public view {
+    function testFuzz_Uri_MaxTokenId() public view {
         // Test with maximum possible token ID
         uint256 maxTokenId = type(uint256).max;
         string memory uri = metadata.uri(maxTokenId);
@@ -103,7 +79,7 @@ contract MetadataTest is TestSuiteSetup {
         assertEq(uri, expectedUri);
     }
 
-    function test_Uri_ZeroTokenId() public view {
+    function testFuzz_Uri_ZeroTokenId() public view {
         // Test with zero token ID
         string memory expectedUri = string.concat(BASE_URI, "0");
         assertEq(metadata.uri(0), expectedUri);

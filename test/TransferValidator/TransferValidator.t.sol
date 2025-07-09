@@ -27,14 +27,11 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertFalse(validator.transfersEnabled());
     }
 
-    function test_ValidateTransfer_BlocksAllWhenTransfersDisabled() public {
-        address owner = makeAddr("owner");
-        address operator = makeAddr("operator");
-        address to = makeAddr("to");
+    function testFuzz_ValidateTransfer_BlocksAllWhenTransfersDisabled(address owner, address operator, address to, uint256 tokenId, uint256 amount) public {
         uint256[] memory ids = new uint256[](1);
-        ids[0] = 1;
+        ids[0] = tokenId;
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = amount;
 
         // Should block ALL transfers when disabled, even owner transfers
         assertFalse(validator.validateTransfer(owner, owner, to, ids, amounts));
@@ -44,13 +41,14 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertFalse(validator.validateTransfer(operator, owner, to, ids, amounts));
     }
 
-    function test_ValidateTransfer_AllowsOwnerWhenTransfersEnabled() public {
-        address owner = makeAddr("owner");
-        address to = makeAddr("to");
+    function testFuzz_ValidateTransfer_AllowsOwnerWhenTransfersEnabled(address owner, address to, uint256 tokenId, uint256 amount) public {
+        vm.assume(owner != address(0));
+        vm.assume(to != address(0));
+        
         uint256[] memory ids = new uint256[](1);
-        ids[0] = 1;
+        ids[0] = tokenId;
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = amount;
 
         // Enable transfers
         validator.enableTransfers();
@@ -60,14 +58,13 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertTrue(isAllowed);
     }
 
-    function test_ValidateTransfer_RequiresOperatorAllowlistWhenTransfersEnabled() public {
-        address operator = makeAddr("operator");
-        address from = makeAddr("from");
-        address to = makeAddr("to");
+    function testFuzz_ValidateTransfer_RequiresOperatorAllowlistWhenTransfersEnabled(address operator, address from, address to, uint256 tokenId, uint256 amount) public {
+        vm.assume(operator != from); // Operator must be different from owner
+        
         uint256[] memory ids = new uint256[](1);
-        ids[0] = 1;
+        ids[0] = tokenId;
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = amount;
 
         // Enable transfers
         validator.enableTransfers();
@@ -84,8 +81,9 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertTrue(isAllowed);
     }
 
-    function test_EnableTransfers_OnlyOwner() public {
-        address notOwner = makeAddr("notOwner");
+    function testFuzz_EnableTransfers_OnlyOwner(address notOwner) public {
+        vm.assume(notOwner != validator.owner());
+        vm.assume(notOwner != address(0));
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
@@ -109,18 +107,16 @@ contract TransferValidatorTest is TestSuiteSetup {
         validator.enableTransfers();
     }
 
-    function test_AllowOperator_OnlyOwner() public {
-        address notOwner = makeAddr("notOwner");
-        address operator = makeAddr("operator");
+    function testFuzz_AllowOperator_OnlyOwner(address notOwner, address operator) public {
+        vm.assume(notOwner != validator.owner());
+        vm.assume(notOwner != address(0));
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         validator.allowOperator(operator);
     }
 
-    function test_AllowOperator_SetsAllowedStatus() public {
-        address operator = makeAddr("operator");
-
+    function testFuzz_AllowOperator_SetsAllowedStatus(address operator) public {
         // Initially not allowed
         assertFalse(validator.allowedOperators(operator));
 
@@ -131,27 +127,23 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertTrue(validator.allowedOperators(operator));
     }
 
-    function test_AllowOperator_EmitsEvent() public {
-        address operator = makeAddr("operator");
-
+    function testFuzz_AllowOperator_EmitsEvent(address operator) public {
         vm.expectEmit(true, false, false, true);
         emit OperatorAllowed(operator);
 
         validator.allowOperator(operator);
     }
 
-    function test_RemoveOperator_OnlyOwner() public {
-        address notOwner = makeAddr("notOwner");
-        address operator = makeAddr("operator");
+    function testFuzz_RemoveOperator_OnlyOwner(address notOwner, address operator) public {
+        vm.assume(notOwner != validator.owner());
+        vm.assume(notOwner != address(0));
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         validator.removeOperator(operator);
     }
 
-    function test_RemoveOperator_RemovesAllowedStatus() public {
-        address operator = makeAddr("operator");
-
+    function testFuzz_RemoveOperator_RemovesAllowedStatus(address operator) public {
         // First allow
         validator.allowOperator(operator);
         assertTrue(validator.allowedOperators(operator));
@@ -163,9 +155,7 @@ contract TransferValidatorTest is TestSuiteSetup {
         assertFalse(validator.allowedOperators(operator));
     }
 
-    function test_RemoveOperator_EmitsEvent() public {
-        address operator = makeAddr("operator");
-
+    function testFuzz_RemoveOperator_EmitsEvent(address operator) public {
         vm.expectEmit(true, false, false, true);
         emit OperatorRemoved(operator);
 

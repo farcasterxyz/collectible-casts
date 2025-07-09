@@ -34,11 +34,10 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         auction.allowAuthorizer(authorizer);
     }
 
-    function test_StartWithPermit_Success() public {
+    function testFuzz_StartWithPermit_Success(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
         (address bidder, uint256 bidderKey) = makeAddrAndKey("bidder");
-        uint256 bidderFid = 12345;
-        uint256 amount = 1e6; // 1 USDC
-        bytes32 nonce = keccak256("start-nonce");
+        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
         uint256 deadline = block.timestamp + 1 hours;
 
         IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
@@ -83,18 +82,27 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(bidder), 0);
     }
 
-    function test_BidWithPermit_Success() public {
-        // Start auction first
-        address firstBidder = address(0x123);
-        uint256 firstBidderFid = 12345;
-        uint256 firstAmount = 1e6;
+    function testFuzz_BidWithPermit_Success(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, uint256 secondBidderFid, uint256 bidIncrement, bytes32 nonce) public {
+        // Bound inputs
+        vm.assume(firstBidder != address(0));
+        vm.assume(firstBidder != CREATOR);
+        vm.assume(firstBidder != address(auction)); // Not the auction contract
+        vm.assume(firstBidder.code.length == 0); // Ensure EOA for clean test
+        vm.assume(nonce != keccak256("start-nonce")); // Avoid nonce collision
+        firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
+        firstAmount = _bound(firstAmount, 1e6, 1000e6); // 1 to 1000 USDC
+        secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
+        
+        // Calculate valid bid increment
+        uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
+        if (minIncrement < 1e6) minIncrement = 1e6;
+        bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
+        uint256 secondAmount = firstAmount + bidIncrement;
+        
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Second bidder with permit
         (address secondBidder, uint256 secondBidderKey) = makeAddrAndKey("secondBidder");
-        uint256 secondBidderFid = 54321;
-        uint256 secondAmount = 2e6; // 2 USDC
-        bytes32 nonce = keccak256("bid-nonce-1");
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create bid authorization
@@ -131,11 +139,11 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(firstBidder), firstBidderBalanceBefore + firstAmount); // Refunded
     }
 
-    function test_StartWithPermit_ExpiredPermit() public {
+    function testFuzz_StartWithPermit_ExpiredPermit(uint256 bidderFid, uint256 amount, bytes32 nonce, uint256 expiredOffset) public {
         (address bidder, uint256 bidderKey) = makeAddrAndKey("bidder");
-        uint256 bidderFid = 12345;
-        uint256 amount = 1e6;
-        bytes32 nonce = keccak256("start-nonce");
+        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        amount = _bound(amount, 1e6, 10000e6);
+        expiredOffset = _bound(expiredOffset, 1, block.timestamp > 365 days ? 365 days : block.timestamp); // Avoid underflow
         uint256 deadline = block.timestamp + 1 hours;
 
         IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
@@ -158,7 +166,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Create expired permit signature
-        uint256 permitDeadline = block.timestamp - 1; // Already expired
+        uint256 permitDeadline = block.timestamp - expiredOffset; // Already expired
         bytes32 permitHash = _getPermitHash(bidder, address(auction), amount, 0, permitDeadline);
         (uint8 permitV, bytes32 permitR, bytes32 permitS) = vm.sign(bidderKey, permitHash);
 
@@ -172,11 +180,10 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth, permit);
     }
 
-    function test_StartWithPermit_FallbackToApproval() public {
+    function testFuzz_StartWithPermit_FallbackToApproval(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
         (address bidder, uint256 bidderKey) = makeAddrAndKey("bidder");
-        uint256 bidderFid = 12345;
-        uint256 amount = 1e6;
-        bytes32 nonce = keccak256("start-nonce");
+        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
         IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
@@ -218,17 +225,26 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(address(auction)), amount);
     }
 
-    function test_BidWithPermit_PermitAlreadyUsed() public {
-        // Start auction first
-        address firstBidder = address(0x123);
-        uint256 firstBidderFid = 12345;
-        uint256 firstAmount = 1e6;
+    function testFuzz_BidWithPermit_PermitAlreadyUsed(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, uint256 secondBidderFid, uint256 bidIncrement) public {
+        // Bound inputs
+        vm.assume(firstBidder != address(0));
+        vm.assume(firstBidder != CREATOR);
+        vm.assume(firstBidder != address(auction)); // Not the auction contract
+        vm.assume(firstBidder.code.length == 0); // Ensure EOA for clean test
+        firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
+        firstAmount = _bound(firstAmount, 1e6, 1000e6);
+        secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
+        
+        // Calculate valid bid increment
+        uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
+        if (minIncrement < 1e6) minIncrement = 1e6;
+        bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
+        uint256 amount = firstAmount + bidIncrement;
+        
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Second bidder setup
         (address secondBidder, uint256 secondBidderKey) = makeAddrAndKey("secondBidder");
-        uint256 secondBidderFid = 54321;
-        uint256 amount = 2e6;
 
         // Create permit signature
         uint256 permitDeadline = block.timestamp + 1 hours;
@@ -260,11 +276,10 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         assertEq(usdc.balanceOf(address(auction)), amount);
     }
 
-    function test_StartWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail() public {
+    function testFuzz_StartWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
         (address bidder,) = makeAddrAndKey("bidder-no-allowance");
-        uint256 bidderFid = 12345;
-        uint256 amount = 1e6;
-        bytes32 nonce = keccak256("start-nonce-permit-fail");
+        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
         IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
@@ -296,18 +311,25 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth, invalidPermit);
     }
 
-    function test_BidWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail() public {
-        // Start auction first
-        address firstBidder = address(0x123);
-        uint256 firstBidderFid = 12345;
-        uint256 firstAmount = 1e6;
+    function testFuzz_BidWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(address firstBidder, uint256 firstBidderFid, uint256 firstAmount, uint256 secondBidderFid, uint256 bidIncrement, bytes32 nonce) public {
+        // Bound inputs
+        vm.assume(firstBidder != address(0));
+        vm.assume(firstBidder != CREATOR);
+        vm.assume(nonce != keccak256("start-nonce")); // Avoid nonce collision
+        firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
+        firstAmount = _bound(firstAmount, 1e6, 1000e6);
+        secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
+        
+        // Calculate valid bid increment
+        uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
+        if (minIncrement < 1e6) minIncrement = 1e6;
+        bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
+        uint256 secondAmount = firstAmount + bidIncrement;
+        
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Second bidder with invalid permit and no approval
         (address secondBidder,) = makeAddrAndKey("secondBidder-no-allowance");
-        uint256 secondBidderFid = 54321;
-        uint256 secondAmount = 2e6; // 2 USDC
-        bytes32 nonce = keccak256("bid-nonce-permit-fail");
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create bid authorization

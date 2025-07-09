@@ -63,26 +63,18 @@ contract AuctionTest is Test, AuctionTestHelper {
         new Auction(MINTER, USDC, address(0), address(this));
     }
 
-    function test_AllowAuthorizer_OnlyOwner() public {
-        address authorizer = address(0x456);
-        address notOwner = address(0x123);
+    function testFuzz_AllowAuthorizer_OnlyOwner(address authorizer, address notOwner) public {
+        vm.assume(authorizer != address(0));
+        vm.assume(notOwner != auction.owner());
+        vm.assume(notOwner != address(0));
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         auction.allowAuthorizer(authorizer);
     }
 
-    function test_AllowAuthorizer_UpdatesAllowlist() public {
-        address authorizer = address(0x456);
-
-        vm.prank(auction.owner());
-        auction.allowAuthorizer(authorizer);
-
-        assertTrue(auction.authorizers(authorizer));
-    }
-
-    function test_AllowAuthorizer_EmitsEvent() public {
-        address authorizer = address(0x456);
+    function testFuzz_AllowAuthorizer_EmitsEvent(address authorizer) public {
+        vm.assume(authorizer != address(0));
 
         vm.expectEmit(true, false, false, false);
         emit AuthorizerAllowed(authorizer);
@@ -97,9 +89,10 @@ contract AuctionTest is Test, AuctionTestHelper {
         auction.allowAuthorizer(address(0));
     }
 
-    function test_DenyAuthorizer_OnlyOwner() public {
-        address authorizer = address(0x456);
-        address notOwner = address(0x123);
+    function testFuzz_DenyAuthorizer_OnlyOwner(address authorizer, address notOwner) public {
+        vm.assume(authorizer != address(0));
+        vm.assume(notOwner != auction.owner());
+        vm.assume(notOwner != address(0));
 
         // First allow the authorizer
         vm.prank(auction.owner());
@@ -111,22 +104,8 @@ contract AuctionTest is Test, AuctionTestHelper {
         auction.denyAuthorizer(authorizer);
     }
 
-    function test_DenyAuthorizer_UpdatesAllowlist() public {
-        address authorizer = address(0x456);
-
-        // First allow the authorizer
-        vm.prank(auction.owner());
-        auction.allowAuthorizer(authorizer);
-        assertTrue(auction.authorizers(authorizer));
-
-        // Then deny the authorizer
-        vm.prank(auction.owner());
-        auction.denyAuthorizer(authorizer);
-        assertFalse(auction.authorizers(authorizer));
-    }
-
-    function test_DenyAuthorizer_EmitsEvent() public {
-        address authorizer = address(0x456);
+    function testFuzz_DenyAuthorizer_EmitsEvent(address authorizer) public {
+        vm.assume(authorizer != address(0));
 
         // First allow the authorizer
         vm.prank(auction.owner());
@@ -143,26 +122,18 @@ contract AuctionTest is Test, AuctionTestHelper {
     event AuthorizerAllowed(address indexed authorizer);
     event AuthorizerDenied(address indexed authorizer);
 
-    function test_SetTreasury_OnlyOwner() public {
-        address newTreasury = address(0x789);
-        address notOwner = address(0x123);
+    function testFuzz_SetTreasury_OnlyOwner(address newTreasury, address notOwner) public {
+        vm.assume(newTreasury != address(0));
+        vm.assume(notOwner != auction.owner());
+        vm.assume(notOwner != address(0));
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         auction.setTreasury(newTreasury);
     }
 
-    function test_SetTreasury_UpdatesTreasury() public {
-        address newTreasury = address(0x789);
-
-        vm.prank(auction.owner());
-        auction.setTreasury(newTreasury);
-
-        assertEq(auction.treasury(), newTreasury);
-    }
-
-    function test_SetTreasury_EmitsEvent() public {
-        address newTreasury = address(0x789);
+    function testFuzz_SetTreasury_EmitsEvent(address newTreasury) public {
+        vm.assume(newTreasury != address(0));
 
         vm.expectEmit(true, true, false, false);
         emit TreasurySet(TREASURY, newTreasury);
@@ -216,8 +187,8 @@ contract AuctionTest is Test, AuctionTestHelper {
     // Edge case tests
 
     // Test denying an authorizer that was never allowed
-    function test_DenyAuthorizer_NotPreviouslyAllowed() public {
-        address authorizer = address(0x456);
+    function testFuzz_DenyAuthorizer_NotPreviouslyAllowed(address authorizer) public {
+        vm.assume(authorizer != address(0));
 
         // Verify not allowed initially
         assertFalse(auction.authorizers(authorizer));
@@ -234,8 +205,9 @@ contract AuctionTest is Test, AuctionTestHelper {
     }
 
     // Test Ownable2Step functionality
-    function test_TransferOwnership_TwoStep() public {
-        address newOwner = address(0x999);
+    function testFuzz_TransferOwnership_TwoStep(address newOwner) public {
+        vm.assume(newOwner != address(0));
+        vm.assume(newOwner != auction.owner());
 
         // Start transfer
         vm.prank(auction.owner());
@@ -254,8 +226,9 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(auction.pendingOwner(), address(0));
     }
 
-    function test_AcceptOwnership_RevertsIfNotPendingOwner() public {
-        address notPendingOwner = address(0x999);
+    function testFuzz_AcceptOwnership_RevertsIfNotPendingOwner(address notPendingOwner) public {
+        vm.assume(notPendingOwner != address(0));
+        vm.assume(notPendingOwner != auction.pendingOwner());
 
         vm.prank(notPendingOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notPendingOwner));
@@ -302,14 +275,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     }
 
     // Bid Authorization tests
-    function test_BidAuthorizationHash_ComputesCorrectly() public view {
-        bytes32 castHash = keccak256("test-cast");
-        address bidder = address(0x123);
-        uint256 bidderFid = 12345; // Example FID
-        uint256 amount = 1e6; // 1 USDC
-        bytes32 nonce = keccak256("test-nonce");
-        uint256 deadline = block.timestamp + 1 hours;
-
+    function testFuzz_BidAuthorizationHash_ComputesCorrectly(bytes32 castHash, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce, uint256 deadline) public view {
         bytes32 structHash =
             keccak256(abi.encode(BID_AUTHORIZATION_TYPEHASH, castHash, bidder, bidderFid, amount, nonce, deadline));
 
@@ -338,13 +304,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(auction.hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline), expectedHash);
     }
 
-    function test_VerifyBidAuthorization_ValidSignature() public {
-        // Setup test values
-        bytes32 castHash = keccak256("test-cast");
-        address bidder = address(0x123);
-        uint256 bidderFid = 12345;
-        uint256 amount = 1e6; // 1 USDC
-        bytes32 nonce = keccak256("test-nonce-1");
+    function testFuzz_VerifyBidAuthorization_ValidSignature(bytes32 castHash, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Generate authorizer key
@@ -365,13 +325,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertTrue(auction.verifyBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline, signature));
     }
 
-    function test_VerifyBidAuthorization_InvalidSignature() public {
-        // Setup test values
-        bytes32 castHash = keccak256("test-cast");
-        address bidder = address(0x123);
-        uint256 bidderFid = 12345;
-        uint256 amount = 1e6;
-        bytes32 nonce = keccak256("test-nonce-2");
+    function testFuzz_VerifyBidAuthorization_InvalidSignature(bytes32 castHash, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Generate authorizer key (but don't allow it)
@@ -388,13 +342,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertFalse(auction.verifyBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline, signature));
     }
 
-    function test_VerifyBidAuthorization_ExpiredDeadline() public {
-        // Setup test values
-        bytes32 castHash = keccak256("test-cast");
-        address bidder = address(0x123);
-        uint256 bidderFid = 12345;
-        uint256 amount = 1e6;
-        bytes32 nonce = keccak256("test-nonce-3");
+    function testFuzz_VerifyBidAuthorization_ExpiredDeadline(bytes32 castHash, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
         uint256 deadline = block.timestamp - 1; // Already expired
 
         // Generate authorizer key
@@ -415,25 +363,19 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertFalse(auction.verifyBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline, signature));
     }
 
-    function test_UsedNonces_PublicMapping() public view {
+    function testFuzz_UsedNonces_PublicMapping(bytes32 testNonce) public view {
         // Test that usedNonces mapping is accessible
-        bytes32 testNonce = keccak256("test-nonce");
         assertFalse(auction.usedNonces(testNonce));
     }
 
-    function test_BidAuthorizationHash_DifferentFids() public view {
-        // Test that different FIDs produce different hashes
-        bytes32 castHash = keccak256("test-cast");
-        address bidder = address(0x123);
-        uint256 amount = 1e6;
-        bytes32 nonce = keccak256("test-nonce");
-        uint256 deadline = block.timestamp + 1 hours;
+    function testFuzz_BidAuthorizationHash_DifferentFids(bytes32 castHash, address bidder, uint256 amount, bytes32 nonce, uint256 deadline, uint256 fid1, uint256 fid2) public view {
+        vm.assume(fid1 != fid2);
 
-        // Get hash with FID 12345
-        bytes32 hash1 = auction.hashBidAuthorization(castHash, bidder, 12345, amount, nonce, deadline);
+        // Get hash with first FID
+        bytes32 hash1 = auction.hashBidAuthorization(castHash, bidder, fid1, amount, nonce, deadline);
 
-        // Get hash with FID 67890
-        bytes32 hash2 = auction.hashBidAuthorization(castHash, bidder, 67890, amount, nonce, deadline);
+        // Get hash with second FID
+        bytes32 hash2 = auction.hashBidAuthorization(castHash, bidder, fid2, amount, nonce, deadline);
 
         // Hashes should be different
         assertTrue(hash1 != hash2);

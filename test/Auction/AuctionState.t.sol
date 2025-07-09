@@ -47,42 +47,45 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         auction.allowAuthorizer(authorizer);
     }
 
-    function test_StateTransitions() public {
+    function testFuzz_StateTransitions(bytes32 castHash) public {
+        vm.assume(castHash != bytes32(0));
         // Initially, auction should be in None state
-        assertEq(uint256(auction.getAuctionState(TEST_CAST_HASH)), uint256(IAuction.AuctionState.None));
+        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.None));
 
         // Start auction
-        _startAuction();
+        _startAuction(castHash);
 
         // Should now be Active
-        assertEq(uint256(auction.getAuctionState(TEST_CAST_HASH)), uint256(IAuction.AuctionState.Active));
+        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Active));
 
         // Fast forward past end time
         vm.warp(block.timestamp + 25 hours);
 
         // Should now be Ended (automatically detected)
-        assertEq(uint256(auction.getAuctionState(TEST_CAST_HASH)), uint256(IAuction.AuctionState.Ended));
+        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Ended));
 
         // Settle the auction
-        auction.settle(TEST_CAST_HASH);
+        auction.settle(castHash);
 
         // State should now be Settled
-        assertEq(uint256(auction.getAuctionState(TEST_CAST_HASH)), uint256(IAuction.AuctionState.Settled));
+        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Settled));
     }
 
-    function test_CannotStartAuctionTwice() public {
-        _startAuction();
+    function testFuzz_CannotStartAuctionTwice(bytes32 castHash, address creator, uint256 creatorFid, address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+        vm.assume(castHash != bytes32(0));
+        vm.assume(creator != address(0));
+        vm.assume(bidder != address(0));
+        vm.assume(creator != bidder);
+        creatorFid = _bound(creatorFid, 1, type(uint256).max);
+        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        amount = _bound(amount, 1e6, 10000e6);
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        _startAuction(castHash);
 
         // Try to start again
-        address creator = address(0x789);
-        uint256 creatorFid = 67890;
-        address bidder = address(0x456);
-        uint256 bidderFid = 54321;
-        uint256 amount = 2e6;
-        bytes32 nonce = keccak256("start-nonce-2");
-        uint256 deadline = block.timestamp + 1 hours;
 
-        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, creator, creatorFid);
+        IAuction.CastData memory castData = createCastData(castHash, creator, creatorFid);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
         IAuction.AuctionParams memory params = createAuctionParams(
             1e6, // minBid
@@ -94,7 +97,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         );
 
         bytes32 messageHash = auction.hashStartAuthorization(
-            TEST_CAST_HASH, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
+            castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -110,53 +113,57 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function test_BidChecksState() public {
+    function testFuzz_BidChecksState(bytes32 castHash, uint256 bidderFid, uint256 bidAmount, bytes32 nonce) public {
+        vm.assume(castHash != bytes32(0));
+        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        bidAmount = _bound(bidAmount, 1e6, 10000e6);
         // Try to bid on non-existent auction
-        IAuction.BidData memory bidData = createBidData(12345, 2e6);
-        IAuction.AuthData memory auth = createAuthData(keccak256("nonce"), block.timestamp + 1 hours, "");
+        IAuction.BidData memory bidData = createBidData(bidderFid, bidAmount);
+        IAuction.AuthData memory auth = createAuthData(nonce, block.timestamp + 1 hours, "");
 
         vm.expectRevert(IAuction.AuctionDoesNotExist.selector);
-        auction.bid(TEST_CAST_HASH, bidData, auth);
+        auction.bid(castHash, bidData, auth);
 
         // Start auction
-        _startAuction();
+        _startAuction(castHash);
 
         // Now bidding should work (but will fail with UnauthorizedBidder due to invalid signature)
         vm.expectRevert(IAuction.UnauthorizedBidder.selector);
-        auction.bid(TEST_CAST_HASH, bidData, auth);
+        auction.bid(castHash, bidData, auth);
 
         // Fast forward past end time
         vm.warp(block.timestamp + 25 hours);
 
         // Try to bid on ended auction
         vm.expectRevert(IAuction.AuctionNotActive.selector);
-        auction.bid(TEST_CAST_HASH, bidData, auth);
+        auction.bid(castHash, bidData, auth);
     }
 
-    function test_SettleChecksState() public {
+    function testFuzz_SettleChecksState(bytes32 castHash) public {
+        vm.assume(castHash != bytes32(0));
         // Try to settle non-existent auction
         vm.expectRevert(IAuction.AuctionDoesNotExist.selector);
-        auction.settle(TEST_CAST_HASH);
+        auction.settle(castHash);
 
         // Start auction
-        _startAuction();
+        _startAuction(castHash);
 
         // Try to settle active auction
         vm.expectRevert(IAuction.AuctionNotEnded.selector);
-        auction.settle(TEST_CAST_HASH);
+        auction.settle(castHash);
 
         // Fast forward past end time
         vm.warp(block.timestamp + 25 hours);
 
         // Now should be able to settle (no longer reverts with "Not implemented")
         // Settlement will succeed and transition state to Settled
-        auction.settle(TEST_CAST_HASH);
+        auction.settle(castHash);
 
         // Verify state is now Settled
-        assertEq(uint256(auction.getAuctionState(TEST_CAST_HASH)), uint256(IAuction.AuctionState.Settled));
+        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Settled));
     }
 
-    function _startAuction() internal {
+    function _startAuction(bytes32 castHash) internal {
         address creator = address(0x789);
         uint256 creatorFid = 67890;
         address bidder = address(0x123);
@@ -165,7 +172,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         bytes32 nonce = keccak256("start-nonce-1");
         uint256 deadline = block.timestamp + 1 hours;
 
-        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, creator, creatorFid);
+        IAuction.CastData memory castData = createCastData(castHash, creator, creatorFid);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
         IAuction.AuctionParams memory params = createAuctionParams(
             1e6, // minBid
@@ -177,7 +184,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         );
 
         bytes32 messageHash = auction.hashStartAuthorization(
-            TEST_CAST_HASH, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
+            castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
