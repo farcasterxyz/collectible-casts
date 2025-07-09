@@ -1,66 +1,70 @@
-## Foundry
+# Collectible Casts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
-
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+ERC-1155 collectible casts + auction.
 
 ## Documentation
 
-https://book.getfoundry.sh/
+- [SPEC.md](./SPEC.md) - Complete system specification
+- [PLAN.md](./PLAN.md) - Implementation plan
+- [TASKS.md](./TASKS.md) - Detailed task breakdown
 
-## Usage
+## Setup
 
-### Build
+```bash
+# Install Foundry
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
 
-```shell
-$ forge build
+# Clone repository
+git clone <repository-url>
+cd collectible-casts
+
+# Install dependencies
+forge install
+
+# Build contracts
+forge build
 ```
 
-### Test
+## Development
 
-```shell
-$ forge test
+```bash
+# Run tests
+forge test
+
+# Run tests with gas report
+forge test --gas-report
+
+# Format code
+forge fmt
+
+# Check coverage
+forge coverage
+python3 script/check-coverage.py
 ```
 
-### Format
+## Deployment
 
-```shell
-$ forge fmt
+```bash
+# Deploy to Base mainnet
+forge script script/DeployCollectibleCasts.s.sol --rpc-url <BASE_RPC_URL> --broadcast
 ```
 
-### Gas Snapshots
+## Project Structure
 
-```shell
-$ forge snapshot
+```
+src/
+├── CollectibleCast.sol     # Main ERC-1155 token contract
+├── Minter.sol             # Minting access control
+├── Metadata.sol           # Token URI generation
+├── TransferValidator.sol  # Optional transfer restrictions
+├── Royalties.sol          # ERC-2981 royalty implementation
+└── Auction.sol            # Dutch auction for token sales
+
+test/                      # Comprehensive test suite (100% coverage)
+script/                    # Deployment scripts
 ```
 
-### Anvil
+## License
 
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+UNLICENSED
