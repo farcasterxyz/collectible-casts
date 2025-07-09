@@ -100,21 +100,21 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             "Metadata",
             params.salts.metadata,
             type(Metadata).creationCode,
-            abi.encode(params.baseURI, params.owner)
+            abi.encode(params.baseURI, params.deployer)
         );
 
         addrs.minter = register(
             "Minter",
             params.salts.minter,
             type(Minter).creationCode,
-            abi.encode(params.owner)
+            abi.encode(params.deployer)
         );
 
         addrs.transferValidator = register(
             "TransferValidator",
             params.salts.transferValidator,
             type(TransferValidator).creationCode,
-            abi.encode(params.owner)
+            abi.encode(params.deployer)
         );
 
         addrs.royalties = register(
@@ -128,7 +128,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             "CollectibleCast",
             params.salts.collectibleCast,
             type(CollectibleCast).creationCode,
-            abi.encode(params.owner, addrs.minter, addrs.metadata, addrs.transferValidator, addrs.royalties)
+            abi.encode(params.deployer, addrs.minter, addrs.metadata, addrs.transferValidator, addrs.royalties)
         );
 
         // 3. Deploy Auction (needs minter, USDC, treasury, and owner)
@@ -136,7 +136,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             "Auction",
             params.salts.auction,
             type(Auction).creationCode,
-            abi.encode(addrs.minter, params.usdc, params.treasury, params.owner)
+            abi.encode(addrs.minter, params.usdc, params.treasury, params.deployer)
         );
 
         // Deploy all registered contracts
@@ -174,6 +174,22 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         if (broadcast) vm.broadcast();
         contracts.auction.allowAuthorizer(params.backendSigner);
 
+        console.log("Transferring ownership...");
+        if (broadcast) vm.broadcast();
+        contracts.collectibleCast.transferOwnership(params.owner);
+
+        if (broadcast) vm.broadcast();
+        contracts.metadata.transferOwnership(params.owner);
+
+        if (broadcast) vm.broadcast();
+        contracts.minter.transferOwnership(params.owner);
+
+        if (broadcast) vm.broadcast();
+        contracts.transferValidator.transferOwnership(params.owner);
+
+        if (broadcast) vm.broadcast();
+        contracts.auction.transferOwnership(params.owner);
+
         console.log("Configuration complete!");
     }
 
@@ -181,7 +197,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
      * @notice Load deployment parameters from environment
      */
     function loadDeploymentParams() internal view returns (DeploymentParams memory params) {
-        params.deployer = msg.sender;
+        params.deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
         params.owner = vm.envOr("OWNER_ADDRESS", params.deployer);
         params.treasury = vm.envAddress("TREASURY_ADDRESS");
         // Base mainnet USDC
