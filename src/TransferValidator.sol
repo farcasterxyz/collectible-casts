@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {ITransferValidator} from "./interfaces/ITransferValidator.sol";
 
 contract TransferValidator is ITransferValidator, Ownable2Step {
@@ -34,6 +34,11 @@ contract TransferValidator is ITransferValidator, Ownable2Step {
     }
 
     // View functions
+    /// @notice Validates if a transfer is allowed
+    /// @param operator The address performing the transfer
+    /// @param from The address tokens are being transferred from
+    /// @return bool Whether the transfer is allowed
+    /// @dev The to, ids, and values parameters are unused as we don't restrict by destination, token ID, or amount
     function validateTransfer(address operator, address from, address, uint256[] calldata, uint256[] calldata)
         external
         view
@@ -45,7 +50,6 @@ contract TransferValidator is ITransferValidator, Ownable2Step {
             return false;
         }
 
-        // Transfers are enabled, check if operator is allowed
         // Owner can always transfer their own tokens
         if (operator == from) {
             return true;

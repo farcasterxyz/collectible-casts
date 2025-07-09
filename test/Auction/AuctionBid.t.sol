@@ -369,9 +369,9 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         vm.prank(secondBidder);
         usdc.approve(address(auction), secondAmount);
 
-        // Should revert because auction is already settled
+        // Should revert because auction is not active (it's settled)
         vm.prank(secondBidder);
-        vm.expectRevert(IAuction.AuctionAlreadySettled.selector);
+        vm.expectRevert(IAuction.AuctionNotActive.selector);
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 

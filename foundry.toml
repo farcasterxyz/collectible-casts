@@ -6,9 +6,7 @@ solc_version = "0.8.30"
 optimizer_runs = 100_000
 via_ir = true
 fuzz = { runs = 10000 }
-remappings = [
-    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-]
+remappings = []
 
 [fmt]
 line_length = 120

@@ -292,11 +292,8 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         returns (address previousBidder, uint256 previousBid)
     {
         AuctionState state = getAuctionState(castHash);
-        if (state != AuctionState.Active) {
-            if (state == AuctionState.None) revert AuctionDoesNotExist();
-            if (state == AuctionState.Ended) revert AuctionNotActive();
-            if (state == AuctionState.Settled) revert AuctionAlreadySettled();
-        }
+        if (state == AuctionState.None) revert AuctionDoesNotExist();
+        if (state != AuctionState.Active) revert AuctionNotActive();
 
         // Get auction data to check creator
         AuctionData storage auctionData = auctions[castHash];
