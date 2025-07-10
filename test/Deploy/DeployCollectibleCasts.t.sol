@@ -9,7 +9,6 @@ import {DeployCollectibleCasts} from "../../script/DeployCollectibleCasts.s.sol"
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {TransferValidator} from "../../src/TransferValidator.sol";
-import {Royalties} from "../../src/Royalties.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -74,7 +73,7 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         // Verify all addresses are non-zero
         assertTrue(address(deployed.collectibleCast) != address(0), "CollectibleCast should be deployed");
         assertTrue(address(deployed.transferValidator) != address(0), "TransferValidator should be deployed");
-        assertTrue(address(deployed.royalties) != address(0), "Royalties should be deployed");
+        // Royalties are now integrated into CollectibleCast, no separate contract
         assertTrue(address(deployed.auction) != address(0), "Auction should be deployed");
     }
 
@@ -88,7 +87,12 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
             address(deployed.transferValidator),
             "TransferValidator module incorrect"
         );
-        assertEq(deployed.collectibleCast.royalties(), address(deployed.royalties), "Royalties module incorrect");
+        // Royalty functionality is now integrated into CollectibleCast
+        // Test that ERC-2981 interface is supported
+        assertTrue(
+            deployed.collectibleCast.supportsInterface(0x2a55205a), // ERC-2981 interface ID
+            "CollectibleCast should support ERC-2981"
+        );
 
         // Check ownership
         assertEq(deployed.collectibleCast.owner(), deployer, "CollectibleCast owner incorrect");

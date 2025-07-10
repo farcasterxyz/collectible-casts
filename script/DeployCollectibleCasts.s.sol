@@ -7,7 +7,6 @@ import {ImmutableCreate2Deployer} from "./ImmutableCreate2Deployer.sol";
 // Import all our contracts
 import {CollectibleCast} from "../src/CollectibleCast.sol";
 import {TransferValidator} from "../src/TransferValidator.sol";
-import {Royalties} from "../src/Royalties.sol";
 import {Auction} from "../src/Auction.sol";
 
 /**
@@ -20,7 +19,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         bytes32 collectibleCast;
         bytes32 minter;
         bytes32 transferValidator;
-        bytes32 royalties;
         bytes32 auction;
     }
 
@@ -38,14 +36,12 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         address collectibleCast;
         address minter;
         address transferValidator;
-        address royalties;
         address auction;
     }
 
     struct Contracts {
         CollectibleCast collectibleCast;
         TransferValidator transferValidator;
-        Royalties royalties;
         Auction auction;
     }
 
@@ -97,14 +93,12 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             abi.encode(params.deployer)
         );
 
-        addrs.royalties = register("Royalties", params.salts.royalties, type(Royalties).creationCode);
-
-        // Deploy CollectibleCast with all module addresses
+        // Deploy CollectibleCast with transferValidator module
         addrs.collectibleCast = register(
             "CollectibleCast",
             params.salts.collectibleCast,
             type(CollectibleCast).creationCode,
-            abi.encode(params.deployer, params.baseURI, addrs.transferValidator, addrs.royalties)
+            abi.encode(params.deployer, params.baseURI, addrs.transferValidator)
         );
 
         // Deploy Auction (needs collectibleCast, USDC, treasury, and owner)
@@ -122,7 +116,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         return Contracts({
             collectibleCast: CollectibleCast(addrs.collectibleCast),
             transferValidator: TransferValidator(addrs.transferValidator),
-            royalties: Royalties(addrs.royalties),
             auction: Auction(addrs.auction)
         });
     }
@@ -174,7 +167,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             collectibleCast: vm.envOr("COLLECTIBLE_CAST_CREATE2_SALT", bytes32(0)),
             minter: vm.envOr("MINTER_CREATE2_SALT", bytes32(0)),
             transferValidator: vm.envOr("TRANSFER_VALIDATOR_CREATE2_SALT", bytes32(0)),
-            royalties: vm.envOr("ROYALTIES_CREATE2_SALT", bytes32(0)),
             auction: vm.envOr("AUCTION_CREATE2_SALT", bytes32(0))
         });
 

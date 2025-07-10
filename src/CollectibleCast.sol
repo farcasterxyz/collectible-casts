@@ -7,33 +7,31 @@ import {IERC2981} from "openzeppelin-contracts/contracts/interfaces/IERC2981.sol
 import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import {ICollectibleCast} from "./interfaces/ICollectibleCast.sol";
 import {ITransferValidator} from "./interfaces/ITransferValidator.sol";
-import {IRoyalties} from "./interfaces/IRoyalties.sol";
 
 /// @title CollectibleCast
 /// @notice ERC-1155 token representing collectible Farcaster casts
 /// @dev Uses a modular architecture with swappable components for minting, metadata, transfers, and royalties
 contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
+    // Constants for royalty calculations
+    uint256 public constant BPS_DENOMINATOR = 10000; // 100% = 10000 basis points
+    uint256 public constant ROYALTY_BPS = 500; // 5%
+
     // Mapping of allowed minters
     mapping(address => bool) public allowedMinters;
 
     // Transfer validator contract address
     address public transferValidator;
 
-    // Royalties contract address
-    address public royalties;
-
     // Mapping from token ID to token data
     mapping(uint256 => ICollectibleCast.TokenData) internal _tokenData;
 
-    constructor(address _owner, string memory baseURI_, address _transferValidator, address _royalties)
+    constructor(address _owner, string memory baseURI_, address _transferValidator)
         ERC1155(baseURI_)
         Ownable(_owner)
     {
         transferValidator = _transferValidator;
-        royalties = _royalties;
 
         emit SetTransferValidator(address(0), _transferValidator);
-        emit SetRoyalties(address(0), _royalties);
     }
 
     // External/public state-changing functions
@@ -53,17 +51,13 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
 
     // External permissioned functions
     /// @notice Updates a module address
-    /// @param module The module identifier ("minter", "metadata", "transferValidator", or "royalties")
+    /// @param module The module identifier ("transferValidator")
     /// @param addr The new module address
     function setModule(bytes32 module, address addr) external onlyOwner {
         if (module == "transferValidator") {
             address previousValidator = transferValidator;
             transferValidator = addr;
             emit SetTransferValidator(previousValidator, addr);
-        } else if (module == "royalties") {
-            address previousRoyalties = royalties;
-            royalties = addr;
-            emit SetRoyalties(previousRoyalties, addr);
         } else {
             revert InvalidModule();
         }
@@ -87,24 +81,20 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
         return super.uri(tokenId);
     }
 
-    // ERC-2981 implementation that delegates to royalties module
+    // ERC-2981 implementation
     function royaltyInfo(uint256 tokenId, uint256 salePrice)
         external
         view
         override
         returns (address receiver, uint256 royaltyAmount)
     {
-        if (royalties == address(0)) {
-            return (address(0), 0);
-        }
-
         address creator = _tokenData[tokenId].creator;
         if (creator == address(0)) {
             return (address(0), 0);
         }
 
-        // Delegate to royalties module
-        return IRoyalties(royalties).royaltyInfo(tokenId, salePrice, creator);
+        receiver = creator;
+        royaltyAmount = (salePrice * ROYALTY_BPS) / BPS_DENOMINATOR;
     }
 
     // Contract-level metadata

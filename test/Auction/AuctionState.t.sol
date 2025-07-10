@@ -27,8 +27,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         collectibleCast = new CollectibleCast(
             owner,
             "https://example.com/", // baseURI - not needed for auction tests
-            address(0), // transferValidator - not needed
-            address(0) // royalties - not needed
+            address(0) // transferValidator - not needed
         );
 
         // Configure real contracts

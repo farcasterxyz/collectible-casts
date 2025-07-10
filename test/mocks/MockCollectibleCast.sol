@@ -10,7 +10,6 @@ contract MockCollectibleCast is ICollectibleCast {
     uint256 public nextTokenId = 1;
 
     address public transferValidator;
-    address public royalties;
     string public baseURI;
 
     // Track mint calls for testing
@@ -42,12 +41,12 @@ contract MockCollectibleCast is ICollectibleCast {
     }
 
     function setModule(bytes32 module, address addr) external {
-        if (module == "TRANSFER_VALIDATOR") {
+        if (module == "transferValidator") {
+            address previousValidator = transferValidator;
             transferValidator = addr;
-            emit SetTransferValidator(transferValidator, addr);
-        } else if (module == "ROYALTIES") {
-            royalties = addr;
-            emit SetRoyalties(royalties, addr);
+            emit SetTransferValidator(previousValidator, addr);
+        } else {
+            revert InvalidModule();
         }
     }
 

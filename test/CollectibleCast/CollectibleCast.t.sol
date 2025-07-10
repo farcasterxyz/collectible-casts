@@ -6,7 +6,6 @@ import {MockERC1155Receiver} from "../mocks/MockERC1155Receiver.sol";
 import {MockNonERC1155Receiver} from "../mocks/MockNonERC1155Receiver.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
-import {Royalties} from "../../src/Royalties.sol";
 import {TransferValidator} from "../../src/TransferValidator.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -19,7 +18,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCast(address(this), "https://example.com/", address(0), address(0));
+        token = new CollectibleCast(address(this), "https://example.com/", address(0));
         validReceiver = new MockERC1155Receiver();
         invalidReceiver = new MockNonERC1155Receiver();
     }
@@ -88,7 +87,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(owner != address(this));
 
         vm.prank(owner);
-        CollectibleCast newToken = new CollectibleCast(owner, "https://example.com/", address(0), address(0));
+        CollectibleCast newToken = new CollectibleCast(owner, "https://example.com/", address(0));
 
         assertEq(newToken.owner(), owner);
     }
@@ -512,38 +511,15 @@ contract CollectibleCastTest is TestSuiteSetup {
         }
     }
 
-    // Royalties Module Tests
+    // Royalty Constants Tests
 
-    function test_SetRoyaltiesModule_OnlyOwner() public {
-        address notOwner = makeAddr("notOwner");
-        address royaltiesModule = makeAddr("royaltiesModule");
-
-        vm.prank(notOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        token.setModule("royalties", royaltiesModule);
-    }
-
-    function test_SetRoyaltiesModule_UpdatesModule() public {
-        address royaltiesModule = makeAddr("royaltiesModule");
-
-        vm.prank(token.owner());
-        token.setModule("royalties", royaltiesModule);
-
-        assertEq(token.royalties(), royaltiesModule);
-    }
-
-    function test_SetRoyaltiesModule_EmitsEvent() public {
-        address previousModule = token.royalties();
-        address newModule = makeAddr("newRoyaltiesModule");
-
-        vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.SetRoyalties(previousModule, newModule);
-
-        vm.prank(token.owner());
-        token.setModule("royalties", newModule);
+    function test_RoyaltyConstants() public view {
+        assertEq(token.BPS_DENOMINATOR(), 10000);
+        assertEq(token.ROYALTY_BPS(), 500);
     }
 
     function test_SetModule_RevertsWithInvalidModule() public {
+        vm.prank(token.owner());
         vm.expectRevert(ICollectibleCast.InvalidModule.selector);
         token.setModule("invalidModule", makeAddr("someAddress"));
     }
@@ -554,31 +530,36 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertTrue(token.supportsInterface(erc2981InterfaceId));
     }
 
-    function test_RoyaltyInfo_ReturnsZeroWhenNoRoyaltiesModule() public view {
-        // Test royalty without setting module
-        bytes32 castHash = keccak256("royaltyTest");
+    function test_RoyaltyInfo_ReturnsZeroForUnmintedToken() public view {
+        // Test royalty for unminted token
+        bytes32 castHash = keccak256("unmintedRoyaltyTest");
         uint256 tokenId = uint256(castHash);
         uint256 salePrice = 1000 ether;
 
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
 
-        // Should return zero
+        // Should return zero since token doesn't exist
         assertEq(receiver, address(0));
         assertEq(royaltyAmount, 0);
     }
 
-    function test_RoyaltyInfo_ReturnsZeroWhenNoCreator() public {
-        // Test royalty with module but no creator stored (unminted token)
-        vm.prank(token.owner());
-        token.setModule("royalties", makeAddr("royaltiesModule"));
-
-        bytes32 castHash = keccak256("unmintedToken");
+    function test_RoyaltyInfo_ReturnsZeroWhenCreatorIsZeroAddress() public {
+        // Test royalty when creator is zero address
+        address minterAddr = makeAddr("minter");
+        bytes32 castHash = keccak256("zeroCreatorToken");
         uint256 tokenId = uint256(castHash);
-        uint256 salePrice = 1000 ether;
+        uint256 fid = 123;
 
+        // Mint token with zero address as creator
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(makeAddr("recipient"), castHash, fid, address(0), "");
+
+        uint256 salePrice = 1000 ether;
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
 
-        // Should return zero since no creator
+        // Should return zero since creator is zero address
         assertEq(receiver, address(0));
         assertEq(royaltyAmount, 0);
     }
@@ -597,18 +578,14 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(minterAddr);
         token.mint(makeAddr("recipient"), castHash, fid, creator, "");
 
-        // Deploy and set royalties module
-        Royalties royaltiesModule = new Royalties();
-        vm.prank(token.owner());
-        token.setModule("royalties", address(royaltiesModule));
-
         // Test royalty calculation
         uint256 salePrice = 1000 ether;
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
 
         // Should return 5% to creator
         assertEq(receiver, creator);
-        assertEq(royaltyAmount, salePrice * 500 / 10000); // 5%
+        assertEq(royaltyAmount, salePrice * token.ROYALTY_BPS() / token.BPS_DENOMINATOR()); // 5%
+        assertEq(royaltyAmount, 50 ether); // 5% of 1000 ether
     }
 
     function testFuzz_RoyaltyInfo_ReturnsCreatorRoyalty(uint256 salePrice, bytes32 castHash, address creator) public {
@@ -626,18 +603,129 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(minterAddr);
         token.mint(makeAddr("recipient"), castHash, fid, creator, "");
 
-        // Deploy and set royalties module
-        Royalties royaltiesModule = new Royalties();
-        vm.prank(token.owner());
-        token.setModule("royalties", address(royaltiesModule));
-
         // Test royalty calculation
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
 
         // Should return 5% to creator
         assertEq(receiver, creator);
-        assertEq(royaltyAmount, salePrice * 500 / 10000); // 5%
+        assertEq(royaltyAmount, salePrice * token.ROYALTY_BPS() / token.BPS_DENOMINATOR()); // 5%
         assertTrue(royaltyAmount <= salePrice);
+    }
+
+    // Royalty edge case tests
+    function test_RoyaltyInfo_ZeroSalePrice() public {
+        // Mint a token with creator
+        address minterAddr = makeAddr("minter");
+        address creator = makeAddr("creator");
+        bytes32 castHash = keccak256("zeroSalePriceTest");
+        uint256 tokenId = uint256(castHash);
+
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, 123, creator, "");
+
+        // Test with zero sale price
+        (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, 0);
+
+        assertEq(receiver, creator);
+        assertEq(royaltyAmount, 0); // 5% of 0 is 0
+    }
+
+    function test_RoyaltyInfo_MaxSalePrice() public {
+        // Mint a token with creator
+        address minterAddr = makeAddr("minter");
+        address creator = makeAddr("creator");
+        bytes32 castHash = keccak256("maxSalePriceTest");
+        uint256 tokenId = uint256(castHash);
+
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, 123, creator, "");
+
+        // Test with max uint256 sale price - this should revert due to overflow
+        uint256 maxPrice = type(uint256).max;
+        
+        // The royalty calculation will overflow, so we expect a revert
+        vm.expectRevert(); // Arithmetic overflow
+        token.royaltyInfo(tokenId, maxPrice);
+    }
+
+    function test_RoyaltyInfo_LargeSafeSalePrice() public {
+        // Mint a token with creator
+        address minterAddr = makeAddr("minter");
+        address creator = makeAddr("creator");
+        bytes32 castHash = keccak256("largeSalePriceTest");
+        uint256 tokenId = uint256(castHash);
+
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, 123, creator, "");
+
+        // Test with largest safe price that won't overflow
+        uint256 largePrice = type(uint256).max / token.ROYALTY_BPS();
+        (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, largePrice);
+
+        assertEq(receiver, creator);
+        // Calculate expected royalty
+        uint256 expectedRoyalty = (largePrice * token.ROYALTY_BPS()) / token.BPS_DENOMINATOR();
+        assertEq(royaltyAmount, expectedRoyalty);
+        assertTrue(royaltyAmount > 0);
+        assertTrue(royaltyAmount < largePrice);
+    }
+
+    function test_RoyaltyInfo_SmallAmounts() public {
+        // Mint a token with creator
+        address minterAddr = makeAddr("minter");
+        address creator = makeAddr("creator");
+        bytes32 castHash = keccak256("smallAmountTest");
+        uint256 tokenId = uint256(castHash);
+
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, 123, creator, "");
+
+        // Test with small amounts where royalty would round down to 0
+        (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, 199); // 5% of 199 = 9.95, rounds to 9
+
+        assertEq(receiver, creator);
+        assertEq(royaltyAmount, 9); // 199 * 500 / 10000 = 9
+
+        // Test with very small amount
+        (, royaltyAmount) = token.royaltyInfo(tokenId, 19); // 5% of 19 = 0.95, rounds to 0
+        assertEq(royaltyAmount, 0);
+    }
+
+    function testFuzz_RoyaltyInfo_MathematicalCorrectness(uint256 salePrice) public {
+        // Bound sale price to avoid overflow
+        salePrice = _bound(salePrice, 0, type(uint256).max / token.ROYALTY_BPS());
+
+        // Mint a token with creator
+        address minterAddr = makeAddr("minter");
+        address creator = makeAddr("creator");
+        bytes32 castHash = keccak256("mathTest");
+        uint256 tokenId = uint256(castHash);
+
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, 123, creator, "");
+
+        // Get royalty
+        (, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
+
+        // Verify mathematical properties
+        uint256 expectedRoyalty = (salePrice * token.ROYALTY_BPS()) / token.BPS_DENOMINATOR();
+        assertEq(royaltyAmount, expectedRoyalty);
+
+        // Verify royalty is never more than 5%
+        if (salePrice > 0) {
+            uint256 royaltyPercentage = (royaltyAmount * token.BPS_DENOMINATOR()) / salePrice;
+            assertLe(royaltyPercentage, token.ROYALTY_BPS());
+        }
     }
 
     function test_Uri_ReturnsTokenSpecificURI() public {
