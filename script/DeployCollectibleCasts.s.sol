@@ -6,8 +6,6 @@ import {ImmutableCreate2Deployer} from "./ImmutableCreate2Deployer.sol";
 
 // Import all our contracts
 import {CollectibleCast} from "../src/CollectibleCast.sol";
-import {Metadata} from "../src/Metadata.sol";
-import {Minter} from "../src/Minter.sol";
 import {TransferValidator} from "../src/TransferValidator.sol";
 import {Royalties} from "../src/Royalties.sol";
 import {Auction} from "../src/Auction.sol";
@@ -20,7 +18,6 @@ import {Auction} from "../src/Auction.sol";
 contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     struct Salts {
         bytes32 collectibleCast;
-        bytes32 metadata;
         bytes32 minter;
         bytes32 transferValidator;
         bytes32 royalties;
@@ -39,7 +36,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
 
     struct Addresses {
         address collectibleCast;
-        address metadata;
         address minter;
         address transferValidator;
         address royalties;
@@ -48,8 +44,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
 
     struct Contracts {
         CollectibleCast collectibleCast;
-        Metadata metadata;
-        Minter minter;
         TransferValidator transferValidator;
         Royalties royalties;
         Auction auction;
@@ -95,11 +89,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         Addresses memory addrs;
 
         // Deploy modules first (they don't depend on CollectibleCast)
-        addrs.metadata = register(
-            "Metadata", params.salts.metadata, type(Metadata).creationCode, abi.encode(params.baseURI, params.deployer)
-        );
-
-        addrs.minter = register("Minter", params.salts.minter, type(Minter).creationCode, abi.encode(params.deployer));
 
         addrs.transferValidator = register(
             "TransferValidator",
@@ -115,15 +104,15 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             "CollectibleCast",
             params.salts.collectibleCast,
             type(CollectibleCast).creationCode,
-            abi.encode(params.deployer, addrs.minter, addrs.metadata, addrs.transferValidator, addrs.royalties)
+            abi.encode(params.deployer, params.baseURI, addrs.transferValidator, addrs.royalties)
         );
 
-        // 3. Deploy Auction (needs minter, USDC, treasury, and owner)
+        // Deploy Auction (needs collectibleCast, USDC, treasury, and owner)
         addrs.auction = register(
             "Auction",
             params.salts.auction,
             type(Auction).creationCode,
-            abi.encode(addrs.minter, params.usdc, params.treasury, params.deployer)
+            abi.encode(addrs.collectibleCast, params.usdc, params.treasury, params.deployer)
         );
 
         // Deploy all registered contracts
@@ -132,8 +121,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         // Return typed contract instances
         return Contracts({
             collectibleCast: CollectibleCast(addrs.collectibleCast),
-            metadata: Metadata(addrs.metadata),
-            minter: Minter(addrs.minter),
             transferValidator: TransferValidator(addrs.transferValidator),
             royalties: Royalties(addrs.royalties),
             auction: Auction(addrs.auction)
@@ -149,13 +136,9 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         console.log("Configuring contracts...");
         console.log("========================================");
 
-        console.log("Setting token on Minter...");
+        console.log("Allowing Auction on CollectibleCast...");
         if (broadcast) vm.broadcast();
-        contracts.minter.setToken(address(contracts.collectibleCast));
-
-        console.log("Allowing Auction on Minter...");
-        if (broadcast) vm.broadcast();
-        contracts.minter.allow(address(contracts.auction));
+        contracts.collectibleCast.allowMinter(address(contracts.auction));
 
         console.log("Adding backend signer as authorizer...");
         if (broadcast) vm.broadcast();
@@ -164,12 +147,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         console.log("Transferring ownership...");
         if (broadcast) vm.broadcast();
         contracts.collectibleCast.transferOwnership(params.owner);
-
-        if (broadcast) vm.broadcast();
-        contracts.metadata.transferOwnership(params.owner);
-
-        if (broadcast) vm.broadcast();
-        contracts.minter.transferOwnership(params.owner);
 
         if (broadcast) vm.broadcast();
         contracts.transferValidator.transferOwnership(params.owner);
@@ -195,7 +172,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         // Load salts from environment or use defaults
         params.salts = Salts({
             collectibleCast: vm.envOr("COLLECTIBLE_CAST_CREATE2_SALT", bytes32(0)),
-            metadata: vm.envOr("METADATA_CREATE2_SALT", bytes32(0)),
             minter: vm.envOr("MINTER_CREATE2_SALT", bytes32(0)),
             transferValidator: vm.envOr("TRANSFER_VALIDATOR_CREATE2_SALT", bytes32(0)),
             royalties: vm.envOr("ROYALTIES_CREATE2_SALT", bytes32(0)),

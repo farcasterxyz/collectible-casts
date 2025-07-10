@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IAuction} from "./interfaces/IAuction.sol";
-import {IMinter} from "./interfaces/IMinter.sol";
+import {ICollectibleCast} from "./interfaces/ICollectibleCast.sol";
 import {IERC20Permit} from "./interfaces/IERC20Permit.sol";
 import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
@@ -24,7 +24,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
     uint256 private constant MAX_AUCTION_DURATION = 30 days;
     uint256 private constant MAX_EXTENSION = 24 hours;
 
-    address public immutable minter;
+    address public immutable collectibleCast;
     address public immutable usdc;
 
     address public treasury;
@@ -33,15 +33,15 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
     mapping(bytes32 => bool) public usedNonces;
     mapping(bytes32 => AuctionData) public auctions;
 
-    constructor(address _minter, address _usdc, address _treasury, address _owner)
+    constructor(address _collectibleCast, address _usdc, address _treasury, address _owner)
         Ownable(_owner)
         EIP712("CollectibleCastAuction", "1")
     {
-        if (_minter == address(0)) revert InvalidAddress();
+        if (_collectibleCast == address(0)) revert InvalidAddress();
         if (_usdc == address(0)) revert InvalidAddress();
         if (_treasury == address(0)) revert InvalidAddress();
 
-        minter = _minter;
+        collectibleCast = _collectibleCast;
         usdc = _usdc;
         treasury = _treasury;
     }
@@ -104,7 +104,9 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         IERC20(usdc).transfer(auctionData.creator, creatorAmount);
 
         // Mint NFT to the winner
-        IMinter(minter).mint(auctionData.highestBidder, castHash, auctionData.creatorFid, auctionData.creator);
+        ICollectibleCast(collectibleCast).mint(
+            auctionData.highestBidder, castHash, auctionData.creatorFid, auctionData.creator, ""
+        );
 
         emit AuctionSettled(castHash, auctionData.highestBidder, auctionData.highestBidderFid, auctionData.highestBid);
     }

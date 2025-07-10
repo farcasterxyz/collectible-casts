@@ -6,6 +6,7 @@ interface ICollectibleCast {
     struct TokenData {
         uint256 fid;
         address creator;
+        string uri;
     }
 
     // Custom errors
@@ -14,22 +15,28 @@ interface ICollectibleCast {
     error TransferNotAllowed();
     error InvalidModule();
     error InvalidFid();
+    error InvalidInput();
+    error TokenDoesNotExist();
 
     // Events
     event CastMinted(
         address indexed to, bytes32 indexed castHash, uint256 indexed tokenId, uint256 fid, address creator
     );
-    event SetMinter(address indexed previousMinter, address indexed newMinter);
-    event SetMetadata(address indexed previousMetadata, address indexed newMetadata);
     event SetTransferValidator(address indexed previousValidator, address indexed newValidator);
     event SetRoyalties(address indexed previousRoyalties, address indexed newRoyalties);
+    event BaseURISet(string baseURI);
+    event MinterAllowed(address indexed account);
+    event MinterDenied(address indexed account);
 
-    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator) external;
+    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenURI) external;
     function setModule(bytes32 module, address addr) external;
+    function setBaseURI(string memory baseURI_) external;
+    function batchSetTokenURIs(uint256[] memory tokenIds, string[] memory uris) external;
+    function allowMinter(address account) external;
+    function denyMinter(address account) external;
 
     // View functions
-    function minter() external view returns (address);
-    function metadata() external view returns (address);
+    function allowedMinters(address account) external view returns (bool);
     function transferValidator() external view returns (address);
     function royalties() external view returns (address);
     function tokenData(uint256 tokenId) external view returns (TokenData memory);

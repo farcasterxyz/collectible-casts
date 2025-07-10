@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
-import {IMinter} from "../../src/interfaces/IMinter.sol";
+import {MockCollectibleCast} from "../mocks/MockCollectibleCast.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
@@ -13,7 +13,7 @@ import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 contract AuctionTest is Test, AuctionTestHelper {
     Auction public auction;
 
-    address public constant MINTER = address(0x2);
+    MockCollectibleCast public collectibleCast;
     address public constant USDC = address(0x3);
     address public constant TREASURY = address(0x4);
 
@@ -35,11 +35,14 @@ contract AuctionTest is Test, AuctionTestHelper {
     );
 
     function setUp() public {
-        auction = new Auction(MINTER, USDC, TREASURY, address(this));
+        collectibleCast = new MockCollectibleCast();
+        auction = new Auction(address(collectibleCast), USDC, TREASURY, address(this));
+        // Allow the auction contract to mint
+        collectibleCast.allowMinter(address(auction));
     }
 
     function test_Constructor_SetsConfiguration() public view {
-        assertEq(auction.minter(), MINTER);
+        assertEq(auction.collectibleCast(), address(collectibleCast));
         assertEq(auction.usdc(), USDC);
         assertEq(auction.treasury(), TREASURY);
     }
@@ -48,19 +51,19 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(auction.owner(), address(this));
     }
 
-    function test_Constructor_RevertsIfMinterIsZero() public {
+    function test_Constructor_RevertsIfCollectibleCastIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
         new Auction(address(0), USDC, TREASURY, address(this));
     }
 
     function test_Constructor_RevertsIfUSDCIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(MINTER, address(0), TREASURY, address(this));
+        new Auction(address(collectibleCast), address(0), TREASURY, address(this));
     }
 
     function test_Constructor_RevertsIfTreasuryIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(MINTER, USDC, address(0), address(this));
+        new Auction(address(collectibleCast), USDC, address(0), address(this));
     }
 
     function testFuzz_AllowAuthorizer_OnlyOwner(address authorizer, address notOwner) public {
@@ -248,7 +251,8 @@ contract AuctionTest is Test, AuctionTestHelper {
 
     function test_Constructor_SetsDomainSeparator() public {
         // Deploy new auction to test domain separator is set in constructor
-        Auction newAuction = new Auction(MINTER, USDC, TREASURY, address(this));
+        MockCollectibleCast newCollectibleCast = new MockCollectibleCast();
+        Auction newAuction = new Auction(address(newCollectibleCast), USDC, TREASURY, address(this));
 
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
@@ -415,7 +419,8 @@ contract AuctionTest is Test, AuctionTestHelper {
 
         // Deploy auction on different chain
         vm.chainId(999);
-        Auction wrongChainAuction = new Auction(MINTER, USDC, TREASURY, address(this));
+        MockCollectibleCast wrongChainCollectibleCast = new MockCollectibleCast();
+        Auction wrongChainAuction = new Auction(address(wrongChainCollectibleCast), USDC, TREASURY, address(this));
 
         // Allow the authorizer on wrong chain auction
         vm.prank(wrongChainAuction.owner());

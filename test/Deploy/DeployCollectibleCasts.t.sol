@@ -8,8 +8,6 @@ import {DeployCollectibleCasts} from "../../script/DeployCollectibleCasts.s.sol"
 // Import all contracts for testing
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
-import {Metadata} from "../../src/Metadata.sol";
-import {Minter} from "../../src/Minter.sol";
 import {TransferValidator} from "../../src/TransferValidator.sol";
 import {Royalties} from "../../src/Royalties.sol";
 import {Auction} from "../../src/Auction.sol";
@@ -59,8 +57,6 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
 
         // Set test salts - using bytes32(0) bypasses deployer check in ImmutableCreate2Factory
         vm.setEnv("COLLECTIBLE_CAST_CREATE2_SALT", vm.toString(bytes32(0)));
-        vm.setEnv("METADATA_CREATE2_SALT", vm.toString(bytes32(0)));
-        vm.setEnv("MINTER_CREATE2_SALT", vm.toString(bytes32(0)));
         vm.setEnv("TRANSFER_VALIDATOR_CREATE2_SALT", vm.toString(bytes32(0)));
         vm.setEnv("ROYALTIES_CREATE2_SALT", vm.toString(bytes32(0)));
         vm.setEnv("AUCTION_CREATE2_SALT", vm.toString(bytes32(0)));
@@ -77,8 +73,6 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
     function test_DeploymentAddresses() public view {
         // Verify all addresses are non-zero
         assertTrue(address(deployed.collectibleCast) != address(0), "CollectibleCast should be deployed");
-        assertTrue(address(deployed.metadata) != address(0), "Metadata should be deployed");
-        assertTrue(address(deployed.minter) != address(0), "Minter should be deployed");
         assertTrue(address(deployed.transferValidator) != address(0), "TransferValidator should be deployed");
         assertTrue(address(deployed.royalties) != address(0), "Royalties should be deployed");
         assertTrue(address(deployed.auction) != address(0), "Auction should be deployed");
@@ -86,8 +80,9 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
 
     function test_CollectibleCastConfiguration() public view {
         // Check modules are set correctly
-        assertEq(deployed.collectibleCast.metadata(), address(deployed.metadata), "Metadata module incorrect");
-        assertEq(deployed.collectibleCast.minter(), address(deployed.minter), "Minter module incorrect");
+        // Note: metadata is now part of the base contract, not a separate module
+        // Check that Auction is allowed to mint tokens
+        assertTrue(deployed.collectibleCast.allowedMinters(address(deployed.auction)), "Auction not allowed to mint");
         assertEq(
             deployed.collectibleCast.transferValidator(),
             address(deployed.transferValidator),
@@ -100,21 +95,11 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         assertEq(deployed.collectibleCast.pendingOwner(), owner, "CollectibleCast owner incorrect");
     }
 
-    function test_MinterConfiguration() public view {
-        // Check token address
-        assertEq(address(deployed.minter.token()), address(deployed.collectibleCast), "Minter token incorrect");
-
-        // Check auction is allowed
-        assertTrue(deployed.minter.allowed(address(deployed.auction)), "Auction should be allowed to mint");
-
-        // Check ownership
-        assertEq(deployed.minter.owner(), deployer, "Minter owner incorrect");
-        assertEq(deployed.minter.pendingOwner(), owner, "Minter owner incorrect");
-    }
-
     function test_AuctionConfiguration() public view {
         // Check immutable configuration
-        assertEq(deployed.auction.minter(), address(deployed.minter), "Auction minter incorrect");
+        assertEq(
+            deployed.auction.collectibleCast(), address(deployed.collectibleCast), "Auction collectibleCast incorrect"
+        );
         assertEq(deployed.auction.usdc(), USDC_BASE, "Auction USDC incorrect");
         assertEq(deployed.auction.treasury(), treasury, "Auction treasury incorrect");
 
@@ -124,15 +109,6 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         // Check ownership
         assertEq(deployed.auction.owner(), deployer, "Auction owner incorrect");
         assertEq(deployed.auction.pendingOwner(), owner, "Auction owner incorrect");
-    }
-
-    function test_MetadataConfiguration() public view {
-        // Check base URI
-        assertEq(deployed.metadata.baseURI(), "https://api.example.com/metadata/", "Base URI incorrect");
-
-        // Check ownership
-        assertEq(deployed.metadata.owner(), deployer, "Metadata owner incorrect");
-        assertEq(deployed.metadata.pendingOwner(), owner, "Metadata owner incorrect");
     }
 
     function test_TransferValidatorConfiguration() public view {
@@ -241,7 +217,7 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
 
         // Mint token directly (as auction would)
         vm.prank(address(deployed.auction));
-        deployed.minter.mint(creator, castHash, 12345, creator);
+        deployed.collectibleCast.mint(creator, castHash, 12345, creator, "");
 
         // Check royalty info
         (address receiver, uint256 royaltyAmount) = deployed.collectibleCast.royaltyInfo(tokenId, 1000);

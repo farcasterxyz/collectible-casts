@@ -8,7 +8,6 @@ import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {Royalties} from "../../src/Royalties.sol";
 import {TransferValidator} from "../../src/TransferValidator.sol";
-import {Metadata} from "../../src/Metadata.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
@@ -20,41 +19,67 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCast(address(this), address(0), address(0), address(0), address(0));
+        token = new CollectibleCast(address(this), "https://example.com/", address(0), address(0));
         validReceiver = new MockERC1155Receiver();
         invalidReceiver = new MockNonERC1155Receiver();
     }
 
-    function testFuzz_SetMinter_OnlyOwner(address newMinter, address notOwner) public {
+    function testFuzz_AllowMinter_OnlyOwner(address minterAddr, address notOwner) public {
         // Ensure notOwner is different from the actual owner
         vm.assume(notOwner != token.owner());
         vm.assume(notOwner != address(0));
 
-        // Test that owner can set minter
+        // Test that owner can allow minter
         vm.prank(token.owner());
-        token.setModule("minter", newMinter);
-        assertEq(token.minter(), newMinter);
+        token.allowMinter(minterAddr);
+        assertTrue(token.allowedMinters(minterAddr));
 
-        // Test that non-owner cannot set minter
+        // Test that non-owner cannot allow minter
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        token.setModule("minter", makeAddr("anotherMinter"));
+        token.allowMinter(makeAddr("anotherMinter"));
     }
 
-    function testFuzz_SetMinter_EmitsEvent(address firstMinter, address secondMinter) public {
-        // First set
-        vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.SetMinter(address(0), firstMinter);
+    function testFuzz_AllowMinter_EmitsEvent(address minterAddr) public {
+        vm.expectEmit(true, false, false, true);
+        emit ICollectibleCast.MinterAllowed(minterAddr);
 
         vm.prank(token.owner());
-        token.setModule("minter", firstMinter);
+        token.allowMinter(minterAddr);
+    }
 
-        // Second set
-        vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.SetMinter(firstMinter, secondMinter);
+    function testFuzz_DenyMinter_OnlyOwner(address minterAddr, address notOwner) public {
+        // Ensure notOwner is different from the actual owner
+        vm.assume(notOwner != token.owner());
+        vm.assume(notOwner != address(0));
+
+        // First allow the minter
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        assertTrue(token.allowedMinters(minterAddr));
+
+        // Test that owner can deny minter
+        vm.prank(token.owner());
+        token.denyMinter(minterAddr);
+        assertFalse(token.allowedMinters(minterAddr));
+
+        // Test that non-owner cannot deny minter
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        token.denyMinter(makeAddr("anotherMinter"));
+    }
+
+    function testFuzz_DenyMinter_EmitsEvent(address minterAddr) public {
+        // First allow the minter
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+
+        // Then deny with event
+        vm.expectEmit(true, false, false, true);
+        emit ICollectibleCast.MinterDenied(minterAddr);
 
         vm.prank(token.owner());
-        token.setModule("minter", secondMinter);
+        token.denyMinter(minterAddr);
     }
 
     function testFuzz_Constructor_SetsOwner(address owner) public {
@@ -63,7 +88,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(owner != address(this));
 
         vm.prank(owner);
-        CollectibleCast newToken = new CollectibleCast(owner, address(0), address(0), address(0), address(0));
+        CollectibleCast newToken = new CollectibleCast(owner, "https://example.com/", address(0), address(0));
 
         assertEq(newToken.owner(), owner);
     }
@@ -78,17 +103,20 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertTrue(token.supportsInterface(erc165InterfaceId));
     }
 
-    function testFuzz_Mint_RevertsWhenNotMinter(address notMinter, address recipient, bytes32 castHash, uint256 fid)
-        public
-    {
-        // Ensure notMinter is not the actual minter
-        vm.assume(notMinter != token.minter());
+    function testFuzz_Mint_RevertsWhenNotAllowedMinter(
+        address notMinter,
+        address recipient,
+        bytes32 castHash,
+        uint256 fid
+    ) public {
+        // Ensure notMinter is not allowed
+        vm.assume(!token.allowedMinters(notMinter));
         vm.assume(recipient != address(0));
         vm.assume(fid != 0); // Need non-zero FID
 
         vm.prank(notMinter);
         vm.expectRevert(ICollectibleCast.Unauthorized.selector);
-        token.mint(recipient, castHash, fid, makeAddr("creator"));
+        token.mint(recipient, castHash, fid, makeAddr("creator"), "");
     }
 
     function testFuzz_Mint_RevertsWhenFidIsZero(address recipient, bytes32 castHash) public {
@@ -98,11 +126,12 @@ contract CollectibleCastTest is TestSuiteSetup {
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
 
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         vm.prank(minterAddr);
         vm.expectRevert(ICollectibleCast.InvalidFid.selector);
-        token.mint(recipient, castHash, 0, creator);
+        token.mint(recipient, castHash, 0, creator, "");
     }
 
     function testFuzz_Mint_SucceedsFirstTime(address recipient, bytes32 castHash, uint256 fid) public {
@@ -116,11 +145,12 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
 
         // Set minter
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         // Mint as the minter with creator
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, creator);
+        token.mint(recipient, castHash, fid, creator, "");
 
         // Check that the recipient received the token
         assertEq(token.balanceOf(recipient, tokenId), 1);
@@ -136,7 +166,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         address minterAddr = makeAddr("minter");
         uint256 tokenId = uint256(castHash);
 
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         // Expect the CastMinted event
         vm.expectEmit(true, true, true, true);
@@ -144,7 +175,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Mint as the minter
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, makeAddr("creator"));
+        token.mint(recipient, castHash, fid, makeAddr("creator"), "");
     }
 
     function testFuzz_Mint_ToValidContract(bytes32 castHash, uint256 fid) public {
@@ -155,11 +186,12 @@ contract CollectibleCastTest is TestSuiteSetup {
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
 
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         // Mint to a contract that implements ERC1155Receiver
         vm.prank(minterAddr);
-        token.mint(address(validReceiver), castHash, fid, creator);
+        token.mint(address(validReceiver), castHash, fid, creator, "");
 
         assertEq(token.balanceOf(address(validReceiver), tokenId), 1);
         assertEq(token.tokenFid(tokenId), fid);
@@ -172,12 +204,13 @@ contract CollectibleCastTest is TestSuiteSetup {
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
 
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         // Attempt to mint to a contract that doesn't implement ERC1155Receiver
         vm.prank(minterAddr);
         vm.expectRevert(); // ERC1155 will revert
-        token.mint(address(invalidReceiver), castHash, fid, creator);
+        token.mint(address(invalidReceiver), castHash, fid, creator, "");
     }
 
     function testFuzz_Mint_ToEOA(address recipient, bytes32 castHash, uint256 fid) public {
@@ -189,13 +222,14 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Set up minter
         address minterAddr = makeAddr("minter");
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         uint256 tokenId = uint256(castHash);
 
         // Mint as the minter
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, makeAddr("creator"));
+        token.mint(recipient, castHash, fid, makeAddr("creator"), "");
 
         // Check that the recipient received the token
         assertEq(token.balanceOf(recipient, tokenId), 1);
@@ -209,7 +243,8 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         address minterAddr = makeAddr("minter");
         address recipient = makeAddr("recipient");
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         for (uint256 i = 0; i < castHashes.length; i++) {
             // Ensure unique cast hashes
@@ -221,7 +256,7 @@ contract CollectibleCastTest is TestSuiteSetup {
             uint256 fid = baseFid + i;
 
             vm.prank(minterAddr);
-            token.mint(recipient, castHashes[i], fid, makeAddr("creator"));
+            token.mint(recipient, castHashes[i], fid, makeAddr("creator"), "");
 
             assertEq(token.balanceOf(recipient, tokenId), 1);
             assertEq(token.tokenFid(uint256(castHashes[i])), fid);
@@ -237,16 +272,17 @@ contract CollectibleCastTest is TestSuiteSetup {
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
 
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         // First mint should succeed
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, creator);
+        token.mint(recipient, castHash, fid, creator, "");
 
         // Second mint of same cast should revert
         vm.prank(minterAddr);
         vm.expectRevert(ICollectibleCast.AlreadyMinted.selector);
-        token.mint(recipient, castHash, fid, creator);
+        token.mint(recipient, castHash, fid, creator, "");
     }
 
     function testFuzz_Mint_RevertsOnDoubleMint(
@@ -264,55 +300,17 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(recipient2.code.length == 0 || recipient2 == address(validReceiver));
 
         address minterAddr = makeAddr("minter");
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         // First mint should succeed
         vm.prank(minterAddr);
-        token.mint(recipient1, castHash, fid1, makeAddr("creator"));
+        token.mint(recipient1, castHash, fid1, makeAddr("creator"), "");
 
         // Second mint of same cast should revert, even to different recipient with different FID
         vm.prank(minterAddr);
         vm.expectRevert(ICollectibleCast.AlreadyMinted.selector);
-        token.mint(recipient2, castHash, fid2, makeAddr("creator"));
-    }
-
-    // Module Management Tests
-
-    function testFuzz_SetMetadataModule_RevertsWhenNotOwner(address notOwner, address metadataAddr) public {
-        // Bound inputs
-        vm.assume(notOwner != token.owner());
-        vm.assume(notOwner != address(0));
-
-        vm.prank(notOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        token.setModule("metadata", metadataAddr);
-    }
-
-    function testFuzz_SetMetadataModule_UpdatesAddress(address metadataAddr) public {
-        vm.prank(token.owner());
-        token.setModule("metadata", metadataAddr);
-
-        assertEq(token.metadata(), metadataAddr);
-    }
-
-    function testFuzz_SetMetadataModule_EmitsEvent(address firstMetadata, address secondMetadata) public {
-        // First set
-        vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.SetMetadata(address(0), firstMetadata);
-        vm.expectEmit(false, false, false, true);
-        emit IERC1155.URI("", 0);
-
-        vm.prank(token.owner());
-        token.setModule("metadata", firstMetadata);
-
-        // Second set
-        vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.SetMetadata(firstMetadata, secondMetadata);
-        vm.expectEmit(false, false, false, true);
-        emit IERC1155.URI("", 0);
-
-        vm.prank(token.owner());
-        token.setModule("metadata", secondMetadata);
+        token.mint(recipient2, castHash, fid2, makeAddr("creator"), "");
     }
 
     // TransferValidator Tests
@@ -366,9 +364,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
 
         // Mint a token first
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator);
+        token.mint(from, castHash, fid, creator, "");
 
         // Deploy a real validator with transfers disabled
         TransferValidator validator = new TransferValidator(address(this));
@@ -395,9 +394,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
 
         // Mint a token first
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator);
+        token.mint(from, castHash, fid, creator, "");
 
         // Deploy a real validator with transfers enabled
         TransferValidator validator = new TransferValidator(address(this));
@@ -428,9 +428,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
 
         // Mint a token first
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator);
+        token.mint(from, castHash, fid, creator, "");
 
         // No validator set - transfer should succeed
         vm.prank(from);
@@ -451,7 +452,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         address creator = makeAddr("creator");
 
         // Set minter
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         // Deploy a real validator with transfers disabled
         TransferValidator validator = new TransferValidator(address(this));
@@ -460,7 +462,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Minting should still succeed even with restrictive validator
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, creator);
+        token.mint(recipient, castHash, fid, creator, "");
 
         // Verify mint succeeded
         assertEq(token.balanceOf(recipient, uint256(castHash)), 1);
@@ -486,9 +488,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
 
         // Mint token
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, makeAddr("creator"));
+        token.mint(from, castHash, fid, makeAddr("creator"), "");
 
         // Set validator
         TransferValidator validator = new TransferValidator(address(this));
@@ -589,9 +592,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 fid = 123;
 
         // Mint token with creator
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(makeAddr("recipient"), castHash, fid, creator);
+        token.mint(makeAddr("recipient"), castHash, fid, creator, "");
 
         // Deploy and set royalties module
         Royalties royaltiesModule = new Royalties();
@@ -617,9 +621,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 fid = 123;
 
         // Mint token with creator
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(makeAddr("recipient"), castHash, fid, creator);
+        token.mint(makeAddr("recipient"), castHash, fid, creator, "");
 
         // Deploy and set royalties module
         Royalties royaltiesModule = new Royalties();
@@ -635,40 +640,45 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertTrue(royaltyAmount <= salePrice);
     }
 
-    function test_Uri_DelegatesToMetadataModule() public {
-        // Set up metadata module
-        string memory baseUri = "https://api.example.com/";
-        Metadata metadataModule = new Metadata(baseUri, address(this));
-        vm.prank(token.owner());
-        token.setModule("metadata", address(metadataModule));
+    function test_Uri_ReturnsTokenSpecificURI() public {
+        // Mint a token with a specific URI
+        address minterAddr = makeAddr("minter");
+        bytes32 castHash = keccak256("test");
+        uint256 tokenId = uint256(castHash);
+        string memory specificURI = "https://custom.example.com/token123";
 
-        // Test that uri delegates to metadata module
-        uint256 tokenId = 123;
-        string memory expectedUri = string.concat(baseUri, "123");
-        assertEq(token.uri(tokenId), expectedUri);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, 123, makeAddr("creator"), specificURI);
+
+        // Test that uri returns the token-specific URI
+        assertEq(token.uri(tokenId), specificURI);
     }
 
-    function test_Uri_ReturnsEmptyWhenNoMetadataModule() public view {
-        // When no metadata module is set, should return empty string
-        uint256 tokenId = 123;
-        assertEq(token.uri(tokenId), "");
+    function test_Uri_FallsBackToBaseURI() public {
+        // Mint a token without a specific URI
+        address minterAddr = makeAddr("minter");
+        bytes32 castHash = keccak256("test");
+        uint256 tokenId = uint256(castHash);
+
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, 123, makeAddr("creator"), "");
+
+        // Test that uri returns base URI pattern
+        string memory actualUri = token.uri(tokenId);
+        // Note: OpenZeppelin's ERC1155 doesn't auto-append tokenId, it just returns the base URI
+        // The expected behavior is to return the base URI as-is
+        string memory expectedUri = "https://example.com/";
+        assertEq(actualUri, expectedUri);
     }
 
-    function test_ContractURI_DelegatesToMetadataModule() public {
-        // Set up metadata module
-        string memory baseUri = "https://api.example.com/";
-        Metadata metadataModule = new Metadata(baseUri, address(this));
-        vm.prank(token.owner());
-        token.setModule("metadata", address(metadataModule));
-
-        // Test that contractURI delegates to metadata module
-        string memory expectedUri = string.concat(baseUri, "contract");
+    function test_ContractURI_ReturnsBaseURIPlusContract() public view {
+        // Test that contractURI returns baseURI + "contract"
+        string memory expectedUri = "https://example.com/contract";
         assertEq(token.contractURI(), expectedUri);
-    }
-
-    function test_ContractURI_ReturnsEmptyWhenNoMetadataModule() public view {
-        // When no metadata module is set, should return empty string
-        assertEq(token.contractURI(), "");
     }
 
     function testFuzz_TokenData_ReturnsStoredData(bytes32 castHash, uint256 fid, address creator) public {
@@ -678,16 +688,19 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         address minterAddr = makeAddr("minter");
         uint256 tokenId = uint256(castHash);
+        string memory tokenURI = "https://example.com/specific-token";
 
-        // Mint a token
-        token.setModule("minter", minterAddr);
+        // Mint a token with URI
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, fid, creator);
+        token.mint(alice, castHash, fid, creator, tokenURI);
 
         // Test tokenData function returns correct data
         ICollectibleCast.TokenData memory data = token.tokenData(tokenId);
         assertEq(data.fid, fid);
         assertEq(data.creator, creator);
+        assertEq(data.uri, tokenURI);
     }
 
     function test_TokenData_ReturnsEmptyForUnmintedToken() public view {
@@ -696,6 +709,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         ICollectibleCast.TokenData memory data = token.tokenData(tokenId);
         assertEq(data.fid, 0);
         assertEq(data.creator, address(0));
+        assertEq(data.uri, "");
     }
 
     function test_TokenFid_ReturnsZeroForUnmintedToken() public view {
@@ -716,9 +730,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertFalse(token.exists(tokenId));
 
         // Mint a token
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, fid, creator);
+        token.mint(alice, castHash, fid, creator, "");
 
         // After minting, exists should return true
         assertTrue(token.exists(tokenId));
@@ -741,10 +756,11 @@ contract CollectibleCastTest is TestSuiteSetup {
         address creator = makeAddr("creator");
         bytes32 maxCastHash = bytes32(type(uint256).max);
 
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         vm.prank(minterAddr);
-        token.mint(recipient, maxCastHash, fid, creator);
+        token.mint(recipient, maxCastHash, fid, creator, "");
 
         uint256 tokenId = uint256(maxCastHash);
         assertEq(token.balanceOf(recipient, tokenId), 1);
@@ -762,10 +778,11 @@ contract CollectibleCastTest is TestSuiteSetup {
         address creator = makeAddr("creator");
         bytes32 zeroCastHash = bytes32(0);
 
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
 
         vm.prank(minterAddr);
-        token.mint(recipient, zeroCastHash, fid, creator);
+        token.mint(recipient, zeroCastHash, fid, creator, "");
 
         uint256 tokenId = uint256(zeroCastHash); // Should be 0
         assertEq(token.balanceOf(recipient, tokenId), 1);
@@ -773,15 +790,132 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertTrue(token.exists(tokenId));
     }
 
-    function test_SetModule_WithZeroAddress() public {
-        // Test setting module to zero address (should be allowed - disables module)
-        vm.prank(token.owner());
-        token.setModule("metadata", address(0));
+    // setBaseURI tests
 
-        assertEq(token.metadata(), address(0));
-        // URI should return empty string when metadata module is zero
-        assertEq(token.uri(123), "");
-        assertEq(token.contractURI(), "");
+    function test_SetBaseURI_OnlyOwner() public {
+        address notOwner = makeAddr("notOwner");
+        string memory newBaseURI = "https://newapi.example.com/";
+
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        token.setBaseURI(newBaseURI);
+    }
+
+    function testFuzz_SetBaseURI_UpdatesBaseURI(string memory newBaseURI) public {
+        // Set new base URI
+        vm.prank(token.owner());
+        token.setBaseURI(newBaseURI);
+
+        // Verify it affects contractURI
+        // contractURI should append "contract" to the base URI
+        string memory expectedContractURI = string.concat(newBaseURI, "contract");
+        assertEq(token.contractURI(), expectedContractURI);
+
+        // Verify it affects token URI when no specific URI is set
+        address minterAddr = makeAddr("minter");
+        bytes32 castHash = keccak256("test");
+        uint256 tokenId = uint256(castHash);
+
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, 123, makeAddr("creator"), "");
+
+        // OpenZeppelin's ERC1155 just returns the base URI as-is, doesn't append tokenId
+        string memory expectedTokenURI = newBaseURI;
+        assertEq(token.uri(tokenId), expectedTokenURI);
+    }
+
+    function test_SetBaseURI_EmitsEvent() public {
+        string memory newBaseURI = "https://newapi.example.com/";
+
+        vm.expectEmit(true, false, false, true);
+        emit ICollectibleCast.BaseURISet(newBaseURI);
+
+        vm.prank(token.owner());
+        token.setBaseURI(newBaseURI);
+    }
+
+    // batchSetTokenURIs tests
+
+    function test_BatchSetTokenURIs_OnlyOwner() public {
+        address notOwner = makeAddr("notOwner");
+        uint256[] memory tokenIds = new uint256[](1);
+        string[] memory uris = new string[](1);
+        tokenIds[0] = 123;
+        uris[0] = "https://example.com/123";
+
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        token.batchSetTokenURIs(tokenIds, uris);
+    }
+
+    function test_BatchSetTokenURIs_RevertsWithMismatchedArrays() public {
+        uint256[] memory tokenIds = new uint256[](2);
+        string[] memory uris = new string[](1);
+        tokenIds[0] = 123;
+        tokenIds[1] = 456;
+        uris[0] = "https://example.com/123";
+
+        vm.prank(token.owner());
+        vm.expectRevert(ICollectibleCast.InvalidInput.selector);
+        token.batchSetTokenURIs(tokenIds, uris);
+    }
+
+    function test_BatchSetTokenURIs_RevertsForNonExistentToken() public {
+        uint256[] memory tokenIds = new uint256[](1);
+        string[] memory uris = new string[](1);
+        tokenIds[0] = 123; // Non-existent token
+        uris[0] = "https://example.com/123";
+
+        vm.prank(token.owner());
+        vm.expectRevert(ICollectibleCast.TokenDoesNotExist.selector);
+        token.batchSetTokenURIs(tokenIds, uris);
+    }
+
+    function testFuzz_BatchSetTokenURIs_UpdatesExistingTokens(bytes32[3] memory castHashes, string[3] memory newURIs)
+        public
+    {
+        // Ensure unique cast hashes
+        vm.assume(castHashes[0] != castHashes[1] && castHashes[0] != castHashes[2] && castHashes[1] != castHashes[2]);
+
+        address minterAddr = makeAddr("minter");
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+
+        // Mint tokens
+        uint256[] memory tokenIds = new uint256[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            tokenIds[i] = uint256(castHashes[i]);
+            vm.prank(minterAddr);
+            token.mint(alice, castHashes[i], i + 1, makeAddr("creator"), "");
+        }
+
+        // Prepare arrays for batch update
+        string[] memory uris = new string[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            uris[i] = newURIs[i];
+        }
+
+        // Expect URI events
+        for (uint256 i = 0; i < 3; i++) {
+            vm.expectEmit(true, true, false, true);
+            emit IERC1155.URI(newURIs[i], tokenIds[i]);
+        }
+
+        // Update URIs
+        vm.prank(token.owner());
+        token.batchSetTokenURIs(tokenIds, uris);
+
+        // Verify updates
+        for (uint256 i = 0; i < 3; i++) {
+            // When an empty URI is set, it falls back to base URI
+            if (bytes(newURIs[i]).length == 0) {
+                assertEq(token.uri(tokenIds[i]), "https://example.com/");
+            } else {
+                assertEq(token.uri(tokenIds[i]), newURIs[i]);
+            }
+        }
     }
 
     function testFuzz_Transfer_ToZeroAddress_Reverts(address from, bytes32 castHash, uint256 fid) public {
@@ -795,9 +929,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
 
         // Mint token
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator);
+        token.mint(from, castHash, fid, creator, "");
 
         // Try to transfer to zero address - should revert
         vm.prank(from);
@@ -817,9 +952,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
 
         // Mint token
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator);
+        token.mint(from, castHash, fid, creator, "");
 
         // Transfer 0 amount should succeed but not change balances
         vm.prank(from);
@@ -849,9 +985,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
 
         // Mint token (balance = 1)
-        token.setModule("minter", minterAddr);
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator);
+        token.mint(from, castHash, fid, creator, "");
 
         // Verify balance is 1
         assertEq(token.balanceOf(from, tokenId), 1);

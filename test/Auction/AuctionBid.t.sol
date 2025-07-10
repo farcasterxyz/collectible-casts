@@ -5,14 +5,12 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {Minter} from "../../src/Minter.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionBidTest is Test, AuctionTestHelper {
     Auction public auction;
     MockUSDC public usdc;
-    Minter public minter;
     CollectibleCast public collectibleCast;
 
     address public constant TREASURY = address(0x4);
@@ -29,19 +27,16 @@ contract AuctionBidTest is Test, AuctionTestHelper {
 
         // Deploy real contracts
         address owner = address(this);
-        minter = new Minter(owner);
         collectibleCast = new CollectibleCast(
             owner,
-            address(minter),
-            address(0), // metadata - not needed for auction tests
+            "https://example.com/", // baseURI - not needed for auction tests
             address(0), // transferValidator - not needed
             address(0) // royalties - not needed
         );
 
         // Configure real contracts
-        minter.setToken(address(collectibleCast));
-        auction = new Auction(address(minter), address(usdc), TREASURY, address(this));
-        minter.allow(address(auction));
+        auction = new Auction(address(collectibleCast), address(usdc), TREASURY, address(this));
+        collectibleCast.allowMinter(address(auction));
 
         (authorizer, authorizerKey) = makeAddrAndKey("authorizer");
         vm.prank(auction.owner());

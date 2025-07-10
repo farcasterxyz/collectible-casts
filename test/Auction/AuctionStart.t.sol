@@ -5,14 +5,15 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
+import {MockCollectibleCast} from "../mocks/MockCollectibleCast.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionStartTest is Test, AuctionTestHelper {
     Auction public auction;
     MockUSDC public usdc;
+    MockCollectibleCast public collectibleCast;
 
     // Mock addresses
-    address public constant MINTER = address(0x2);
     address public constant TREASURY = address(0x4);
 
     // Test accounts
@@ -27,8 +28,14 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         // Deploy mock USDC
         usdc = new MockUSDC();
 
-        // Deploy auction with mock USDC
-        auction = new Auction(MINTER, address(usdc), TREASURY, address(this));
+        // Deploy mock CollectibleCast
+        collectibleCast = new MockCollectibleCast();
+
+        // Deploy auction with mock CollectibleCast and USDC
+        auction = new Auction(address(collectibleCast), address(usdc), TREASURY, address(this));
+
+        // Allow auction to mint
+        collectibleCast.allowMinter(address(auction));
 
         // Setup authorizer
         (authorizer, authorizerKey) = makeAddrAndKey("authorizer");
