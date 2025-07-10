@@ -110,7 +110,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Get initial lastBidAt
-        (, , , , , uint256 initialLastBidAt, , , ) = auction.auctions(TEST_CAST_HASH);
+        (,,,,, uint256 initialLastBidAt,,,) = auction.auctions(TEST_CAST_HASH);
         assertGt(initialLastBidAt, 0, "Initial lastBidAt should be set");
 
         // Warp time forward
@@ -146,7 +146,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         auction.bid(TEST_CAST_HASH, bidData, auth);
 
         // Verify lastBidAt was updated
-        (, , , , , uint256 newLastBidAt, , , ) = auction.auctions(TEST_CAST_HASH);
+        (,,,,, uint256 newLastBidAt,,,) = auction.auctions(TEST_CAST_HASH);
         assertEq(newLastBidAt, timestampBefore, "lastBidAt should be updated to current block.timestamp");
         assertGt(newLastBidAt, initialLastBidAt, "New lastBidAt should be greater than initial");
     }

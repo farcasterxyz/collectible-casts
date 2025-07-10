@@ -34,9 +34,7 @@ contract MockCollectibleCasts is ICollectibleCasts {
 
         _tokenData[tokenId] = TokenData({fid: creatorFid, creator: creator, uri: ""});
 
-        mintCalls.push(
-            MintCall({to: to, castHash: castHash, creatorFid: creatorFid, creator: creator, tokenURI: ""})
-        );
+        mintCalls.push(MintCall({to: to, castHash: castHash, creatorFid: creatorFid, creator: creator, tokenURI: ""}));
 
         emit Mint(to, tokenId, castHash, creatorFid, creator);
     }
@@ -58,7 +56,6 @@ contract MockCollectibleCasts is ICollectibleCasts {
 
         emit Mint(to, tokenId, castHash, creatorFid, creator);
     }
-
 
     function setBaseURI(string memory baseURI_) external {
         baseURI = baseURI_;
@@ -98,7 +95,6 @@ contract MockCollectibleCasts is ICollectibleCasts {
     function tokenCreator(uint256 tokenId) external view returns (address) {
         return _tokenData[tokenId].creator;
     }
-
 
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         return _tokenData[tokenId].uri;

@@ -337,7 +337,6 @@ contract CollectibleCastsTest is TestSuiteSetup {
         assertEq(token.ROYALTY_BPS(), 500);
     }
 
-
     function test_SupportsERC2981Interface() public view {
         // ERC-2981 interface ID
         bytes4 erc2981InterfaceId = 0x2a55205a;
@@ -722,7 +721,6 @@ contract CollectibleCastsTest is TestSuiteSetup {
         assertEq(token.tokenFid(tokenId), 0);
     }
 
-
     // Edge case tests
     function testFuzz_Mint_MaxTokenId(address recipient, uint256 fid) public {
         // Bound inputs
@@ -811,7 +809,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
 
         vm.expectEmit(true, false, false, true);
         emit ICollectibleCasts.BaseURISet(newBaseURI);
-        
+
         vm.expectEmit(false, false, false, true);
         emit ICollectibleCasts.BatchMetadataUpdate(0, type(uint256).max);
 
@@ -826,12 +824,8 @@ contract CollectibleCastsTest is TestSuiteSetup {
         token.allowMinter(minterAddr);
 
         // Mint multiple tokens
-        bytes32[3] memory castHashes = [
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            bytes32(uint256(3))
-        ];
-        
+        bytes32[3] memory castHashes = [bytes32(uint256(1)), bytes32(uint256(2)), bytes32(uint256(3))];
+
         for (uint256 i = 0; i < castHashes.length; i++) {
             vm.prank(minterAddr);
             token.mint(makeAddr("recipient"), castHashes[i], i + 1, makeAddr("creator"));
@@ -839,21 +833,27 @@ contract CollectibleCastsTest is TestSuiteSetup {
 
         // Check initial URIs
         for (uint256 i = 0; i < castHashes.length; i++) {
-            assertEq(token.tokenURI(uint256(castHashes[i])), string.concat("https://example.com/", Strings.toString(uint256(castHashes[i]))));
+            assertEq(
+                token.tokenURI(uint256(castHashes[i])),
+                string.concat("https://example.com/", Strings.toString(uint256(castHashes[i])))
+            );
         }
 
         // Update base URI and verify BatchMetadataUpdate event
         string memory newBaseURI = "https://newapi.example.com/";
-        
+
         vm.expectEmit(false, false, false, true);
         emit ICollectibleCasts.BatchMetadataUpdate(0, type(uint256).max);
-        
+
         vm.prank(token.owner());
         token.setBaseURI(newBaseURI);
 
         // Verify all token URIs are updated
         for (uint256 i = 0; i < castHashes.length; i++) {
-            assertEq(token.tokenURI(uint256(castHashes[i])), string.concat(newBaseURI, Strings.toString(uint256(castHashes[i]))));
+            assertEq(
+                token.tokenURI(uint256(castHashes[i])),
+                string.concat(newBaseURI, Strings.toString(uint256(castHashes[i])))
+            );
         }
     }
 

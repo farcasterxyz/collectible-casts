@@ -89,7 +89,13 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
 
-    function tokenURI(uint256 tokenId) public view virtual override(ERC721, ICollectibleCasts) returns (string memory) {
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        virtual
+        override(ERC721, ICollectibleCasts)
+        returns (string memory)
+    {
         _requireOwned(tokenId);
 
         string memory tokenURIString = _tokenData[tokenId].uri;
@@ -139,5 +145,4 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
     function _baseURI() internal view virtual override returns (string memory) {
         return _baseURIString;
     }
-
 }

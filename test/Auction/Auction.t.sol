@@ -256,7 +256,11 @@ contract AuctionTest is Test, AuctionTestHelper {
 
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
-                DOMAIN_TYPEHASH, keccak256("CollectibleCastsAuction"), keccak256("1"), block.chainid, address(newAuction)
+                DOMAIN_TYPEHASH,
+                keccak256("CollectibleCastsAuction"),
+                keccak256("1"),
+                block.chainid,
+                address(newAuction)
             )
         );
 

@@ -72,6 +72,7 @@ interface IAuction {
         Active, // Auction is accepting bids
         Ended, // Auction ended but not settled
         Settled // Auction settled and NFT minted
+
     }
 
     // Events

@@ -16,9 +16,7 @@ interface ICollectibleCasts {
     error InvalidInput();
 
     // Events
-    event Mint(
-        address indexed to, uint256 indexed tokenId, bytes32 indexed castHash, uint256 fid, address creator
-    );
+    event Mint(address indexed to, uint256 indexed tokenId, bytes32 indexed castHash, uint256 fid, address creator);
     event BaseURISet(string baseURI);
     event MetadataUpdate(uint256 _tokenId);
     event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);

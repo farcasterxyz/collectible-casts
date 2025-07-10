@@ -151,7 +151,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
 
         // Verify lastBidAt was set
-        (, , , , , uint256 lastBidAt, , , ) = auction.auctions(castHash);
+        (,,,,, uint256 lastBidAt,,,) = auction.auctions(castHash);
         assertEq(lastBidAt, timestampBefore, "lastBidAt should be set to block.timestamp");
     }
 
