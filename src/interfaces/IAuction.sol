@@ -55,16 +55,14 @@ interface IAuction {
     }
 
     struct AuctionData {
-        // Cast metadata (set at auction start)
         address creator;
         uint256 creatorFid;
-        // Auction state
         address highestBidder;
         uint256 highestBidderFid;
         uint256 highestBid;
+        uint256 lastBidAt;
         uint256 endTime;
         bool settled;
-        // Custom parameters for this auction
         AuctionParams params;
     }
 
@@ -74,7 +72,6 @@ interface IAuction {
         Active, // Auction is accepting bids
         Ended, // Auction ended but not settled
         Settled // Auction settled and NFT minted
-
     }
 
     // Events
@@ -87,20 +84,20 @@ interface IAuction {
     event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint256 winnerFid, uint256 amount);
 
     // Main auction functions
-    function start(CastData memory castData, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
+    function start(CastData memory cast, BidData memory bid, AuctionParams memory params, AuthData memory auth)
         external;
 
     function start(
-        CastData memory castData,
-        BidData memory bidData,
+        CastData memory cast,
+        BidData memory bid,
         AuctionParams memory params,
         AuthData memory auth,
         PermitData memory permit
     ) external;
 
-    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth) external;
+    function bid(bytes32 castHash, BidData memory bid, AuthData memory auth) external;
 
-    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth, PermitData memory permit) external;
+    function bid(bytes32 castHash, BidData memory bid, AuthData memory auth, PermitData memory permit) external;
 
     function settle(bytes32 castHash) external;
 
