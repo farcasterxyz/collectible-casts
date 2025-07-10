@@ -1,294 +1,197 @@
-# Collectible Casts - TDD Task Breakdown
+# Collectible Casts - Task History & Status
 
-Each task follows the TDD cycle: RED → GREEN → REFACTOR → COMMIT
+## Current Status: COMPLETE ✅
 
-## Current Status: AUCTION CONTRACT COMPLETE ✅
+The Collectible Casts system is fully implemented and ready for deployment:
+- ✅ CollectibleCast (ERC-721 NFT with integrated features)
+- ✅ Auction (Complete implementation with EIP-712 signatures)
+- ✅ 128 comprehensive tests with 100% coverage
+- ✅ Production-ready deployment scripts
 
-All core contracts have been implemented with 100% test coverage:
-- ✅ CollectibleCast (ERC-1155 NFT)
-- ✅ Metadata (URI management)  
-- ✅ Minter (Authorization layer)
-- ✅ TransferValidator (Transfer controls)
-- ✅ Royalties (ERC-2981 5% royalty)
-- ✅ Auction (Complete implementation with 56 tests)
+## Implementation Timeline
 
-The Auction contract features:
-- EIP-712 signature validation with multiple backend authorizers
-- Three clean functions: start(), bid(), settle()
-- Random bytes32 nonces from backend
-- Automatic USDC refunds on overbidding
-- Anti-snipe auction extensions
-- 90/10 creator/treasury payment split
-- Cast metadata storage for provenance
+### Phase 1: Initial Design & Architecture (Completed)
+We started with a modular architecture featuring separate contracts for each concern:
+- CollectibleCast (ERC-1155)
+- Metadata module
+- Minter module  
+- TransferValidator module
+- Royalties module
+- Auction contract
 
-## Guiding Principles
-- **KISS** (Keep It Simple, Stupid) - Choose the simplest solution
-- **YAGNI** (You Aren't Gonna Need It) - Don't add functionality until needed
-- **100% Test Coverage** - Every line of production code must be tested (verified with `python3 script/check-coverage.py`)
-- **Minimal Interfaces** - Start with empty interfaces, add functions only when tests require them
-- **Fuzz Test Upgrade** - After each GREEN phase, evaluate if unit tests can be upgraded to fuzz tests
+### Phase 2: Core Implementation (Completed)
+Following TDD principles (RED → GREEN → REFACTOR → COMMIT), we implemented:
 
-## Coverage Verification
-Before each commit, run `python3 script/check-coverage.py` to ensure 100% coverage for all production contracts. This script will fail if any production contract has less than 100% coverage on any metric (lines, statements, branches, or functions).
+#### CollectibleCast Token (Initially ERC-1155)
+- Cast hash as token ID
+- FID and creator storage
+- Module management system
+- Minter allowlist
+- Max supply of 1 per cast
+- 100% test coverage
 
-## Completed Phases
+#### Supporting Modules
+- **Metadata**: URI management with base URI and per-token overrides
+- **Minter**: Authorization layer for minting access
+- **TransferValidator**: Optional transfer restrictions with operator allowlist
+- **Royalties**: ERC-2981 implementation with 5% to creator
 
-### Phase 1: Contract Interfaces and Test Infrastructure ✅
-- Created minimal interfaces for all contracts
-- Set up test infrastructure with forge-std patterns
-- Removed unnecessary template files
+#### Auction Contract
+Implemented in phases:
+1. **Foundation**: Constructor, configuration, authorizer management
+2. **EIP-712**: Domain separator, signature structures, verification
+3. **Bidding Logic**: Start function, bid validation, auto-refunds
+4. **Settlement**: Payment distribution, token minting, events
 
-### Phase 2: CollectibleCast Token ✅
-- Implemented ERC-1155 token with OpenZeppelin v5
-- Added minter authorization with allowlist
-- Enforced max supply of 1 per cast
-- Implemented module management with setModule pattern
-- Added transfer validation hooks
-- Implemented EIP-2981 royalties (5% to creator)
-- Achieved 100% test coverage
+Key features:
+- Three clean functions: `start()`, `bid()`, `settle()`
+- Multiple backend authorizers
+- Random bytes32 nonces
+- Anti-snipe extensions
+- USDC permit support
+- 90/10 creator/treasury split
 
-### Phase 3: Metadata Contract ✅
-- Implemented URI functions for contract and token metadata
-- Added owner-controlled base URI management
-- Achieved 100% test coverage
+### Phase 3: Major Refactoring (Completed)
 
-### Phase 4: Minter Contract ✅
-- Implemented authorization with allowlist pattern
-- Added mint delegation to CollectibleCast
-- Achieved 100% test coverage
+#### ERC-1155 → ERC-721 Conversion
+Realized that ERC-721 was more appropriate because:
+- Each cast is unique (truly non-fungible)
+- Simpler implementation and mental model
+- Better marketplace support
+- No need for batch operations
 
-### Phase 5: TransferValidator Contract ✅
-- Implemented one-way transfersEnabled switch
-- Added operator allowlist for marketplace curation
-- Correctly implemented two orthogonal concepts:
-  - transfersEnabled: controls if ANY transfers are allowed
-  - allowedOperators: controls third-party operators when transfers ARE enabled
-- Achieved 100% test coverage
+The conversion involved:
+- Updating base contract from ERC1155 to ERC721
+- Changing balance tracking (amount → ownership)
+- Updating transfer functions
+- Converting `uri()` to `tokenURI()`
+- Maintaining 100% test coverage throughout
 
-## Phase 6-8: Auction Contract ✅
+#### Architecture Simplification
+Removed the module system in favor of integrated functionality:
+- **Before**: 6 separate contracts with complex interactions
+- **After**: 2 contracts with clear responsibilities
 
-The Auction contract is the most complex component. We've successfully implemented it with comprehensive testing.
+Benefits:
+- Reduced deployment complexity
+- Lower gas costs
+- Easier to audit
+- Simpler upgrade path
 
-### Phase 6: Auction Foundation & Configuration ✅
+### Phase 4: Testing & Hardening (Completed)
 
-#### 6.1 Basic Structure ✅
-- [x] RED: Write test `test_Constructor_SetsConfiguration()`
-- [x] GREEN: Create Auction with immutable config (token, minter, usdc, treasury)
-- [x] COMMIT: "feat: add Auction constructor with configuration"
+#### Test Coverage Achievements
+- Converted 83 unit tests to fuzz tests
+- Added edge case coverage
+- Achieved 100% coverage on all metrics
+- CI-level testing with 10,000 fuzz runs
 
-#### 6.2 Auction Parameters ✅
-- [x] RED: Write test `test_AuctionParams_StoresCorrectly()`
-- [x] GREEN: Define AuctionParams struct (minBid, minBidIncrement, duration, extension, extensionThreshold)
-- [x] COMMIT: "feat: add auction parameter storage"
+#### Final Polish
+- Removed unused imports and dependencies
+- Standardized error handling
+- Optimized gas usage
+- Comprehensive documentation
 
-#### 6.3 Backend Signer Setup ✅
-- [x] RED: Write test `test_AllowAuthorizer_OnlyOwner()`
-- [x] GREEN: Add authorizer allowlist management (supports multiple backend signers)
-- [x] COMMIT: "feat: add authorizer allowlist management"
+## Deployment Readiness
 
-### Phase 7: Signature Validation ✅
+### What's Ready
+1. **Smart Contracts**:
+   - CollectibleCast.sol (ERC-721 with royalties)
+   - Auction.sol (full auction implementation)
+   - Both with 100% test coverage
 
-#### 7.1 EIP-712 Domain ✅
-- [x] RED: Write test `test_DomainSeparator_ComputesCorrectly()`
-- [x] GREEN: Implement EIP-712 domain separator using OpenZeppelin
-- [x] COMMIT: "feat: implement EIP-712 domain"
+2. **Deployment Infrastructure**:
+   - DeployCollectibleCasts.s.sol script
+   - ImmutableCreate2 for deterministic addresses
+   - Base mainnet configuration
 
-#### 7.2 Bid Authorization Structure ✅
-- [x] RED: Write test `test_BidAuthorization_HashesCorrectly()`
-- [x] GREEN: Define BidAuthorization struct with bidderFid and hashing
-- [x] COMMIT: "feat: add bid authorization structure"
+3. **Testing**:
+   - 128 comprehensive tests
+   - Fuzz testing at CI level
+   - Edge cases covered
 
-#### 7.3 Signature Verification ✅
-- [x] RED: Write test `test_VerifySignature_ValidatesCorrectly()`
-- [x] GREEN: Implement ECDSA signature verification with OpenZeppelin
-- [x] COMMIT: "feat: implement signature verification"
+### Deployment Checklist
+- [ ] Final audit/review
+- [ ] Deploy to Base testnet
+- [ ] Integration testing with backend
+- [ ] Deploy to Base mainnet
+- [ ] Verify contracts on Basescan
+- [ ] Update documentation with addresses
 
-- [x] RED: Write test `test_VerifySignature_RejectsExpired()`
-- [x] GREEN: Add expiration check
-- [x] COMMIT: "feat: add signature expiration"
+## Lessons Learned
 
-- [x] RED: Write test `test_VerifySignature_PreventsReplay()`
-- [x] GREEN: Add nonce tracking with random bytes32 nonces
-- [x] COMMIT: "feat: prevent signature replay"
+### What Worked Well
+1. **TDD Approach**: Caught issues early and ensured quality
+2. **Fuzz Testing**: Discovered edge cases we wouldn't have thought of
+3. **Simplification**: Removing modules made the system much cleaner
+4. **ERC-721**: Better fit than ERC-1155 for this use case
 
-### Phase 8: Bidding Logic ✅
+### What We'd Do Differently
+1. **Start with ERC-721**: Would have saved refactoring time
+2. **Skip modules initially**: YAGNI principle - we didn't need them
+3. **Earlier fuzz testing**: Would have caught arithmetic issues sooner
 
-#### 8.1 Auction State Management ✅
-- [x] RED: Write test `test_AuctionState_TracksCorrectly()`
-- [x] GREEN: Define AuctionData struct with cast metadata and state derivation
-- [x] COMMIT: "feat: add auction state management"
+## Architecture Summary
 
-#### 8.2 Auction Start Function ✅
-- [x] RED: Write test `test_Start_RequiresMinimum()`
-- [x] GREEN: Validate opening bid >= minBid parameter
-- [x] COMMIT: "feat: validate opening bid amount"
+### Final Design
+```
+┌─────────────────┐
+│ CollectibleCast │ 
+│   (ERC-721)     │
+│                 │
+│ Features:       │
+│ - Royalties     │
+│ - Metadata      │
+│ - Minting       │
+└────────┬────────┘
+         │ mints
+┌────────▼────────┐
+│    Auction      │
+│                 │
+│ Features:       │
+│ - EIP-712 auth  │
+│ - USDC escrow   │
+│ - Auto refunds  │
+│ - Settlement    │
+└─────────────────┘
+```
 
-- [x] RED: Write test `test_Start_CreatesAuction()`
-- [x] GREEN: Create auction with cast metadata and configurable duration
-- [x] COMMIT: "feat: create auction with start function"
+### Key Invariants
+1. **One collectible per cast**: Enforced by cast hash as token ID
+2. **Creator compensation**: 90% of winning bid
+3. **Protocol sustainability**: 10% to treasury
+4. **No double minting**: AlreadyMinted check
+5. **Fair auctions**: Anti-snipe extensions
 
-- [x] RED: Write test `test_Start_TransfersUSDC()`
-- [x] GREEN: Pull USDC from first bidder
-- [x] COMMIT: "feat: transfer USDC on auction start"
+## Next Steps
 
-- [x] RED: Write test `test_Start_EmitsEvent()`
-- [x] GREEN: Emit AuctionStarted and BidPlaced events
-- [x] COMMIT: "feat: emit events on auction start"
+### Immediate (Pre-deployment)
+1. Final security review
+2. Deploy to testnet
+3. End-to-end testing with frontend
+4. Gas optimization review
 
-#### 8.3 Bid Function ✅
-- [x] RED: Write test `test_Bid_RequiresSufficientIncrease()`
-- [x] GREEN: Validate bid >= currentBid * (1 + minBidIncrement)
-- [x] COMMIT: "feat: validate bid increments"
+### Post-deployment
+1. Monitor initial auctions
+2. Gather creator feedback
+3. Consider enhancements:
+   - Alternative payment tokens
+   - Batch operations
+   - Transfer restrictions (if needed)
+   - Enhanced metadata
 
-- [x] RED: Write test `test_Bid_RefundsPreviousBidder()`
-- [x] GREEN: Implement automatic refund
-- [x] COMMIT: "feat: auto-refund previous bidder"
+### Long-term
+1. Secondary market integration
+2. Cross-chain deployment
+3. Advanced auction types
+4. Creator tools and analytics
 
-- [x] RED: Write test `test_Bid_ExtendsNearEnd()`
-- [x] GREEN: If bid within extensionThreshold, extend by extension amount
-- [x] COMMIT: "feat: implement anti-snipe extension"
+## Summary
 
-#### 8.4 Additional Features Implemented ✅
-- [x] Separate start(), bid(), and settle() functions for clarity
-- [x] StartAuthorization struct for initial bid with full auction parameters
-- [x] State machine that derives state from auction data
-- [x] Comprehensive test coverage with 56 tests
+We've successfully built a minimal, secure, and effective Collectible Casts system. The journey from a complex 6-contract modular system to a clean 2-contract implementation demonstrates the value of:
+- Starting simple
+- Following TDD principles
+- Being willing to refactor
+- Prioritizing user needs over architectural elegance
 
-### Phase 9: Settlement & Refunds ✅
-
-#### 9.1 Settlement Validation ✅
-- [x] RED: Write test `test_Settle_RevertsIfActive()`
-- [x] GREEN: Check auction has ended
-- [x] COMMIT: "feat: validate auction ended before settlement"
-
-- [x] RED: Write test `test_Settle_RevertsIfAlreadySettled()`
-- [x] GREEN: Prevent double settlement
-- [x] COMMIT: "feat: prevent double settlement"
-
-#### 9.2 Payment Distribution ✅
-- [x] RED: Write test `test_Settle_PaysCreator90Percent()`
-- [x] GREEN: Transfer 90% to creator
-- [x] COMMIT: "feat: pay creator on settlement"
-
-- [x] RED: Write test `test_Settle_PaysTreasury10Percent()`
-- [x] GREEN: Transfer 10% to treasury
-- [x] COMMIT: "feat: pay treasury on settlement"
-
-#### 9.3 Token Minting ✅
-- [x] RED: Write test `test_Settle_MintsToken()`
-- [x] GREEN: Call minter to mint token to winner
-- [x] COMMIT: "feat: mint token on settlement"
-
-- [x] RED: Write test `test_Settle_EmitsEvent()`
-- [x] GREEN: Emit AuctionSettled event
-- [x] COMMIT: "feat: emit settlement event"
-
-#### 9.4 Manual Refunds (Not Implemented)
-- [ ] Manual refund functionality was not implemented as automatic refunds are handled synchronously
-- [ ] Could be added in future if needed for handling USDC blacklist scenarios
-
-### Phase 10: Edge Cases & Security (Partially Implemented)
-
-#### 10.1 Reentrancy Protection (Not Implemented)
-- [ ] Reentrancy guards not added as all external calls follow checks-effects-interactions pattern
-- [ ] Could be added as extra safety measure using OpenZeppelin's ReentrancyGuard
-
-#### 10.2 Creator Address Handling ✅
-- [x] Creator address is passed in start() function and stored in AuctionData
-- [x] Creator receives 90% of auction proceeds on settlement
-
-#### 10.3 USDC Blacklist Handling (Not Implemented)
-- [ ] Current implementation uses simple transfer() which would revert on blacklist
-- [ ] Could be enhanced with try/catch and manual claim mechanism
-
-## Phase 11: Integration & Deployment ✅
-
-### 11.1 Integration Tests ✅
-- [✓] End-to-end auction flow test in DeployCollectibleCastsTest
-- [✓] Edge cases covered with 181 comprehensive tests
-- [✓] Gas costs verified as reasonable
-
-### 11.2 Deployment Scripts ✅
-- [✓] Created DeployCollectibleCasts.s.sol following Farcaster patterns
-- [✓] Uses ImmutableCreate2Deployer for deterministic addresses
-- [✓] Implements lifecycle methods (run, runDeploy, runSetup)
-- [✓] Hardcoded to Base mainnet USDC
-
-### 11.3 Documentation
-- [ ] Update README with deployment addresses (post-deployment)
-- [ ] Add user interaction guide
-- [ ] Document admin operations
-
-## Progress Summary
-
-### Completed ✅
-1. **CollectibleCast**: Core ERC-1155 token with modular architecture
-2. **Metadata**: URI management for on/off-chain metadata
-3. **Minter**: Authorization layer with allowlist
-4. **TransferValidator**: Transfer control with one-way switch and operator allowlist
-5. **Royalties**: Simple 5% royalty to creator
-6. **Auction Contract**: Complete implementation with:
-   - EIP-712 signature validation for backend authorization
-   - Separate start(), bid(), and settle() functions
-   - USDC escrow and automatic refund mechanism
-   - Anti-snipe auction extensions
-   - Settlement with configurable protocol fee
-   - Random bytes32 nonces to prevent replay attacks
-   - Bidder FID tracking for Farcaster integration
-   - Permit support without fallback logic
-   - 56 comprehensive tests with full coverage
-
-### Recent Updates 🔄
-1. **Fuzz Test Upgrade**: Converted 83 unit tests to fuzz tests
-   - Better input coverage and edge case discovery
-   - Fixed arithmetic underflows and nonce collisions
-   - All tests passing with proper constraints
-
-2. **Contract Cleanup**: 
-   - Simplified Auction state checking logic
-   - Standardized imports to openzeppelin-contracts
-   - Removed redundant validation checks
-   - Added documentation for unused parameters
-
-3. **Permit Implementation**:
-   - Added permit support to Auction contract
-   - Removed permit fallback logic - fails fast
-   - Cleaner, more predictable behavior
-
-### Deployment Ready 🚀
-- All contracts complete with 100% test coverage
-- Deployment script ready for Base mainnet
-- No known issues or missing features for MVP
-- Architecture supports future module upgrades
-
-## Architecture Notes
-
-### Module Pattern
-All contracts follow a consistent module pattern:
-- Core contract (CollectibleCast) delegates to modules
-- Modules can be updated by owner
-- Clean separation of concerns
-
-### Auction Design Decisions
-- **Three-function approach**: start(), bid(), settle() for clarity and simplicity
-- **Backend authorization**: Multiple authorizers supported via allowlist
-- **Random nonces**: Backend provides bytes32 nonces to prevent replay attacks
-- **State derivation**: Auction state calculated from data rather than stored explicitly
-- **Cast metadata**: Stored on auction start for provenance
-- **Permit handling**: Direct revert on failure, no fallback to approval
-- **Self-bidding prevention**: Creators cannot bid on their own auctions
-
-### Security Considerations
-- One-way switches prevent accidental disabling
-- Allowlists provide granular control
-- Custom errors for gas efficiency
-- Comprehensive test coverage (100% on all production contracts)
-- EIP-712 signatures prevent cross-chain replay attacks
-- Automatic refunds reduce user friction
-
-### Gas Optimizations
-- Struct packing in TokenData and AuctionData
-- Immutable variables where possible
-- Efficient storage layout
-- Minimal external calls
-- Single SSTORE for auction creation
+The system is now ready for production deployment on Base mainnet.

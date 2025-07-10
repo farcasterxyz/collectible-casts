@@ -39,36 +39,18 @@ Collectible Casts introduce a lightweight, on‑chain way for Farcaster users t
 
 We deploy five small, modular contracts:
 
-### 5.1 `CollectibleCast` (ERC‑1155)
+### 5.1 `CollectibleCast` (ERC‑721)
 
 Responsibility: The core collectible token contract. This is the core immutable dependency and we must think carefully about the design. We should keep it as simple as possible.
 
 - Use 32 byte cast hash as a synthetic token ID
 - Should also store the FID associated with each cast
-- Implements EIP‑2981 royalty info + split (5% royalty, 90% split to creator, 10% split to protocol by default).
-
-### 5.2 `Metadata`
-
-Responsibility: Render token and contract metadata. To start it will use an offchain API, but we expect we may swap out this contract for a more immutable/onchain metadata renderer at some point in the future.
-
-- Stores pointer to off‑chain JSON returned from a `farcaster.xyz` API.
+- Implements EIP‑2981 royalty info (5% royalty to creator).
 - Implement contract level and token level metadata functions
-
-### 5.3 `Minter`
-
-Responsibility: The only module in the system authorized to mint tokens. Implements a simple allowlist of addresses/contracts allowed to mint collectible tokens.
-
-- Simple owner/allow‑list. Only `Auction` may mint during v1.
-- Future‑proof: owner can authorise new minters (e.g. lazy‑mint, airdrops, future auction contracts).
-- Allow for multiple minters
-
-### 5.4 `TransferValidator`
-
-Responsibility: Restricts token transferability according to custom rules.
-
-- Gate on `safeTransferFrom` / `safeBatchTransferFrom`.
-- Boolean one‑way switch `transfersEnabled` (disabled at launch).
-- Optional operator allow‑list for later marketplace curation.
+- Default metadata "base URL" for contract and token metadata
+- Ability to set metadata URL per token
+- Ability to set contract metadata URL
+- Allow for multiple minters stored in a simple allowlist with allow/deny functions
 
 ### 5.5 `Auction`
 
@@ -77,12 +59,12 @@ Responsibility: Manages collectible auction logic.
 - Escrows USDC bids (permits one‑shot `permit` + `bid`).
 - Emits events: `AuctionCreated`, `BidPlaced`, `AuctionSettled`, `BidRefunded`.
 - Backend‑signed message provides initial auction parameters.
-- On settlement: mints token via `Minter`, pays creator 90%, routes 10% to treasury.
+- On settlement: mints token via `CollectibleCast`, pays creator 90%, routes 10% to treasury.
 - Bids must provide a backend-signed message for authorization.
 - Parameterize auction configuration
 - Parameterize splits and other high level configuration
 - Use USDC permit for one step approve + bid
-- Attempt automatic refund on outbid, in case of revert, allow user to claim refund from contract
+- Attempt automatic refund on outbid
 
 ## Auction Lifecycle & Mechanics
 
@@ -125,10 +107,3 @@ On `settle(tokenId)`:
 - Fixed 90 / 10 revenue split.
 - USDC‑only bidding simplifies UX & accounting.
 - Fifteen‑minute rolling extension prevents last‑second snipes (end time may exceed 24 h).
-
-### Failure‑Handling Summary
-
-| Scenario                | Resolution                                                |
-| ----------------------- | --------------------------------------------------------- |
-| Refund transfer fails   | Bidder calls `claimRefund()` to withdraw credited amount. |
-| Winner/creator inactive | Anyone can call `settle`; funds can’t be locked.          |
