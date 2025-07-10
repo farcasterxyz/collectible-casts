@@ -4,21 +4,22 @@ pragma solidity ^0.8.30;
 import {TestSuiteSetup} from "../TestSuiteSetup.sol";
 import {MockERC721Receiver} from "../mocks/MockERC721Receiver.sol";
 import {MockNonERC721Receiver} from "../mocks/MockNonERC721Receiver.sol";
-import {CollectibleCast} from "../../src/CollectibleCast.sol";
-import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
+import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
+import {ICollectibleCasts} from "../../src/interfaces/ICollectibleCasts.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract CollectibleCastTest is TestSuiteSetup {
-    CollectibleCast public token;
+contract CollectibleCastsTest is TestSuiteSetup {
+    CollectibleCasts public token;
     MockERC721Receiver public validReceiver;
     MockNonERC721Receiver public invalidReceiver;
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCast(address(this), "https://example.com/");
+        token = new CollectibleCasts(address(this), "https://example.com/");
         validReceiver = new MockERC721Receiver();
         invalidReceiver = new MockNonERC721Receiver();
     }
@@ -31,7 +32,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Test that owner can allow minter
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
-        assertTrue(token.allowedMinters(minterAddr));
+        assertTrue(token.minters(minterAddr));
 
         // Test that non-owner cannot allow minter
         vm.prank(notOwner);
@@ -41,7 +42,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function testFuzz_AllowMinter_EmitsEvent(address minterAddr) public {
         vm.expectEmit(true, false, false, true);
-        emit ICollectibleCast.MinterAllowed(minterAddr);
+        emit ICollectibleCasts.MinterAllowed(minterAddr);
 
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
@@ -55,12 +56,12 @@ contract CollectibleCastTest is TestSuiteSetup {
         // First allow the minter
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
-        assertTrue(token.allowedMinters(minterAddr));
+        assertTrue(token.minters(minterAddr));
 
         // Test that owner can deny minter
         vm.prank(token.owner());
         token.denyMinter(minterAddr);
-        assertFalse(token.allowedMinters(minterAddr));
+        assertFalse(token.minters(minterAddr));
 
         // Test that non-owner cannot deny minter
         vm.prank(notOwner);
@@ -75,7 +76,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Then deny with event
         vm.expectEmit(true, false, false, true);
-        emit ICollectibleCast.MinterDenied(minterAddr);
+        emit ICollectibleCasts.MinterDenied(minterAddr);
 
         vm.prank(token.owner());
         token.denyMinter(minterAddr);
@@ -87,7 +88,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(owner != address(this));
 
         vm.prank(owner);
-        CollectibleCast newToken = new CollectibleCast(owner, "https://example.com/");
+        CollectibleCasts newToken = new CollectibleCasts(owner, "https://example.com/");
 
         assertEq(newToken.owner(), owner);
     }
@@ -109,18 +110,19 @@ contract CollectibleCastTest is TestSuiteSetup {
         uint256 fid
     ) public {
         // Ensure notMinter is not allowed
-        vm.assume(!token.allowedMinters(notMinter));
+        vm.assume(!token.minters(notMinter));
         vm.assume(recipient != address(0));
         vm.assume(fid != 0); // Need non-zero FID
 
         vm.prank(notMinter);
-        vm.expectRevert(ICollectibleCast.Unauthorized.selector);
-        token.mint(recipient, castHash, fid, makeAddr("creator"), "");
+        vm.expectRevert(ICollectibleCasts.Unauthorized.selector);
+        token.mint(recipient, castHash, fid, makeAddr("creator"));
     }
 
     function testFuzz_Mint_RevertsWhenFidIsZero(address recipient, bytes32 castHash) public {
         // Bound inputs
         vm.assume(recipient != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
 
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
@@ -129,12 +131,13 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.allowMinter(minterAddr);
 
         vm.prank(minterAddr);
-        vm.expectRevert(ICollectibleCast.InvalidFid.selector);
-        token.mint(recipient, castHash, 0, creator, "");
+        vm.expectRevert(ICollectibleCasts.InvalidFid.selector);
+        token.mint(recipient, castHash, 0, creator);
     }
 
     function testFuzz_Mint_SucceedsFirstTime(address recipient, bytes32 castHash, uint256 fid) public {
         vm.assume(recipient != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(fid != 0); // FID must be non-zero
         // Ensure recipient can receive ERC721
         vm.assume(recipient.code.length == 0 || recipient == address(validReceiver));
@@ -149,7 +152,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Mint as the minter with creator
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, creator, "");
+        token.mint(recipient, castHash, fid, creator);
 
         // Check that the recipient received the token
         assertEq(token.balanceOf(recipient), 1);
@@ -160,6 +163,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function testFuzz_Mint_EmitsEvent(address recipient, bytes32 castHash, uint256 fid) public {
         vm.assume(recipient != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(fid != 0); // FID must be non-zero
         vm.assume(recipient.code.length == 0 || recipient == address(validReceiver));
 
@@ -169,17 +173,18 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
 
-        // Expect the CastMinted event
+        // Expect the Mint event
         vm.expectEmit(true, true, true, true);
-        emit ICollectibleCast.CastMinted(recipient, castHash, tokenId, fid, makeAddr("creator"));
+        emit ICollectibleCasts.Mint(recipient, tokenId, castHash, fid, makeAddr("creator"));
 
         // Mint as the minter
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, makeAddr("creator"), "");
+        token.mint(recipient, castHash, fid, makeAddr("creator"));
     }
 
     function testFuzz_Mint_ToValidContract(bytes32 castHash, uint256 fid) public {
         // Bound inputs
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         fid = _bound(fid, 1, type(uint256).max);
 
         address minterAddr = makeAddr("minter");
@@ -191,7 +196,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Mint to a contract that implements ERC721Receiver
         vm.prank(minterAddr);
-        token.mint(address(validReceiver), castHash, fid, creator, "");
+        token.mint(address(validReceiver), castHash, fid, creator);
 
         assertEq(token.balanceOf(address(validReceiver)), 1);
         assertEq(token.ownerOf(tokenId), address(validReceiver));
@@ -200,6 +205,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function testFuzz_Mint_ToInvalidContract_Succeeds(bytes32 castHash, uint256 fid) public {
         // Bound inputs
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         fid = _bound(fid, 1, type(uint256).max);
 
         address minterAddr = makeAddr("minter");
@@ -212,7 +218,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Mint to a contract that doesn't implement ERC721Receiver
         // This succeeds because _mint is used, not _safeMint
         vm.prank(minterAddr);
-        token.mint(address(invalidReceiver), castHash, fid, creator, "");
+        token.mint(address(invalidReceiver), castHash, fid, creator);
 
         // Verify the token was minted
         assertEq(token.ownerOf(tokenId), address(invalidReceiver));
@@ -222,6 +228,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_Mint_ToEOA(address recipient, bytes32 castHash, uint256 fid) public {
         // Test minting to EOAs only
         vm.assume(recipient != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(fid != 0); // FID must be non-zero
         vm.assume(recipient.code.length == 0); // Only EOAs
         vm.assume(recipient != address(this)); // Not the test contract
@@ -235,7 +242,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Mint as the minter
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, makeAddr("creator"), "");
+        token.mint(recipient, castHash, fid, makeAddr("creator"));
 
         // Check that the recipient received the token
         assertEq(token.balanceOf(recipient), 1);
@@ -254,7 +261,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.allowMinter(minterAddr);
 
         for (uint256 i = 0; i < castHashes.length; i++) {
-            // Ensure unique cast hashes
+            // Ensure non-zero and unique cast hashes
+            vm.assume(castHashes[i] != bytes32(0));
             for (uint256 j = 0; j < i; j++) {
                 vm.assume(castHashes[i] != castHashes[j]);
             }
@@ -263,7 +271,7 @@ contract CollectibleCastTest is TestSuiteSetup {
             uint256 fid = baseFid + i;
 
             vm.prank(minterAddr);
-            token.mint(recipient, castHashes[i], fid, makeAddr("creator"), "");
+            token.mint(recipient, castHashes[i], fid, makeAddr("creator"));
 
             assertEq(token.ownerOf(tokenId), recipient);
             assertEq(token.tokenFid(uint256(castHashes[i])), fid);
@@ -273,6 +281,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_Mint_RevertsOnDoubleMint(address recipient, bytes32 castHash, uint256 fid) public {
         // Bound inputs
         vm.assume(recipient != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(recipient.code.length == 0); // EOA for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
 
@@ -284,12 +293,12 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // First mint should succeed
         vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, creator, "");
+        token.mint(recipient, castHash, fid, creator);
 
         // Second mint of same cast should revert
         vm.prank(minterAddr);
-        vm.expectRevert(ICollectibleCast.AlreadyMinted.selector);
-        token.mint(recipient, castHash, fid, creator, "");
+        vm.expectRevert(ICollectibleCasts.AlreadyMinted.selector);
+        token.mint(recipient, castHash, fid, creator);
     }
 
     function testFuzz_Mint_RevertsOnDoubleMintDifferentRecipients(
@@ -301,6 +310,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     ) public {
         vm.assume(recipient1 != address(0));
         vm.assume(recipient2 != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(fid1 != 0 && fid2 != 0); // FIDs must be non-zero
         // Skip addresses that might be contracts without ERC721Receiver
         vm.assume(recipient1.code.length == 0 || recipient1 == address(validReceiver));
@@ -312,12 +322,12 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // First mint should succeed
         vm.prank(minterAddr);
-        token.mint(recipient1, castHash, fid1, makeAddr("creator"), "");
+        token.mint(recipient1, castHash, fid1, makeAddr("creator"));
 
         // Second mint of same cast should revert, even to different recipient with different FID
         vm.prank(minterAddr);
-        vm.expectRevert(ICollectibleCast.AlreadyMinted.selector);
-        token.mint(recipient2, castHash, fid2, makeAddr("creator"), "");
+        vm.expectRevert(ICollectibleCasts.AlreadyMinted.selector);
+        token.mint(recipient2, castHash, fid2, makeAddr("creator"));
     }
 
     // Royalty Constants Tests
@@ -327,11 +337,6 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertEq(token.ROYALTY_BPS(), 500);
     }
 
-    function test_SetModule_RevertsWithInvalidModule() public {
-        vm.prank(token.owner());
-        vm.expectRevert(ICollectibleCast.InvalidModule.selector);
-        token.setModule("invalidModule", makeAddr("someAddress"));
-    }
 
     function test_SupportsERC2981Interface() public view {
         // ERC-2981 interface ID
@@ -363,7 +368,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(makeAddr("recipient"), castHash, fid, address(0), "");
+        token.mint(makeAddr("recipient"), castHash, fid, address(0));
 
         uint256 salePrice = 1000 ether;
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
@@ -385,7 +390,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(makeAddr("recipient"), castHash, fid, creator, "");
+        token.mint(makeAddr("recipient"), castHash, fid, creator);
 
         // Test royalty calculation
         uint256 salePrice = 1000 ether;
@@ -400,6 +405,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_RoyaltyInfo_ReturnsCreatorRoyalty(uint256 salePrice, bytes32 castHash, address creator) public {
         salePrice = _bound(salePrice, 0, 1000000 ether);
         vm.assume(creator != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
 
         // Set up a token with a creator
         address minterAddr = makeAddr("minter");
@@ -410,7 +416,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(makeAddr("recipient"), castHash, fid, creator, "");
+        token.mint(makeAddr("recipient"), castHash, fid, creator);
 
         // Test royalty calculation
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
@@ -432,7 +438,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, 123, creator, "");
+        token.mint(alice, castHash, 123, creator);
 
         // Test with zero sale price
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, 0);
@@ -451,7 +457,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, 123, creator, "");
+        token.mint(alice, castHash, 123, creator);
 
         // Test with max uint256 sale price - this should revert due to overflow
         uint256 maxPrice = type(uint256).max;
@@ -471,7 +477,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, 123, creator, "");
+        token.mint(alice, castHash, 123, creator);
 
         // Test with largest safe price that won't overflow
         uint256 largePrice = type(uint256).max / token.ROYALTY_BPS();
@@ -495,7 +501,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, 123, creator, "");
+        token.mint(alice, castHash, 123, creator);
 
         // Test with small amounts where royalty would round down to 0
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, 199); // 5% of 199 = 9.95, rounds to 9
@@ -521,7 +527,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, 123, creator, "");
+        token.mint(alice, castHash, 123, creator);
 
         // Get royalty
         (, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
@@ -539,7 +545,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function test_TokenURI_ReturnsEmptyWhenNoBaseURI() public {
         // Create a new token instance with empty base URI
-        CollectibleCast emptyBaseToken = new CollectibleCast(address(this), "");
+        CollectibleCasts emptyBaseToken = new CollectibleCasts(address(this), "");
 
         address minterAddr = makeAddr("minter");
         bytes32 castHash = keccak256("emptyBaseTest");
@@ -547,24 +553,21 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         emptyBaseToken.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        emptyBaseToken.mint(makeAddr("recipient"), castHash, 123, makeAddr("creator"), "");
+        emptyBaseToken.mint(makeAddr("recipient"), castHash, 123, makeAddr("creator"));
 
         // tokenURI should return empty string when no specific URI and no base URI
         assertEq(emptyBaseToken.tokenURI(tokenId), "");
     }
 
     function test_TokenURI_WithTokenIdZero() public {
-        // Test with token ID 0 to ensure _toString handles it correctly
+        // Test that castHash cannot be zero
         address minterAddr = makeAddr("minter");
         bytes32 castHash = bytes32(0); // This will result in tokenId = 0
-        uint256 tokenId = uint256(castHash);
 
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(makeAddr("recipient"), castHash, 123, makeAddr("creator"), "");
-
-        // tokenURI should return base URI + "0"
-        assertEq(token.tokenURI(tokenId), "https://example.com/0");
+        vm.expectRevert(ICollectibleCasts.InvalidInput.selector);
+        token.mint(makeAddr("recipient"), castHash, 123, makeAddr("creator"));
     }
 
     function test_TokenURI_RevertsForNonExistentToken() public {
@@ -600,7 +603,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, 123, makeAddr("creator"), "");
+        token.mint(alice, castHash, 123, makeAddr("creator"));
 
         // Test that tokenURI returns base URI pattern
         string memory actualUri = token.tokenURI(tokenId);
@@ -615,9 +618,76 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertEq(token.contractURI(), expectedUri);
     }
 
+    function test_SetContractURI_OnlyOwner() public {
+        address notOwner = makeAddr("notOwner");
+        string memory newContractURI = "https://custom.com/contract-metadata";
+
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        token.setContractURI(newContractURI);
+    }
+
+    function test_SetContractURI_UpdatesContractURI() public {
+        string memory customContractURI = "https://custom.com/contract-metadata";
+
+        // Initially, contractURI should return base + "contract"
+        assertEq(token.contractURI(), "https://example.com/contract");
+
+        // Set custom contract URI
+        vm.prank(token.owner());
+        token.setContractURI(customContractURI);
+
+        // Now contractURI should return the custom URI
+        assertEq(token.contractURI(), customContractURI);
+    }
+
+    function test_SetContractURI_EmitsEvent() public {
+        string memory customContractURI = "https://custom.com/contract-metadata";
+
+        vm.expectEmit(true, true, true, true);
+        emit ICollectibleCasts.ContractURIUpdated(customContractURI);
+
+        vm.prank(token.owner());
+        token.setContractURI(customContractURI);
+    }
+
+    function test_SetContractURI_EmptyStringFallsBackToDefault() public {
+        string memory customContractURI = "https://custom.com/contract-metadata";
+
+        // Set custom contract URI
+        vm.prank(token.owner());
+        token.setContractURI(customContractURI);
+        assertEq(token.contractURI(), customContractURI);
+
+        // Set empty string
+        vm.prank(token.owner());
+        token.setContractURI("");
+
+        // Should fall back to base + "contract"
+        assertEq(token.contractURI(), "https://example.com/contract");
+    }
+
+    function testFuzz_SetContractURI_UpdatesContractURI(string memory customURI) public {
+        // Initially, contractURI should return base + "contract"
+        assertEq(token.contractURI(), "https://example.com/contract");
+
+        // Set custom contract URI
+        vm.prank(token.owner());
+        token.setContractURI(customURI);
+
+        // If custom URI is not empty, it should be returned
+        if (bytes(customURI).length > 0) {
+            assertEq(token.contractURI(), customURI);
+        } else {
+            // Otherwise, fall back to default
+            assertEq(token.contractURI(), "https://example.com/contract");
+        }
+    }
+
     function testFuzz_TokenData_ReturnsStoredData(bytes32 castHash, uint256 fid, address creator) public {
         // Bound inputs
         vm.assume(creator != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         fid = _bound(fid, 1, type(uint256).max);
 
         address minterAddr = makeAddr("minter");
@@ -631,7 +701,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(alice, castHash, fid, creator, tokenURI);
 
         // Test tokenData function returns correct data
-        ICollectibleCast.TokenData memory data = token.tokenData(tokenId);
+        ICollectibleCasts.TokenData memory data = token.tokenData(tokenId);
         assertEq(data.fid, fid);
         assertEq(data.creator, creator);
         assertEq(data.uri, tokenURI);
@@ -640,7 +710,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function test_TokenData_ReturnsEmptyForUnmintedToken() public view {
         // Test tokenData for unminted token returns empty struct
         uint256 tokenId = uint256(keccak256("unminted"));
-        ICollectibleCast.TokenData memory data = token.tokenData(tokenId);
+        ICollectibleCasts.TokenData memory data = token.tokenData(tokenId);
         assertEq(data.fid, 0);
         assertEq(data.creator, address(0));
         assertEq(data.uri, "");
@@ -652,32 +722,6 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertEq(token.tokenFid(tokenId), 0);
     }
 
-    function testFuzz_Exists_ReturnsTrueForMintedToken(bytes32 castHash, uint256 fid) public {
-        // Bound inputs
-        fid = _bound(fid, 1, type(uint256).max);
-
-        address minterAddr = makeAddr("minter");
-        address creator = makeAddr("creator");
-        uint256 tokenId = uint256(castHash);
-
-        // Before minting, exists should return false
-        assertFalse(token.exists(tokenId));
-
-        // Mint a token
-        vm.prank(token.owner());
-        token.allowMinter(minterAddr);
-        vm.prank(minterAddr);
-        token.mint(alice, castHash, fid, creator, "");
-
-        // After minting, exists should return true
-        assertTrue(token.exists(tokenId));
-    }
-
-    function test_Exists_ReturnsFalseForUnmintedToken() public view {
-        // For any unminted token, exists should return false
-        uint256 tokenId = uint256(keccak256("unmintedExists"));
-        assertFalse(token.exists(tokenId));
-    }
 
     // Edge case tests
     function testFuzz_Mint_MaxTokenId(address recipient, uint256 fid) public {
@@ -694,17 +738,16 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.allowMinter(minterAddr);
 
         vm.prank(minterAddr);
-        token.mint(recipient, maxCastHash, fid, creator, "");
+        token.mint(recipient, maxCastHash, fid, creator);
 
         uint256 tokenId = uint256(maxCastHash);
         assertEq(token.balanceOf(recipient), 1);
         assertEq(token.ownerOf(tokenId), recipient);
         assertEq(token.tokenFid(tokenId), fid);
-        assertTrue(token.exists(tokenId));
     }
 
     function testFuzz_Mint_ZeroTokenId(address recipient, uint256 fid) public {
-        // Bound inputs
+        // Test that zero castHash (resulting in tokenId 0) is rejected
         vm.assume(recipient != address(0));
         vm.assume(recipient.code.length == 0); // EOA for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
@@ -717,13 +760,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.allowMinter(minterAddr);
 
         vm.prank(minterAddr);
-        token.mint(recipient, zeroCastHash, fid, creator, "");
-
-        uint256 tokenId = uint256(zeroCastHash); // Should be 0
-        assertEq(token.balanceOf(recipient), 1);
-        assertEq(token.ownerOf(tokenId), recipient);
-        assertEq(token.tokenFid(tokenId), fid);
-        assertTrue(token.exists(tokenId));
+        vm.expectRevert(ICollectibleCasts.InvalidInput.selector);
+        token.mint(recipient, zeroCastHash, fid, creator);
     }
 
     // setBaseURI tests
@@ -755,7 +793,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, 123, makeAddr("creator"), "");
+        token.mint(alice, castHash, 123, makeAddr("creator"));
 
         // For ERC721, when no specific URI is set, it appends tokenId to base URI
         // If base URI is empty, tokenURI returns empty string
@@ -772,13 +810,54 @@ contract CollectibleCastTest is TestSuiteSetup {
         string memory newBaseURI = "https://newapi.example.com/";
 
         vm.expectEmit(true, false, false, true);
-        emit ICollectibleCast.BaseURISet(newBaseURI);
+        emit ICollectibleCasts.BaseURISet(newBaseURI);
+        
+        vm.expectEmit(false, false, false, true);
+        emit ICollectibleCasts.BatchMetadataUpdate(0, type(uint256).max);
 
         vm.prank(token.owner());
         token.setBaseURI(newBaseURI);
     }
 
-    // batchSetTokenURIs tests
+    function test_SetBaseURI_BatchMetadataUpdate() public {
+        // First mint some tokens
+        address minterAddr = makeAddr("minter");
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+
+        // Mint multiple tokens
+        bytes32[3] memory castHashes = [
+            bytes32(uint256(1)),
+            bytes32(uint256(2)),
+            bytes32(uint256(3))
+        ];
+        
+        for (uint256 i = 0; i < castHashes.length; i++) {
+            vm.prank(minterAddr);
+            token.mint(makeAddr("recipient"), castHashes[i], i + 1, makeAddr("creator"));
+        }
+
+        // Check initial URIs
+        for (uint256 i = 0; i < castHashes.length; i++) {
+            assertEq(token.tokenURI(uint256(castHashes[i])), string.concat("https://example.com/", Strings.toString(uint256(castHashes[i]))));
+        }
+
+        // Update base URI and verify BatchMetadataUpdate event
+        string memory newBaseURI = "https://newapi.example.com/";
+        
+        vm.expectEmit(false, false, false, true);
+        emit ICollectibleCasts.BatchMetadataUpdate(0, type(uint256).max);
+        
+        vm.prank(token.owner());
+        token.setBaseURI(newBaseURI);
+
+        // Verify all token URIs are updated
+        for (uint256 i = 0; i < castHashes.length; i++) {
+            assertEq(token.tokenURI(uint256(castHashes[i])), string.concat(newBaseURI, Strings.toString(uint256(castHashes[i]))));
+        }
+    }
+
+    // setTokenURIs tests
 
     function test_BatchSetTokenURIs_OnlyOwner() public {
         address notOwner = makeAddr("notOwner");
@@ -789,7 +868,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        token.batchSetTokenURIs(tokenIds, uris);
+        token.setTokenURIs(tokenIds, uris);
     }
 
     function test_BatchSetTokenURIs_RevertsWithMismatchedArrays() public {
@@ -800,25 +879,30 @@ contract CollectibleCastTest is TestSuiteSetup {
         uris[0] = "https://example.com/123";
 
         vm.prank(token.owner());
-        vm.expectRevert(ICollectibleCast.InvalidInput.selector);
-        token.batchSetTokenURIs(tokenIds, uris);
+        vm.expectRevert(ICollectibleCasts.InvalidInput.selector);
+        token.setTokenURIs(tokenIds, uris);
     }
 
-    function test_BatchSetTokenURIs_RevertsForNonExistentToken() public {
+    function test_BatchSetTokenURIs_AllowsSettingForNonExistentToken() public {
         uint256[] memory tokenIds = new uint256[](1);
         string[] memory uris = new string[](1);
         tokenIds[0] = 123; // Non-existent token
         uris[0] = "https://example.com/123";
 
+        // Should not revert when setting URI for non-existent token
         vm.prank(token.owner());
-        vm.expectRevert(ICollectibleCast.TokenDoesNotExist.selector);
-        token.batchSetTokenURIs(tokenIds, uris);
+        token.setTokenURIs(tokenIds, uris);
+
+        // But tokenURI should still revert for unminted token
+        vm.expectRevert();
+        token.tokenURI(123);
     }
 
     function testFuzz_BatchSetTokenURIs_UpdatesExistingTokens(bytes32[3] memory castHashes, string[3] memory newURIs)
         public
     {
-        // Ensure unique cast hashes
+        // Ensure non-zero and unique cast hashes
+        vm.assume(castHashes[0] != bytes32(0) && castHashes[1] != bytes32(0) && castHashes[2] != bytes32(0));
         vm.assume(castHashes[0] != castHashes[1] && castHashes[0] != castHashes[2] && castHashes[1] != castHashes[2]);
 
         address minterAddr = makeAddr("minter");
@@ -830,7 +914,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         for (uint256 i = 0; i < 3; i++) {
             tokenIds[i] = uint256(castHashes[i]);
             vm.prank(minterAddr);
-            token.mint(alice, castHashes[i], i + 1, makeAddr("creator"), "");
+            token.mint(alice, castHashes[i], i + 1, makeAddr("creator"));
         }
 
         // Prepare arrays for batch update
@@ -842,12 +926,12 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Expect MetadataUpdate events
         for (uint256 i = 0; i < 3; i++) {
             vm.expectEmit(true, false, false, true);
-            emit ICollectibleCast.MetadataUpdate(tokenIds[i]);
+            emit ICollectibleCasts.MetadataUpdate(tokenIds[i]);
         }
 
         // Update URIs
         vm.prank(token.owner());
-        token.batchSetTokenURIs(tokenIds, uris);
+        token.setTokenURIs(tokenIds, uris);
 
         // Verify updates
         for (uint256 i = 0; i < 3; i++) {
@@ -866,6 +950,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_Transfer_ToZeroAddress_Reverts(address from, bytes32 castHash, uint256 fid) public {
         // Bound inputs
         vm.assume(from != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(from.code.length == 0); // EOA for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
 
@@ -877,7 +962,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator, "");
+        token.mint(from, castHash, fid, creator);
 
         // Try to transfer to zero address - should revert
         vm.prank(from);
@@ -889,6 +974,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Bound inputs
         vm.assume(from != address(0) && to != address(0));
         vm.assume(from != to);
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
 
@@ -900,7 +986,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator, "");
+        token.mint(from, castHash, fid, creator);
 
         // For ERC721, we transfer the entire token (no amount)
         vm.prank(from);
@@ -922,6 +1008,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         // Bound inputs
         vm.assume(from != address(0) && to != address(0) && notOwner != address(0));
         vm.assume(from != to && from != notOwner);
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
 
@@ -933,7 +1020,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator, "");
+        token.mint(from, castHash, fid, creator);
 
         // Verify ownership
         assertEq(token.ownerOf(tokenId), from);
@@ -947,6 +1034,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_SafeTransferFrom_ToContract(address from, bytes32 castHash, uint256 fid) public {
         // Bound inputs
         vm.assume(from != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(from.code.length == 0); // EOA
         fid = _bound(fid, 1, type(uint256).max);
 
@@ -958,7 +1046,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator, "");
+        token.mint(from, castHash, fid, creator);
 
         // Transfer to valid receiver contract
         vm.prank(from);
@@ -975,6 +1063,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     {
         // Bound inputs
         vm.assume(from != address(0));
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         vm.assume(from.code.length == 0); // EOA
         fid = _bound(fid, 1, type(uint256).max);
 
@@ -986,7 +1075,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator, "");
+        token.mint(from, castHash, fid, creator);
 
         // Transfer to valid receiver contract with data
         vm.prank(from);

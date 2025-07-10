@@ -5,13 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {CollectibleCast} from "../../src/CollectibleCast.sol";
+import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionStateTest is Test, AuctionTestHelper {
     Auction public auction;
     MockUSDC public usdc;
-    CollectibleCast public collectibleCast;
+    CollectibleCasts public collectibleCast;
 
     address public constant TREASURY = address(0x4);
 
@@ -24,7 +24,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         usdc = new MockUSDC();
         // Deploy real contracts
         address owner = address(this);
-        collectibleCast = new CollectibleCast(
+        collectibleCast = new CollectibleCasts(
             owner,
             "https://example.com/" // baseURI - not needed for auction tests
         );

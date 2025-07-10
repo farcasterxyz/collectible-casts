@@ -5,13 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {MockCollectibleCast} from "../mocks/MockCollectibleCast.sol";
+import {MockCollectibleCasts} from "../mocks/MockCollectibleCasts.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionStartTest is Test, AuctionTestHelper {
     Auction public auction;
     MockUSDC public usdc;
-    MockCollectibleCast public collectibleCast;
+    MockCollectibleCasts public collectibleCast;
 
     // Mock addresses
     address public constant TREASURY = address(0x4);
@@ -28,10 +28,10 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         // Deploy mock USDC
         usdc = new MockUSDC();
 
-        // Deploy mock CollectibleCast
-        collectibleCast = new MockCollectibleCast();
+        // Deploy mock CollectibleCasts
+        collectibleCast = new MockCollectibleCasts();
 
-        // Deploy auction with mock CollectibleCast and USDC
+        // Deploy auction with mock CollectibleCasts and USDC
         auction = new Auction(address(collectibleCast), address(usdc), TREASURY, address(this));
 
         // Allow auction to mint
@@ -104,6 +104,55 @@ contract AuctionStartTest is Test, AuctionTestHelper {
 
         // Verify nonce was marked as used
         assertTrue(auction.usedNonces(nonce));
+    }
+
+    function test_Start_SetsLastBidAt() public {
+        // Setup test parameters
+        bytes32 castHash = TEST_CAST_HASH;
+        address creator = CREATOR;
+        uint256 creatorFid = CREATOR_FID;
+        address bidder = address(0x123);
+        uint256 bidderFid = 12345;
+        uint256 amount = 100e6; // 100 USDC
+        bytes32 nonce = keccak256("test-nonce");
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // Create structs
+        IAuction.CastData memory castData = createCastData(castHash, creator, creatorFid);
+        IAuction.BidData memory bidData = createBidData(bidderFid, amount);
+        IAuction.AuctionParams memory params = createAuctionParams(
+            1e6, // minBid
+            1000, // minBidIncrement (10%)
+            24 hours, // duration
+            15 minutes, // extension
+            15 minutes, // extensionThreshold
+            1000 // protocolFee
+        );
+
+        // Create start authorization signature
+        bytes32 messageHash = auction.hashStartAuthorization(
+            castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        // Setup: Give bidder some USDC and approve auction contract
+        usdc.mint(bidder, amount);
+        vm.prank(bidder);
+        usdc.approve(address(auction), amount);
+
+        // Record timestamp before start
+        uint256 timestampBefore = block.timestamp;
+
+        // Start auction
+        vm.prank(bidder);
+        auction.start(castData, bidData, params, auth);
+
+        // Verify lastBidAt was set
+        (, , , , , uint256 lastBidAt, , , ) = auction.auctions(castHash);
+        assertEq(lastBidAt, timestampBefore, "lastBidAt should be set to block.timestamp");
     }
 
     function testFuzz_Start_Success_ParameterValidation(

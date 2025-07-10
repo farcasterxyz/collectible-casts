@@ -5,7 +5,7 @@ import {console} from "forge-std/console.sol";
 import {ImmutableCreate2Deployer} from "./ImmutableCreate2Deployer.sol";
 
 // Import all our contracts
-import {CollectibleCast} from "../src/CollectibleCast.sol";
+import {CollectibleCasts} from "../src/CollectibleCasts.sol";
 import {Auction} from "../src/Auction.sol";
 
 /**
@@ -37,7 +37,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     }
 
     struct Contracts {
-        CollectibleCast collectibleCast;
+        CollectibleCasts collectibleCast;
         Auction auction;
     }
 
@@ -80,11 +80,11 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     function runDeploy(bool broadcast, DeploymentParams memory params) internal returns (Contracts memory) {
         Addresses memory addrs;
 
-        // Deploy CollectibleCast
+        // Deploy CollectibleCasts
         addrs.collectibleCast = register(
-            "CollectibleCast",
+            "CollectibleCasts",
             params.salts.collectibleCast,
-            type(CollectibleCast).creationCode,
+            type(CollectibleCasts).creationCode,
             abi.encode(params.deployer, params.baseURI)
         );
 
@@ -100,7 +100,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         deploy(broadcast);
 
         // Return typed contract instances
-        return Contracts({collectibleCast: CollectibleCast(addrs.collectibleCast), auction: Auction(addrs.auction)});
+        return Contracts({collectibleCast: CollectibleCasts(addrs.collectibleCast), auction: Auction(addrs.auction)});
     }
 
     /**
@@ -112,7 +112,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         console.log("Configuring contracts...");
         console.log("========================================");
 
-        console.log("Allowing Auction on CollectibleCast...");
+        console.log("Allowing Auction on CollectibleCasts...");
         if (broadcast) vm.broadcast();
         contracts.collectibleCast.allowMinter(address(contracts.auction));
 

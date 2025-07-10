@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
+import {ICollectibleCasts} from "../../src/interfaces/ICollectibleCasts.sol";
 
-contract MockCollectibleCast is ICollectibleCast {
-    mapping(address => bool) public allowedMinters;
+contract MockCollectibleCasts is ICollectibleCasts {
+    mapping(address => bool) public minters;
     mapping(uint256 => TokenData) private _tokenData;
     mapping(bytes32 => bool) public minted;
     uint256 public nextTokenId = 1;
 
     string public baseURI;
+    string public contractURIString;
 
     // Track mint calls for testing
     struct MintCall {
@@ -22,8 +23,27 @@ contract MockCollectibleCast is ICollectibleCast {
 
     MintCall[] public mintCalls;
 
+    // Mint without custom tokenUri
+    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator) external {
+        if (!minters[msg.sender]) revert Unauthorized();
+        if (minted[castHash]) revert AlreadyMinted();
+        if (creatorFid == 0) revert InvalidFid();
+
+        uint256 tokenId = nextTokenId++;
+        minted[castHash] = true;
+
+        _tokenData[tokenId] = TokenData({fid: creatorFid, creator: creator, uri: ""});
+
+        mintCalls.push(
+            MintCall({to: to, castHash: castHash, creatorFid: creatorFid, creator: creator, tokenURI: ""})
+        );
+
+        emit Mint(to, tokenId, castHash, creatorFid, creator);
+    }
+
+    // Mint with custom tokenUri
     function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenUri) external {
-        if (!allowedMinters[msg.sender]) revert Unauthorized();
+        if (!minters[msg.sender]) revert Unauthorized();
         if (minted[castHash]) revert AlreadyMinted();
         if (creatorFid == 0) revert InvalidFid();
 
@@ -36,32 +56,34 @@ contract MockCollectibleCast is ICollectibleCast {
             MintCall({to: to, castHash: castHash, creatorFid: creatorFid, creator: creator, tokenURI: tokenUri})
         );
 
-        emit CastMinted(to, castHash, tokenId, creatorFid, creator);
+        emit Mint(to, tokenId, castHash, creatorFid, creator);
     }
 
-    function setModule(bytes32, address) external {
-        // No modules currently supported
-        revert InvalidModule();
-    }
 
     function setBaseURI(string memory baseURI_) external {
         baseURI = baseURI_;
         emit BaseURISet(baseURI_);
+        emit BatchMetadataUpdate(0, type(uint256).max);
     }
 
-    function batchSetTokenURIs(uint256[] memory tokenIds, string[] memory uris) external {
+    function setContractURI(string memory contractURI_) external {
+        contractURIString = contractURI_;
+        emit ContractURIUpdated(contractURI_);
+    }
+
+    function setTokenURIs(uint256[] memory tokenIds, string[] memory uris) external {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             _tokenData[tokenIds[i]].uri = uris[i];
         }
     }
 
     function allowMinter(address account) external {
-        allowedMinters[account] = true;
+        minters[account] = true;
         emit MinterAllowed(account);
     }
 
     function denyMinter(address account) external {
-        allowedMinters[account] = false;
+        minters[account] = false;
         emit MinterDenied(account);
     }
 
@@ -77,16 +99,16 @@ contract MockCollectibleCast is ICollectibleCast {
         return _tokenData[tokenId].creator;
     }
 
-    function exists(uint256 tokenId) external view returns (bool) {
-        return _tokenData[tokenId].fid != 0;
-    }
 
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         return _tokenData[tokenId].uri;
     }
 
     function contractURI() external view returns (string memory) {
-        return baseURI;
+        if (bytes(contractURIString).length > 0) {
+            return contractURIString;
+        }
+        return string.concat(baseURI, "contract");
     }
 
     // Helper functions for testing

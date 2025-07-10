@@ -6,8 +6,8 @@ import {console2} from "forge-std/console2.sol";
 import {DeployCollectibleCasts} from "../../script/DeployCollectibleCasts.s.sol";
 
 // Import all contracts for testing
-import {CollectibleCast} from "../../src/CollectibleCast.sol";
-import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
+import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
+import {ICollectibleCasts} from "../../src/interfaces/ICollectibleCasts.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -70,26 +70,26 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
 
     function test_DeploymentAddresses() public view {
         // Verify all addresses are non-zero
-        assertTrue(address(deployed.collectibleCast) != address(0), "CollectibleCast should be deployed");
-        // Royalties are now integrated into CollectibleCast, no separate contract
+        assertTrue(address(deployed.collectibleCast) != address(0), "CollectibleCasts should be deployed");
+        // Royalties are now integrated into CollectibleCasts, no separate contract
         assertTrue(address(deployed.auction) != address(0), "Auction should be deployed");
     }
 
-    function test_CollectibleCastConfiguration() public view {
+    function test_CollectibleCastsConfiguration() public view {
         // Check modules are set correctly
         // Note: metadata is now part of the base contract, not a separate module
         // Check that Auction is allowed to mint tokens
-        assertTrue(deployed.collectibleCast.allowedMinters(address(deployed.auction)), "Auction not allowed to mint");
-        // Royalty functionality is now integrated into CollectibleCast
+        assertTrue(deployed.collectibleCast.minters(address(deployed.auction)), "Auction not allowed to mint");
+        // Royalty functionality is now integrated into CollectibleCasts
         // Test that ERC-2981 interface is supported
         assertTrue(
             deployed.collectibleCast.supportsInterface(0x2a55205a), // ERC-2981 interface ID
-            "CollectibleCast should support ERC-2981"
+            "CollectibleCasts should support ERC-2981"
         );
 
         // Check ownership
-        assertEq(deployed.collectibleCast.owner(), deployer, "CollectibleCast owner incorrect");
-        assertEq(deployed.collectibleCast.pendingOwner(), owner, "CollectibleCast owner incorrect");
+        assertEq(deployed.collectibleCast.owner(), deployer, "CollectibleCasts owner incorrect");
+        assertEq(deployed.collectibleCast.pendingOwner(), owner, "CollectibleCasts owner incorrect");
     }
 
     function test_AuctionConfiguration() public view {
@@ -163,7 +163,7 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         vm.stopPrank();
 
         // Verify auction started
-        (,,,, uint256 highestBid,,,) = deployed.auction.auctions(castHash);
+        (,,,, uint256 highestBid,,,,) = deployed.auction.auctions(castHash);
         assertEq(highestBid, bidAmount, "Auction should have correct highest bid");
 
         // Fast forward to end
@@ -197,7 +197,7 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
 
         // Mint token directly (as auction would)
         vm.prank(address(deployed.auction));
-        deployed.collectibleCast.mint(creator, castHash, 12345, creator, "");
+        deployed.collectibleCast.mint(creator, castHash, 12345, creator);
 
         // Check royalty info
         (address receiver, uint256 royaltyAmount) = deployed.collectibleCast.royaltyInfo(tokenId, 1000);

@@ -5,13 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {CollectibleCast} from "../../src/CollectibleCast.sol";
+import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionBidTest is Test, AuctionTestHelper {
     Auction public auction;
     MockUSDC public usdc;
-    CollectibleCast public collectibleCast;
+    CollectibleCasts public collectibleCast;
 
     address public constant TREASURY = address(0x4);
 
@@ -27,7 +27,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
 
         // Deploy real contracts
         address owner = address(this);
-        collectibleCast = new CollectibleCast(
+        collectibleCast = new CollectibleCasts(
             owner,
             "https://example.com/" // baseURI - not needed for auction tests
         );
@@ -100,6 +100,55 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Verify USDC balances
         assertEq(usdc.balanceOf(secondBidder), 0);
         assertEq(usdc.balanceOf(address(auction)), secondAmount);
+    }
+
+    function test_Bid_UpdatesLastBidAt() public {
+        // Start auction first
+        address firstBidder = address(0x123);
+        uint256 firstBidderFid = 12345;
+        uint256 firstAmount = 100e6; // 100 USDC
+        _startAuction(firstBidder, firstBidderFid, firstAmount);
+
+        // Get initial lastBidAt
+        (, , , , , uint256 initialLastBidAt, , , ) = auction.auctions(TEST_CAST_HASH);
+        assertGt(initialLastBidAt, 0, "Initial lastBidAt should be set");
+
+        // Warp time forward
+        vm.warp(block.timestamp + 1 hours);
+
+        // Second bidder places higher bid
+        address secondBidder = address(0x456);
+        uint256 secondBidderFid = 45678;
+        uint256 secondAmount = 150e6; // 150 USDC
+
+        bytes32 nonce = keccak256("bid-nonce");
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // Create bid authorization
+        bytes32 messageHash =
+            auction.hashBidAuthorization(TEST_CAST_HASH, secondBidder, secondBidderFid, secondAmount, nonce, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Give second bidder USDC and approve
+        usdc.mint(secondBidder, secondAmount);
+        vm.prank(secondBidder);
+        usdc.approve(address(auction), secondAmount);
+
+        // Record timestamp before bid
+        uint256 timestampBefore = block.timestamp;
+
+        // Place bid
+        IAuction.BidData memory bidData = createBidData(secondBidderFid, secondAmount);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        vm.prank(secondBidder);
+        auction.bid(TEST_CAST_HASH, bidData, auth);
+
+        // Verify lastBidAt was updated
+        (, , , , , uint256 newLastBidAt, , , ) = auction.auctions(TEST_CAST_HASH);
+        assertEq(newLastBidAt, timestampBefore, "lastBidAt should be updated to current block.timestamp");
+        assertGt(newLastBidAt, initialLastBidAt, "New lastBidAt should be greater than initial");
     }
 
     function testFuzz_Bid_InsufficientIncrement(

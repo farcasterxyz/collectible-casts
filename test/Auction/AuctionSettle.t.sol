@@ -5,13 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {CollectibleCast} from "../../src/CollectibleCast.sol";
+import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionSettleTest is Test, AuctionTestHelper {
     Auction public auction;
     MockUSDC public usdc;
-    CollectibleCast public collectibleCast;
+    CollectibleCasts public collectibleCast;
 
     address public constant TREASURY = address(0x4);
 
@@ -27,7 +27,7 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
 
         // Deploy real contracts
         address owner = address(this);
-        collectibleCast = new CollectibleCast(
+        collectibleCast = new CollectibleCasts(
             owner,
             "https://example.com/" // baseURI - not needed for auction tests
         );
@@ -71,7 +71,6 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
 
         // Verify NFT was minted to the bidder
         uint256 tokenId = uint256(TEST_CAST_HASH);
-        assertTrue(collectibleCast.exists(tokenId));
         assertEq(collectibleCast.balanceOf(bidder), 1);
         assertEq(collectibleCast.ownerOf(tokenId), bidder);
         assertEq(collectibleCast.tokenFid(tokenId), CREATOR_FID);

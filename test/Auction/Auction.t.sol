@@ -4,8 +4,8 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
-import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
-import {MockCollectibleCast} from "../mocks/MockCollectibleCast.sol";
+import {ICollectibleCasts} from "../../src/interfaces/ICollectibleCasts.sol";
+import {MockCollectibleCasts} from "../mocks/MockCollectibleCasts.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
@@ -13,7 +13,7 @@ import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 contract AuctionTest is Test, AuctionTestHelper {
     Auction public auction;
 
-    MockCollectibleCast public collectibleCast;
+    MockCollectibleCasts public collectibleCast;
     address public constant USDC = address(0x3);
     address public constant TREASURY = address(0x4);
 
@@ -35,7 +35,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     );
 
     function setUp() public {
-        collectibleCast = new MockCollectibleCast();
+        collectibleCast = new MockCollectibleCasts();
         auction = new Auction(address(collectibleCast), USDC, TREASURY, address(this));
         // Allow the auction contract to mint
         collectibleCast.allowMinter(address(auction));
@@ -51,7 +51,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(auction.owner(), address(this));
     }
 
-    function test_Constructor_RevertsIfCollectibleCastIsZero() public {
+    function test_Constructor_RevertsIfCollectibleCastsIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
         new Auction(address(0), USDC, TREASURY, address(this));
     }
@@ -242,7 +242,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     function test_DomainSeparator_ComputesCorrectly() public view {
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
-                DOMAIN_TYPEHASH, keccak256("CollectibleCastAuction"), keccak256("1"), block.chainid, address(auction)
+                DOMAIN_TYPEHASH, keccak256("CollectibleCastsAuction"), keccak256("1"), block.chainid, address(auction)
             )
         );
 
@@ -251,12 +251,12 @@ contract AuctionTest is Test, AuctionTestHelper {
 
     function test_Constructor_SetsDomainSeparator() public {
         // Deploy new auction to test domain separator is set in constructor
-        MockCollectibleCast newCollectibleCast = new MockCollectibleCast();
-        Auction newAuction = new Auction(address(newCollectibleCast), USDC, TREASURY, address(this));
+        MockCollectibleCasts newCollectibleCasts = new MockCollectibleCasts();
+        Auction newAuction = new Auction(address(newCollectibleCasts), USDC, TREASURY, address(this));
 
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
-                DOMAIN_TYPEHASH, keccak256("CollectibleCastAuction"), keccak256("1"), block.chainid, address(newAuction)
+                DOMAIN_TYPEHASH, keccak256("CollectibleCastsAuction"), keccak256("1"), block.chainid, address(newAuction)
             )
         );
 
@@ -419,8 +419,8 @@ contract AuctionTest is Test, AuctionTestHelper {
 
         // Deploy auction on different chain
         vm.chainId(999);
-        MockCollectibleCast wrongChainCollectibleCast = new MockCollectibleCast();
-        Auction wrongChainAuction = new Auction(address(wrongChainCollectibleCast), USDC, TREASURY, address(this));
+        MockCollectibleCasts wrongChainCollectibleCasts = new MockCollectibleCasts();
+        Auction wrongChainAuction = new Auction(address(wrongChainCollectibleCasts), USDC, TREASURY, address(this));
 
         // Allow the authorizer on wrong chain auction
         vm.prank(wrongChainAuction.owner());
