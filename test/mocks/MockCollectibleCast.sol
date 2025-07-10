@@ -22,7 +22,7 @@ contract MockCollectibleCast is ICollectibleCast {
 
     MintCall[] public mintCalls;
 
-    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenURI) external {
+    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenUri) external {
         if (!allowedMinters[msg.sender]) revert Unauthorized();
         if (minted[castHash]) revert AlreadyMinted();
         if (creatorFid == 0) revert InvalidFid();
@@ -30,10 +30,10 @@ contract MockCollectibleCast is ICollectibleCast {
         uint256 tokenId = nextTokenId++;
         minted[castHash] = true;
 
-        _tokenData[tokenId] = TokenData({fid: creatorFid, creator: creator, uri: tokenURI});
+        _tokenData[tokenId] = TokenData({fid: creatorFid, creator: creator, uri: tokenUri});
 
         mintCalls.push(
-            MintCall({to: to, castHash: castHash, creatorFid: creatorFid, creator: creator, tokenURI: tokenURI})
+            MintCall({to: to, castHash: castHash, creatorFid: creatorFid, creator: creator, tokenURI: tokenUri})
         );
 
         emit CastMinted(to, castHash, tokenId, creatorFid, creator);
@@ -81,8 +81,8 @@ contract MockCollectibleCast is ICollectibleCast {
         return _tokenData[tokenId].fid != 0;
     }
 
-    function uri(uint256) external view returns (string memory) {
-        return baseURI;
+    function tokenURI(uint256 tokenId) external view returns (string memory) {
+        return _tokenData[tokenId].uri;
     }
 
     function contractURI() external view returns (string memory) {

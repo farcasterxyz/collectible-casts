@@ -2,24 +2,25 @@
 pragma solidity ^0.8.30;
 
 import {TestSuiteSetup} from "../TestSuiteSetup.sol";
-import {MockERC1155Receiver} from "../mocks/MockERC1155Receiver.sol";
-import {MockNonERC1155Receiver} from "../mocks/MockNonERC1155Receiver.sol";
+import {MockERC721Receiver} from "../mocks/MockERC721Receiver.sol";
+import {MockNonERC721Receiver} from "../mocks/MockNonERC721Receiver.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 
 contract CollectibleCastTest is TestSuiteSetup {
     CollectibleCast public token;
-    MockERC1155Receiver public validReceiver;
-    MockNonERC1155Receiver public invalidReceiver;
+    MockERC721Receiver public validReceiver;
+    MockNonERC721Receiver public invalidReceiver;
 
     function setUp() public override {
         super.setUp();
         token = new CollectibleCast(address(this), "https://example.com/");
-        validReceiver = new MockERC1155Receiver();
-        invalidReceiver = new MockNonERC1155Receiver();
+        validReceiver = new MockERC721Receiver();
+        invalidReceiver = new MockNonERC721Receiver();
     }
 
     function testFuzz_AllowMinter_OnlyOwner(address minterAddr, address notOwner) public {
@@ -91,10 +92,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         assertEq(newToken.owner(), owner);
     }
 
-    function test_SupportsERC1155Interface() public view {
-        // ERC-1155 interface ID
-        bytes4 erc1155InterfaceId = 0xd9b67a26;
-        assertTrue(token.supportsInterface(erc1155InterfaceId));
+    function test_SupportsERC721Interface() public view {
+        // ERC-721 interface ID
+        bytes4 erc721InterfaceId = 0x80ac58cd;
+        assertTrue(token.supportsInterface(erc721InterfaceId));
 
         // ERC-165 interface ID (supportsInterface itself)
         bytes4 erc165InterfaceId = 0x01ffc9a7;
@@ -135,7 +136,7 @@ contract CollectibleCastTest is TestSuiteSetup {
     function testFuzz_Mint_SucceedsFirstTime(address recipient, bytes32 castHash, uint256 fid) public {
         vm.assume(recipient != address(0));
         vm.assume(fid != 0); // FID must be non-zero
-        // Ensure recipient can receive ERC1155
+        // Ensure recipient can receive ERC721
         vm.assume(recipient.code.length == 0 || recipient == address(validReceiver));
 
         address minterAddr = makeAddr("minter");
@@ -151,7 +152,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(recipient, castHash, fid, creator, "");
 
         // Check that the recipient received the token
-        assertEq(token.balanceOf(recipient, tokenId), 1);
+        assertEq(token.balanceOf(recipient), 1);
+        assertEq(token.ownerOf(tokenId), recipient);
         assertEq(token.tokenFid(tokenId), fid);
         assertEq(token.tokenCreator(tokenId), creator);
     }
@@ -187,28 +189,34 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
 
-        // Mint to a contract that implements ERC1155Receiver
+        // Mint to a contract that implements ERC721Receiver
         vm.prank(minterAddr);
         token.mint(address(validReceiver), castHash, fid, creator, "");
 
-        assertEq(token.balanceOf(address(validReceiver), tokenId), 1);
+        assertEq(token.balanceOf(address(validReceiver)), 1);
+        assertEq(token.ownerOf(tokenId), address(validReceiver));
         assertEq(token.tokenFid(tokenId), fid);
     }
 
-    function testFuzz_Mint_ToInvalidContract_Reverts(bytes32 castHash, uint256 fid) public {
+    function testFuzz_Mint_ToInvalidContract_Succeeds(bytes32 castHash, uint256 fid) public {
         // Bound inputs
         fid = _bound(fid, 1, type(uint256).max);
 
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
+        uint256 tokenId = uint256(castHash);
 
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
 
-        // Attempt to mint to a contract that doesn't implement ERC1155Receiver
+        // Mint to a contract that doesn't implement ERC721Receiver
+        // This succeeds because _mint is used, not _safeMint
         vm.prank(minterAddr);
-        vm.expectRevert(); // ERC1155 will revert
         token.mint(address(invalidReceiver), castHash, fid, creator, "");
+
+        // Verify the token was minted
+        assertEq(token.ownerOf(tokenId), address(invalidReceiver));
+        assertEq(token.balanceOf(address(invalidReceiver)), 1);
     }
 
     function testFuzz_Mint_ToEOA(address recipient, bytes32 castHash, uint256 fid) public {
@@ -230,7 +238,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(recipient, castHash, fid, makeAddr("creator"), "");
 
         // Check that the recipient received the token
-        assertEq(token.balanceOf(recipient, tokenId), 1);
+        assertEq(token.balanceOf(recipient), 1);
+        assertEq(token.ownerOf(tokenId), recipient);
         // Check that the FID was stored
         assertEq(token.tokenFid(tokenId), fid);
     }
@@ -256,7 +265,7 @@ contract CollectibleCastTest is TestSuiteSetup {
             vm.prank(minterAddr);
             token.mint(recipient, castHashes[i], fid, makeAddr("creator"), "");
 
-            assertEq(token.balanceOf(recipient, tokenId), 1);
+            assertEq(token.ownerOf(tokenId), recipient);
             assertEq(token.tokenFid(uint256(castHashes[i])), fid);
         }
     }
@@ -283,7 +292,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(recipient, castHash, fid, creator, "");
     }
 
-    function testFuzz_Mint_RevertsOnDoubleMint(
+    function testFuzz_Mint_RevertsOnDoubleMintDifferentRecipients(
         address recipient1,
         address recipient2,
         bytes32 castHash,
@@ -293,7 +302,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(recipient1 != address(0));
         vm.assume(recipient2 != address(0));
         vm.assume(fid1 != 0 && fid2 != 0); // FIDs must be non-zero
-        // Skip addresses that might be contracts without ERC1155Receiver
+        // Skip addresses that might be contracts without ERC721Receiver
         vm.assume(recipient1.code.length == 0 || recipient1 == address(validReceiver));
         vm.assume(recipient2.code.length == 0 || recipient2 == address(validReceiver));
 
@@ -528,6 +537,44 @@ contract CollectibleCastTest is TestSuiteSetup {
         }
     }
 
+    function test_TokenURI_ReturnsEmptyWhenNoBaseURI() public {
+        // Create a new token instance with empty base URI
+        CollectibleCast emptyBaseToken = new CollectibleCast(address(this), "");
+
+        address minterAddr = makeAddr("minter");
+        bytes32 castHash = keccak256("emptyBaseTest");
+        uint256 tokenId = uint256(castHash);
+
+        emptyBaseToken.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        emptyBaseToken.mint(makeAddr("recipient"), castHash, 123, makeAddr("creator"), "");
+
+        // tokenURI should return empty string when no specific URI and no base URI
+        assertEq(emptyBaseToken.tokenURI(tokenId), "");
+    }
+
+    function test_TokenURI_WithTokenIdZero() public {
+        // Test with token ID 0 to ensure _toString handles it correctly
+        address minterAddr = makeAddr("minter");
+        bytes32 castHash = bytes32(0); // This will result in tokenId = 0
+        uint256 tokenId = uint256(castHash);
+
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(makeAddr("recipient"), castHash, 123, makeAddr("creator"), "");
+
+        // tokenURI should return base URI + "0"
+        assertEq(token.tokenURI(tokenId), "https://example.com/0");
+    }
+
+    function test_TokenURI_RevertsForNonExistentToken() public {
+        uint256 nonExistentTokenId = 999;
+
+        // Should revert when querying URI for non-existent token
+        vm.expectRevert();
+        token.tokenURI(nonExistentTokenId);
+    }
+
     function test_Uri_ReturnsTokenSpecificURI() public {
         // Mint a token with a specific URI
         address minterAddr = makeAddr("minter");
@@ -540,8 +587,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(minterAddr);
         token.mint(alice, castHash, 123, makeAddr("creator"), specificURI);
 
-        // Test that uri returns the token-specific URI
-        assertEq(token.uri(tokenId), specificURI);
+        // Test that tokenURI returns the token-specific URI
+        assertEq(token.tokenURI(tokenId), specificURI);
     }
 
     function test_Uri_FallsBackToBaseURI() public {
@@ -555,11 +602,10 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(minterAddr);
         token.mint(alice, castHash, 123, makeAddr("creator"), "");
 
-        // Test that uri returns base URI pattern
-        string memory actualUri = token.uri(tokenId);
-        // Note: OpenZeppelin's ERC1155 doesn't auto-append tokenId, it just returns the base URI
-        // The expected behavior is to return the base URI as-is
-        string memory expectedUri = "https://example.com/";
+        // Test that tokenURI returns base URI pattern
+        string memory actualUri = token.tokenURI(tokenId);
+        // For ERC721, when no specific URI is set, it appends tokenId to base URI
+        string memory expectedUri = string(abi.encodePacked("https://example.com/", vm.toString(tokenId)));
         assertEq(actualUri, expectedUri);
     }
 
@@ -651,7 +697,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(recipient, maxCastHash, fid, creator, "");
 
         uint256 tokenId = uint256(maxCastHash);
-        assertEq(token.balanceOf(recipient, tokenId), 1);
+        assertEq(token.balanceOf(recipient), 1);
+        assertEq(token.ownerOf(tokenId), recipient);
         assertEq(token.tokenFid(tokenId), fid);
         assertTrue(token.exists(tokenId));
     }
@@ -673,7 +720,8 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(recipient, zeroCastHash, fid, creator, "");
 
         uint256 tokenId = uint256(zeroCastHash); // Should be 0
-        assertEq(token.balanceOf(recipient, tokenId), 1);
+        assertEq(token.balanceOf(recipient), 1);
+        assertEq(token.ownerOf(tokenId), recipient);
         assertEq(token.tokenFid(tokenId), fid);
         assertTrue(token.exists(tokenId));
     }
@@ -709,9 +757,15 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(minterAddr);
         token.mint(alice, castHash, 123, makeAddr("creator"), "");
 
-        // OpenZeppelin's ERC1155 just returns the base URI as-is, doesn't append tokenId
-        string memory expectedTokenURI = newBaseURI;
-        assertEq(token.uri(tokenId), expectedTokenURI);
+        // For ERC721, when no specific URI is set, it appends tokenId to base URI
+        // If base URI is empty, tokenURI returns empty string
+        string memory expectedTokenURI;
+        if (bytes(newBaseURI).length > 0) {
+            expectedTokenURI = string(abi.encodePacked(newBaseURI, vm.toString(tokenId)));
+        } else {
+            expectedTokenURI = "";
+        }
+        assertEq(token.tokenURI(tokenId), expectedTokenURI);
     }
 
     function test_SetBaseURI_EmitsEvent() public {
@@ -785,10 +839,10 @@ contract CollectibleCastTest is TestSuiteSetup {
             uris[i] = newURIs[i];
         }
 
-        // Expect URI events
+        // Expect MetadataUpdate events
         for (uint256 i = 0; i < 3; i++) {
-            vm.expectEmit(true, true, false, true);
-            emit IERC1155.URI(newURIs[i], tokenIds[i]);
+            vm.expectEmit(true, false, false, true);
+            emit ICollectibleCast.MetadataUpdate(tokenIds[i]);
         }
 
         // Update URIs
@@ -797,11 +851,14 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Verify updates
         for (uint256 i = 0; i < 3; i++) {
-            // When an empty URI is set, it falls back to base URI
+            // When an empty URI is set, it falls back to base URI + tokenId
             if (bytes(newURIs[i]).length == 0) {
-                assertEq(token.uri(tokenIds[i]), "https://example.com/");
+                assertEq(
+                    token.tokenURI(tokenIds[i]),
+                    string(abi.encodePacked("https://example.com/", vm.toString(tokenIds[i])))
+                );
             } else {
-                assertEq(token.uri(tokenIds[i]), newURIs[i]);
+                assertEq(token.tokenURI(tokenIds[i]), newURIs[i]);
             }
         }
     }
@@ -824,11 +881,11 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Try to transfer to zero address - should revert
         vm.prank(from);
-        vm.expectRevert(); // ERC1155 should revert on transfer to zero address
-        token.safeTransferFrom(from, address(0), tokenId, 1, "");
+        vm.expectRevert(); // ERC721 should revert on transfer to zero address
+        token.transferFrom(from, address(0), tokenId);
     }
 
-    function testFuzz_Transfer_ZeroAmount(address from, address to, bytes32 castHash, uint256 fid) public {
+    function testFuzz_Transfer_Success(address from, address to, bytes32 castHash, uint256 fid) public {
         // Bound inputs
         vm.assume(from != address(0) && to != address(0));
         vm.assume(from != to);
@@ -845,45 +902,99 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.prank(minterAddr);
         token.mint(from, castHash, fid, creator, "");
 
-        // Transfer 0 amount should succeed but not change balances
+        // For ERC721, we transfer the entire token (no amount)
         vm.prank(from);
-        token.safeTransferFrom(from, to, tokenId, 0, "");
+        token.transferFrom(from, to, tokenId);
 
-        // Balances should be unchanged
-        assertEq(token.balanceOf(from, tokenId), 1);
-        assertEq(token.balanceOf(to, tokenId), 0);
+        // Check new ownership
+        assertEq(token.balanceOf(from), 0);
+        assertEq(token.balanceOf(to), 1);
+        assertEq(token.ownerOf(tokenId), to);
     }
 
-    function testFuzz_Transfer_MoreThanBalance_Reverts(
+    function testFuzz_Transfer_NotOwner_Reverts(
         address from,
         address to,
+        address notOwner,
         bytes32 castHash,
-        uint256 fid,
-        uint256 excessAmount
+        uint256 fid
     ) public {
         // Bound inputs
-        vm.assume(from != address(0) && to != address(0));
-        vm.assume(from != to);
+        vm.assume(from != address(0) && to != address(0) && notOwner != address(0));
+        vm.assume(from != to && from != notOwner);
         vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
         fid = _bound(fid, 1, type(uint256).max);
-        excessAmount = _bound(excessAmount, 2, type(uint256).max); // At least 2 (more than balance of 1)
 
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
         uint256 tokenId = uint256(castHash);
 
-        // Mint token (balance = 1)
+        // Mint token to 'from'
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
         token.mint(from, castHash, fid, creator, "");
 
-        // Verify balance is 1
-        assertEq(token.balanceOf(from, tokenId), 1);
+        // Verify ownership
+        assertEq(token.ownerOf(tokenId), from);
 
-        // Try to transfer more than balance - should revert
+        // Try to transfer from non-owner - should revert
+        vm.prank(notOwner);
+        vm.expectRevert(); // ERC721 should revert when not owner/approved
+        token.transferFrom(from, to, tokenId);
+    }
+
+    function testFuzz_SafeTransferFrom_ToContract(address from, bytes32 castHash, uint256 fid) public {
+        // Bound inputs
+        vm.assume(from != address(0));
+        vm.assume(from.code.length == 0); // EOA
+        fid = _bound(fid, 1, type(uint256).max);
+
+        address minterAddr = makeAddr("minter");
+        address creator = makeAddr("creator");
+        uint256 tokenId = uint256(castHash);
+
+        // Mint token to 'from'
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(from, castHash, fid, creator, "");
+
+        // Transfer to valid receiver contract
         vm.prank(from);
-        vm.expectRevert(); // ERC1155 should revert with insufficient balance
-        token.safeTransferFrom(from, to, tokenId, excessAmount, "");
+        token.safeTransferFrom(from, address(validReceiver), tokenId);
+
+        // Check ownership changed
+        assertEq(token.balanceOf(from), 0);
+        assertEq(token.balanceOf(address(validReceiver)), 1);
+        assertEq(token.ownerOf(tokenId), address(validReceiver));
+    }
+
+    function testFuzz_SafeTransferFrom_WithData(address from, bytes32 castHash, uint256 fid, bytes memory data)
+        public
+    {
+        // Bound inputs
+        vm.assume(from != address(0));
+        vm.assume(from.code.length == 0); // EOA
+        fid = _bound(fid, 1, type(uint256).max);
+
+        address minterAddr = makeAddr("minter");
+        address creator = makeAddr("creator");
+        uint256 tokenId = uint256(castHash);
+
+        // Mint token to 'from'
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(from, castHash, fid, creator, "");
+
+        // Transfer to valid receiver contract with data
+        vm.prank(from);
+        token.safeTransferFrom(from, address(validReceiver), tokenId, data);
+
+        // Check ownership changed
+        assertEq(token.balanceOf(from), 0);
+        assertEq(token.balanceOf(address(validReceiver)), 1);
+        assertEq(token.ownerOf(tokenId), address(validReceiver));
     }
 }

@@ -72,7 +72,8 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         // Verify NFT was minted to the bidder
         uint256 tokenId = uint256(TEST_CAST_HASH);
         assertTrue(collectibleCast.exists(tokenId));
-        assertEq(collectibleCast.balanceOf(bidder, tokenId), 1);
+        assertEq(collectibleCast.balanceOf(bidder), 1);
+        assertEq(collectibleCast.ownerOf(tokenId), bidder);
         assertEq(collectibleCast.tokenFid(tokenId), CREATOR_FID);
         assertEq(collectibleCast.tokenCreator(tokenId), CREATOR);
 

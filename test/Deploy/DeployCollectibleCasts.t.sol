@@ -174,8 +174,9 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         deployed.auction.settle(castHash);
 
         // Verify token was minted
-        uint256 balance = deployed.collectibleCast.balanceOf(bidder, uint256(castHash));
+        uint256 balance = deployed.collectibleCast.balanceOf(bidder);
         assertEq(balance, 1, "Bidder should have received token");
+        assertEq(deployed.collectibleCast.ownerOf(uint256(castHash)), bidder, "Bidder should own the token");
 
         // Verify payments
         uint256 creatorBalance = IERC20(USDC_BASE).balanceOf(creator);

@@ -22,10 +22,11 @@ interface ICollectibleCast {
         address indexed to, bytes32 indexed castHash, uint256 indexed tokenId, uint256 fid, address creator
     );
     event BaseURISet(string baseURI);
+    event MetadataUpdate(uint256 _tokenId);
     event MinterAllowed(address indexed account);
     event MinterDenied(address indexed account);
 
-    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenURI) external;
+    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenUri) external;
     function setModule(bytes32 module, address addr) external;
     function setBaseURI(string memory baseURI_) external;
     function batchSetTokenURIs(uint256[] memory tokenIds, string[] memory uris) external;
@@ -38,6 +39,6 @@ interface ICollectibleCast {
     function tokenFid(uint256 tokenId) external view returns (uint256);
     function tokenCreator(uint256 tokenId) external view returns (address);
     function exists(uint256 tokenId) external view returns (bool);
-    function uri(uint256 tokenId) external view returns (string memory);
+    function tokenURI(uint256 tokenId) external view returns (string memory);
     function contractURI() external view returns (string memory);
 }
