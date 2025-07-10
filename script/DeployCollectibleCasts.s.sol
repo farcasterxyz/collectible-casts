@@ -6,7 +6,6 @@ import {ImmutableCreate2Deployer} from "./ImmutableCreate2Deployer.sol";
 
 // Import all our contracts
 import {CollectibleCast} from "../src/CollectibleCast.sol";
-import {TransferValidator} from "../src/TransferValidator.sol";
 import {Auction} from "../src/Auction.sol";
 
 /**
@@ -18,7 +17,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     struct Salts {
         bytes32 collectibleCast;
         bytes32 minter;
-        bytes32 transferValidator;
         bytes32 auction;
     }
 
@@ -35,13 +33,11 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     struct Addresses {
         address collectibleCast;
         address minter;
-        address transferValidator;
         address auction;
     }
 
     struct Contracts {
         CollectibleCast collectibleCast;
-        TransferValidator transferValidator;
         Auction auction;
     }
 
@@ -84,21 +80,12 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     function runDeploy(bool broadcast, DeploymentParams memory params) internal returns (Contracts memory) {
         Addresses memory addrs;
 
-        // Deploy modules first (they don't depend on CollectibleCast)
-
-        addrs.transferValidator = register(
-            "TransferValidator",
-            params.salts.transferValidator,
-            type(TransferValidator).creationCode,
-            abi.encode(params.deployer)
-        );
-
-        // Deploy CollectibleCast with transferValidator module
+        // Deploy CollectibleCast
         addrs.collectibleCast = register(
             "CollectibleCast",
             params.salts.collectibleCast,
             type(CollectibleCast).creationCode,
-            abi.encode(params.deployer, params.baseURI, addrs.transferValidator)
+            abi.encode(params.deployer, params.baseURI)
         );
 
         // Deploy Auction (needs collectibleCast, USDC, treasury, and owner)
@@ -113,11 +100,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         deploy(broadcast);
 
         // Return typed contract instances
-        return Contracts({
-            collectibleCast: CollectibleCast(addrs.collectibleCast),
-            transferValidator: TransferValidator(addrs.transferValidator),
-            auction: Auction(addrs.auction)
-        });
+        return Contracts({collectibleCast: CollectibleCast(addrs.collectibleCast), auction: Auction(addrs.auction)});
     }
 
     /**
@@ -142,9 +125,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         contracts.collectibleCast.transferOwnership(params.owner);
 
         if (broadcast) vm.broadcast();
-        contracts.transferValidator.transferOwnership(params.owner);
-
-        if (broadcast) vm.broadcast();
         contracts.auction.transferOwnership(params.owner);
 
         console.log("Configuration complete!");
@@ -166,7 +146,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         params.salts = Salts({
             collectibleCast: vm.envOr("COLLECTIBLE_CAST_CREATE2_SALT", bytes32(0)),
             minter: vm.envOr("MINTER_CREATE2_SALT", bytes32(0)),
-            transferValidator: vm.envOr("TRANSFER_VALIDATOR_CREATE2_SALT", bytes32(0)),
             auction: vm.envOr("AUCTION_CREATE2_SALT", bytes32(0))
         });
 

@@ -6,7 +6,6 @@ import {ERC1155} from "openzeppelin-contracts/contracts/token/ERC1155/ERC1155.so
 import {IERC2981} from "openzeppelin-contracts/contracts/interfaces/IERC2981.sol";
 import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import {ICollectibleCast} from "./interfaces/ICollectibleCast.sol";
-import {ITransferValidator} from "./interfaces/ITransferValidator.sol";
 
 /// @title CollectibleCast
 /// @notice ERC-1155 token representing collectible Farcaster casts
@@ -19,20 +18,10 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     // Mapping of allowed minters
     mapping(address => bool) public allowedMinters;
 
-    // Transfer validator contract address
-    address public transferValidator;
-
     // Mapping from token ID to token data
     mapping(uint256 => ICollectibleCast.TokenData) internal _tokenData;
 
-    constructor(address _owner, string memory baseURI_, address _transferValidator)
-        ERC1155(baseURI_)
-        Ownable(_owner)
-    {
-        transferValidator = _transferValidator;
-
-        emit SetTransferValidator(address(0), _transferValidator);
-    }
+    constructor(address _owner, string memory baseURI_) ERC1155(baseURI_) Ownable(_owner) {}
 
     // External/public state-changing functions
     function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenURI) external {
@@ -50,17 +39,10 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     }
 
     // External permissioned functions
-    /// @notice Updates a module address
-    /// @param module The module identifier ("transferValidator")
-    /// @param addr The new module address
-    function setModule(bytes32 module, address addr) external onlyOwner {
-        if (module == "transferValidator") {
-            address previousValidator = transferValidator;
-            transferValidator = addr;
-            emit SetTransferValidator(previousValidator, addr);
-        } else {
-            revert InvalidModule();
-        }
+    /// @notice Updates a module address (currently no modules are supported)
+    function setModule(bytes32, address) external onlyOwner {
+        // No modules currently supported
+        revert InvalidModule();
     }
 
     // View functions
@@ -149,20 +131,5 @@ contract CollectibleCast is ERC1155, Ownable2Step, ICollectibleCast, IERC2981 {
     // Check if a token exists (has been minted)
     function exists(uint256 tokenId) external view returns (bool) {
         return _tokenData[tokenId].fid != 0;
-    }
-
-    // Internal functions
-    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
-        internal
-        virtual
-        override
-    {
-        // If transferValidator is set and this is not a mint operation, validate the transfer
-        if (transferValidator != address(0) && from != address(0)) {
-            bool isAllowed = ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids, values);
-            if (!isAllowed) revert TransferNotAllowed();
-        }
-
-        super._update(from, to, ids, values);
     }
 }

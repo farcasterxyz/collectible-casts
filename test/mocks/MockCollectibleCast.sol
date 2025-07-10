@@ -9,7 +9,6 @@ contract MockCollectibleCast is ICollectibleCast {
     mapping(bytes32 => bool) public minted;
     uint256 public nextTokenId = 1;
 
-    address public transferValidator;
     string public baseURI;
 
     // Track mint calls for testing
@@ -40,14 +39,9 @@ contract MockCollectibleCast is ICollectibleCast {
         emit CastMinted(to, castHash, tokenId, creatorFid, creator);
     }
 
-    function setModule(bytes32 module, address addr) external {
-        if (module == "transferValidator") {
-            address previousValidator = transferValidator;
-            transferValidator = addr;
-            emit SetTransferValidator(previousValidator, addr);
-        } else {
-            revert InvalidModule();
-        }
+    function setModule(bytes32, address) external {
+        // No modules currently supported
+        revert InvalidModule();
     }
 
     function setBaseURI(string memory baseURI_) external {

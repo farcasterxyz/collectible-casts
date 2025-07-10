@@ -6,7 +6,6 @@ import {MockERC1155Receiver} from "../mocks/MockERC1155Receiver.sol";
 import {MockNonERC1155Receiver} from "../mocks/MockNonERC1155Receiver.sol";
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
-import {TransferValidator} from "../../src/TransferValidator.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
@@ -18,7 +17,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCast(address(this), "https://example.com/", address(0));
+        token = new CollectibleCast(address(this), "https://example.com/");
         validReceiver = new MockERC1155Receiver();
         invalidReceiver = new MockNonERC1155Receiver();
     }
@@ -87,7 +86,7 @@ contract CollectibleCastTest is TestSuiteSetup {
         vm.assume(owner != address(this));
 
         vm.prank(owner);
-        CollectibleCast newToken = new CollectibleCast(owner, "https://example.com/", address(0));
+        CollectibleCast newToken = new CollectibleCast(owner, "https://example.com/");
 
         assertEq(newToken.owner(), owner);
     }
@@ -312,205 +311,6 @@ contract CollectibleCastTest is TestSuiteSetup {
         token.mint(recipient2, castHash, fid2, makeAddr("creator"), "");
     }
 
-    // TransferValidator Tests
-
-    function testFuzz_SetTransferValidatorModule_RevertsWhenNotOwner(address notOwner, address validatorAddr) public {
-        // Bound inputs
-        vm.assume(notOwner != token.owner());
-        vm.assume(notOwner != address(0));
-
-        vm.prank(notOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        token.setModule("transferValidator", validatorAddr);
-    }
-
-    function testFuzz_SetTransferValidatorModule_UpdatesAddress(address validatorAddr) public {
-        vm.prank(token.owner());
-        token.setModule("transferValidator", validatorAddr);
-
-        assertEq(token.transferValidator(), validatorAddr);
-    }
-
-    function testFuzz_SetTransferValidatorModule_EmitsEvent(address firstValidator, address secondValidator) public {
-        // First set
-        vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.SetTransferValidator(address(0), firstValidator);
-
-        vm.prank(token.owner());
-        token.setModule("transferValidator", firstValidator);
-
-        // Second set
-        vm.expectEmit(true, true, false, true);
-        emit ICollectibleCast.SetTransferValidator(firstValidator, secondValidator);
-
-        vm.prank(token.owner());
-        token.setModule("transferValidator", secondValidator);
-    }
-
-    // Transfer Validation Integration Tests
-
-    function testFuzz_Transfer_ChecksValidator_WhenValidatorSet(address from, address to, bytes32 castHash, uint256 fid)
-        public
-    {
-        // Bound inputs
-        vm.assume(from != address(0) && to != address(0));
-        vm.assume(from != to);
-        vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
-        fid = _bound(fid, 1, type(uint256).max);
-
-        address minterAddr = makeAddr("minter");
-        address creator = makeAddr("creator");
-        uint256 tokenId = uint256(castHash);
-
-        // Mint a token first
-        vm.prank(token.owner());
-        token.allowMinter(minterAddr);
-        vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator, "");
-
-        // Deploy a real validator with transfers disabled
-        TransferValidator validator = new TransferValidator(address(this));
-        token.setModule("transferValidator", address(validator));
-        // transfersEnabled is false by default, so all transfers are denied
-
-        // Attempt to transfer should revert
-        vm.prank(from);
-        vm.expectRevert(ICollectibleCast.TransferNotAllowed.selector);
-        token.safeTransferFrom(from, to, tokenId, 1, "");
-    }
-
-    function testFuzz_Transfer_AllowedWhenValidatorAllows(address from, address to, bytes32 castHash, uint256 fid)
-        public
-    {
-        // Bound inputs
-        vm.assume(from != address(0) && to != address(0));
-        vm.assume(from != to);
-        vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
-        fid = _bound(fid, 1, type(uint256).max);
-
-        address minterAddr = makeAddr("minter");
-        address creator = makeAddr("creator");
-        uint256 tokenId = uint256(castHash);
-
-        // Mint a token first
-        vm.prank(token.owner());
-        token.allowMinter(minterAddr);
-        vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator, "");
-
-        // Deploy a real validator with transfers enabled
-        TransferValidator validator = new TransferValidator(address(this));
-        token.setModule("transferValidator", address(validator));
-        vm.prank(validator.owner());
-        validator.enableTransfers(); // Enable transfers
-
-        // Transfer should succeed
-        vm.prank(from);
-        token.safeTransferFrom(from, to, tokenId, 1, "");
-
-        // Verify transfer
-        assertEq(token.balanceOf(from, tokenId), 0);
-        assertEq(token.balanceOf(to, tokenId), 1);
-    }
-
-    function testFuzz_Transfer_AllowedWhenNoValidatorSet(address from, address to, bytes32 castHash, uint256 fid)
-        public
-    {
-        // Bound inputs
-        vm.assume(from != address(0) && to != address(0));
-        vm.assume(from != to);
-        vm.assume(from.code.length == 0 && to.code.length == 0); // EOAs for safe transfer
-        fid = _bound(fid, 1, type(uint256).max);
-
-        address minterAddr = makeAddr("minter");
-        address creator = makeAddr("creator");
-        uint256 tokenId = uint256(castHash);
-
-        // Mint a token first
-        vm.prank(token.owner());
-        token.allowMinter(minterAddr);
-        vm.prank(minterAddr);
-        token.mint(from, castHash, fid, creator, "");
-
-        // No validator set - transfer should succeed
-        vm.prank(from);
-        token.safeTransferFrom(from, to, tokenId, 1, "");
-
-        // Verify transfer
-        assertEq(token.balanceOf(from, tokenId), 0);
-        assertEq(token.balanceOf(to, tokenId), 1);
-    }
-
-    function testFuzz_Mint_NotAffectedByValidator(address recipient, bytes32 castHash, uint256 fid) public {
-        // Bound inputs
-        vm.assume(recipient != address(0));
-        vm.assume(recipient.code.length == 0); // EOA for safe transfer
-        fid = _bound(fid, 1, type(uint256).max);
-
-        address minterAddr = makeAddr("minter");
-        address creator = makeAddr("creator");
-
-        // Set minter
-        vm.prank(token.owner());
-        token.allowMinter(minterAddr);
-
-        // Deploy a real validator with transfers disabled
-        TransferValidator validator = new TransferValidator(address(this));
-        token.setModule("transferValidator", address(validator));
-        // transfersEnabled is false by default, so all transfers are denied
-
-        // Minting should still succeed even with restrictive validator
-        vm.prank(minterAddr);
-        token.mint(recipient, castHash, fid, creator, "");
-
-        // Verify mint succeeded
-        assertEq(token.balanceOf(recipient, uint256(castHash)), 1);
-    }
-
-    function testFuzz_Transfer_ChecksValidator(
-        address from,
-        address to,
-        bytes32 castHash,
-        uint256 fid,
-        bool allowTransfer
-    ) public {
-        vm.assume(from != address(0));
-        vm.assume(to != address(0));
-        vm.assume(from != to);
-        vm.assume(fid != 0); // FID must be non-zero
-        // Ensure they can receive ERC1155 tokens
-        vm.assume(from.code.length == 0);
-        vm.assume(to.code.length == 0);
-
-        // Setup
-        address minterAddr = makeAddr("minter");
-        uint256 tokenId = uint256(castHash);
-
-        // Mint token
-        vm.prank(token.owner());
-        token.allowMinter(minterAddr);
-        vm.prank(minterAddr);
-        token.mint(from, castHash, fid, makeAddr("creator"), "");
-
-        // Set validator
-        TransferValidator validator = new TransferValidator(address(this));
-        token.setModule("transferValidator", address(validator));
-        if (allowTransfer) {
-            vm.prank(validator.owner());
-            validator.enableTransfers();
-        }
-
-        // Attempt transfer
-        vm.prank(from);
-        if (allowTransfer) {
-            token.safeTransferFrom(from, to, tokenId, 1, "");
-            assertEq(token.balanceOf(to, tokenId), 1);
-        } else {
-            vm.expectRevert(ICollectibleCast.TransferNotAllowed.selector);
-            token.safeTransferFrom(from, to, tokenId, 1, "");
-        }
-    }
-
     // Royalty Constants Tests
 
     function test_RoyaltyConstants() public view {
@@ -646,7 +446,7 @@ contract CollectibleCastTest is TestSuiteSetup {
 
         // Test with max uint256 sale price - this should revert due to overflow
         uint256 maxPrice = type(uint256).max;
-        
+
         // The royalty calculation will overflow, so we expect a revert
         vm.expectRevert(); // Arithmetic overflow
         token.royaltyInfo(tokenId, maxPrice);

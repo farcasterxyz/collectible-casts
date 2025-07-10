@@ -12,7 +12,6 @@ interface ICollectibleCast {
     // Custom errors
     error Unauthorized();
     error AlreadyMinted();
-    error TransferNotAllowed();
     error InvalidModule();
     error InvalidFid();
     error InvalidInput();
@@ -22,7 +21,6 @@ interface ICollectibleCast {
     event CastMinted(
         address indexed to, bytes32 indexed castHash, uint256 indexed tokenId, uint256 fid, address creator
     );
-    event SetTransferValidator(address indexed previousValidator, address indexed newValidator);
     event BaseURISet(string baseURI);
     event MinterAllowed(address indexed account);
     event MinterDenied(address indexed account);
@@ -36,7 +34,6 @@ interface ICollectibleCast {
 
     // View functions
     function allowedMinters(address account) external view returns (bool);
-    function transferValidator() external view returns (address);
     function tokenData(uint256 tokenId) external view returns (TokenData memory);
     function tokenFid(uint256 tokenId) external view returns (uint256);
     function tokenCreator(uint256 tokenId) external view returns (address);

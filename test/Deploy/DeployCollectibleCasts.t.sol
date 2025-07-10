@@ -8,7 +8,6 @@ import {DeployCollectibleCasts} from "../../script/DeployCollectibleCasts.s.sol"
 // Import all contracts for testing
 import {CollectibleCast} from "../../src/CollectibleCast.sol";
 import {ICollectibleCast} from "../../src/interfaces/ICollectibleCast.sol";
-import {TransferValidator} from "../../src/TransferValidator.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -72,7 +71,6 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
     function test_DeploymentAddresses() public view {
         // Verify all addresses are non-zero
         assertTrue(address(deployed.collectibleCast) != address(0), "CollectibleCast should be deployed");
-        assertTrue(address(deployed.transferValidator) != address(0), "TransferValidator should be deployed");
         // Royalties are now integrated into CollectibleCast, no separate contract
         assertTrue(address(deployed.auction) != address(0), "Auction should be deployed");
     }
@@ -82,11 +80,6 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         // Note: metadata is now part of the base contract, not a separate module
         // Check that Auction is allowed to mint tokens
         assertTrue(deployed.collectibleCast.allowedMinters(address(deployed.auction)), "Auction not allowed to mint");
-        assertEq(
-            deployed.collectibleCast.transferValidator(),
-            address(deployed.transferValidator),
-            "TransferValidator module incorrect"
-        );
         // Royalty functionality is now integrated into CollectibleCast
         // Test that ERC-2981 interface is supported
         assertTrue(
@@ -113,15 +106,6 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         // Check ownership
         assertEq(deployed.auction.owner(), deployer, "Auction owner incorrect");
         assertEq(deployed.auction.pendingOwner(), owner, "Auction owner incorrect");
-    }
-
-    function test_TransferValidatorConfiguration() public view {
-        // Check transfers are disabled by default
-        assertFalse(deployed.transferValidator.transfersEnabled(), "Transfers should be disabled by default");
-
-        // Check ownership
-        assertEq(deployed.transferValidator.owner(), deployer, "TransferValidator owner incorrect");
-        assertEq(deployed.transferValidator.pendingOwner(), owner, "TransferValidator owner incorrect");
     }
 
     function test_EndToEndAuctionFlow() public {
@@ -179,16 +163,7 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         vm.stopPrank();
 
         // Verify auction started
-        (
-            address auctionCreator,
-            uint256 auctionCreatorFid,
-            address highestBidder,
-            uint256 highestBidderFid,
-            uint256 highestBid,
-            uint256 endTime,
-            bool settled,
-            IAuction.AuctionParams memory auctionParams
-        ) = deployed.auction.auctions(castHash);
+        (,,,, uint256 highestBid,,,) = deployed.auction.auctions(castHash);
         assertEq(highestBid, bidAmount, "Auction should have correct highest bid");
 
         // Fast forward to end
