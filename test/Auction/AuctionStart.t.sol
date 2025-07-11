@@ -22,7 +22,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
 
     bytes32 public constant TEST_CAST_HASH = keccak256("test-cast");
     address public constant CREATOR = address(0x789);
-    uint256 public constant CREATOR_FID = 67890;
+    uint96 public constant CREATOR_FID = 67890;
 
     function setUp() public {
         // Deploy mock USDC
@@ -46,9 +46,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
     function testFuzz_Start_Success(
         bytes32 castHash,
         address creator,
-        uint256 creatorFid,
+        uint96 creatorFid,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -110,9 +110,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         // Setup test parameters
         bytes32 castHash = TEST_CAST_HASH;
         address creator = CREATOR;
-        uint256 creatorFid = CREATOR_FID;
+        uint96 creatorFid = CREATOR_FID;
         address bidder = address(0x123);
-        uint256 bidderFid = 12345;
+        uint96 bidderFid = 12345;
         uint256 amount = 100e6; // 100 USDC
         bytes32 nonce = keccak256("test-nonce");
         uint256 deadline = block.timestamp + 1 hours;
@@ -151,7 +151,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
 
         // Verify lastBidAt was set
-        (,,,,, uint256 lastBidAt,,,) = auction.auctions(castHash);
+        (,,,,, uint40 lastBidAt,,,) = auction.auctions(castHash);
         assertEq(lastBidAt, timestampBefore, "lastBidAt should be set to block.timestamp");
     }
 
@@ -171,9 +171,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         // Use fixed addresses to avoid event issues
         bytes32 castHash = keccak256(abi.encodePacked("fuzz", duration, amount));
         address creator = address(0x789);
-        uint256 creatorFid = 67890;
+        uint96 creatorFid = 67890;
         address bidder = address(0x123);
-        uint256 bidderFid = 12345;
+        uint96 bidderFid = 12345;
         bytes32 nonce = keccak256(abi.encodePacked("fuzz-nonce", castHash));
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -215,15 +215,15 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         assertTrue(auction.usedNonces(nonce));
     }
 
-    event AuctionStarted(bytes32 indexed castHash, address indexed creator, uint256 creatorFid);
-    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint256 bidderFid, uint256 amount);
+    event AuctionStarted(bytes32 indexed castHash, address indexed creator, uint96 creatorFid);
+    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount);
 
     function testFuzz_Start_RevertsInvalidProtocolFee(
         bytes32 castHash,
         address creator,
-        uint256 creatorFid,
+        uint96 creatorFid,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce,
         uint256 invalidFee
@@ -235,7 +235,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         vm.assume(creatorFid != 0);
         vm.assume(bidderFid != 0);
         amount = _bound(amount, 1e6, 10000e6);
-        invalidFee = _bound(invalidFee, 10001, type(uint256).max); // > 100%
+        invalidFee = _bound(invalidFee, 10001, type(uint16).max); // > 100%
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create structs using helper functions
@@ -274,9 +274,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
     function testFuzz_Start_RevertsBelowMinimum(
         bytes32 castHash,
         address creator,
-        uint256 creatorFid,
+        uint96 creatorFid,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 belowMinAmount,
         bytes32 nonce
     ) public {
@@ -322,12 +322,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsWithInvalidSignature(
-        address bidder,
-        uint256 bidderFid,
-        uint256 amount,
-        bytes32 nonce
-    ) public {
+    function testFuzz_Start_RevertsWithInvalidSignature(address bidder, uint96 bidderFid, uint256 amount, bytes32 nonce)
+        public
+    {
         vm.assume(bidder != address(0));
         vm.assume(bidder != CREATOR); // Avoid self-bidding error
         vm.assume(bidderFid != 0);
@@ -362,9 +359,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
     function testFuzz_Start_RevertsWithUsedNonce(
         bytes32 castHash,
         address creator,
-        uint256 creatorFid,
+        uint96 creatorFid,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 reusedNonce
     ) public {
@@ -415,7 +412,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData2, bidData, params, auth2);
     }
 
-    function testFuzz_Start_RevertsWithZeroExtension(address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce)
+    function testFuzz_Start_RevertsWithZeroExtension(address bidder, uint96 bidderFid, uint256 amount, bytes32 nonce)
         public
     {
         vm.assume(bidder != address(0));
@@ -453,7 +450,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
 
     function testFuzz_Start_RevertsWithZeroExtensionThreshold(
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -490,7 +487,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsWithLowMinBid(address bidder, uint256 bidderFid, uint256 lowAmount, bytes32 nonce)
+    function testFuzz_Start_RevertsWithLowMinBid(address bidder, uint96 bidderFid, uint256 lowAmount, bytes32 nonce)
         public
     {
         vm.assume(bidder != address(0));
@@ -502,12 +499,12 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         IAuction.BidData memory bidData = createBidData(bidderFid, lowAmount);
         // Create params with minBid below MIN_BID_AMOUNT
         IAuction.AuctionParams memory params = IAuction.AuctionParams({
-            minBid: lowAmount, // Below MIN_BID_AMOUNT (1e6)
-            minBidIncrement: 1000,
-            duration: 24 hours,
-            extension: 15 minutes,
-            extensionThreshold: 15 minutes,
-            protocolFee: 1000
+            minBid: uint64(lowAmount), // Below MIN_BID_AMOUNT (1e6)
+            minBidIncrementBps: uint16(1000),
+            duration: uint32(24 hours),
+            extension: uint32(15 minutes),
+            extensionThreshold: uint32(15 minutes),
+            protocolFeeBps: uint16(1000)
         });
 
         bytes32 messageHash = auction.hashStartAuthorization(
@@ -529,7 +526,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
 
     function testFuzz_Start_RevertsWithExpiredDeadline(
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce,
         uint256 expiredOffset

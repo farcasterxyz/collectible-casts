@@ -5,7 +5,7 @@ import {IAuction} from "../../src/interfaces/IAuction.sol";
 
 contract AuctionTestHelper {
     // Helper functions to create structs for cleaner tests
-    function createCastData(bytes32 castHash, address creator, uint256 creatorFid)
+    function createCastData(bytes32 castHash, address creator, uint96 creatorFid)
         internal
         pure
         returns (IAuction.CastData memory)
@@ -13,7 +13,7 @@ contract AuctionTestHelper {
         return IAuction.CastData({castHash: castHash, creator: creator, creatorFid: creatorFid});
     }
 
-    function createBidData(uint256 bidderFid, uint256 amount) internal pure returns (IAuction.BidData memory) {
+    function createBidData(uint96 bidderFid, uint256 amount) internal pure returns (IAuction.BidData memory) {
         return IAuction.BidData({bidderFid: bidderFid, amount: amount});
     }
 
@@ -42,12 +42,12 @@ contract AuctionTestHelper {
         uint256 protocolFee
     ) internal pure returns (IAuction.AuctionParams memory) {
         return IAuction.AuctionParams({
-            minBid: minBid,
-            minBidIncrement: minBidIncrement,
-            duration: duration,
-            extension: extension,
-            extensionThreshold: extensionThreshold,
-            protocolFee: protocolFee
+            minBid: uint64(minBid),
+            minBidIncrementBps: uint16(minBidIncrement),
+            duration: uint32(duration),
+            extension: uint32(extension),
+            extensionThreshold: uint32(extensionThreshold),
+            protocolFeeBps: uint16(protocolFee)
         });
     }
 }

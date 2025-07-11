@@ -21,7 +21,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     struct BidParams {
         bytes32 castHash;
         address bidder;
-        uint256 bidderFid;
+        uint96 bidderFid;
         uint256 amount;
         bytes32 nonce;
         uint256 deadline;
@@ -31,7 +31,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
     bytes32 public constant BID_AUTHORIZATION_TYPEHASH = keccak256(
-        "BidAuthorization(bytes32 castHash,address bidder,uint256 bidderFid,uint256 amount,bytes32 nonce,uint256 deadline)"
+        "BidAuthorization(bytes32 castHash,address bidder,uint96 bidderFid,uint256 amount,bytes32 nonce,uint256 deadline)"
     );
 
     function setUp() public {
@@ -42,9 +42,19 @@ contract AuctionTest is Test, AuctionTestHelper {
     }
 
     function test_Constructor_SetsConfiguration() public view {
-        assertEq(auction.collectibleCast(), address(collectibleCast));
-        assertEq(auction.usdc(), USDC);
+        assertEq(address(auction.collectible()), address(collectibleCast));
+        assertEq(address(auction.usdc()), USDC);
         assertEq(auction.treasury(), TREASURY);
+
+        // Check default config
+        (uint32 minBidAmount, uint32 minAuctionDuration, uint32 maxAuctionDuration, uint32 maxExtension) =
+            auction.config();
+        assertEq(minBidAmount, 1e6);
+        assertEq(minAuctionDuration, 1 hours);
+        assertEq(maxAuctionDuration, 30 days);
+        assertEq(maxExtension, 24 hours);
+
+        // BPS_DENOMINATOR is now internal constant (10000)
     }
 
     function test_Constructor_SetsOwner() public view {
@@ -207,6 +217,72 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertFalse(auction.authorizers(authorizer));
     }
 
+    // SetAuctionConfig tests
+    function test_SetAuctionConfig_OnlyOwner() public {
+        IAuction.AuctionConfig memory newConfig = IAuction.AuctionConfig({
+            minBidAmount: uint32(2e6),
+            minAuctionDuration: uint32(2 hours),
+            maxAuctionDuration: uint32(14 days),
+            maxExtension: uint32(12 hours)
+        });
+
+        // Non-owner should fail
+        address notOwner = makeAddr("notOwner");
+        vm.prank(notOwner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
+        auction.setAuctionConfig(newConfig);
+
+        // Owner should succeed
+        vm.prank(auction.owner());
+        auction.setAuctionConfig(newConfig);
+
+        // Verify config was updated
+        (uint32 minBidAmount, uint32 minAuctionDuration, uint32 maxAuctionDuration, uint32 maxExtension) =
+            auction.config();
+        assertEq(minBidAmount, 2e6);
+        assertEq(minAuctionDuration, 2 hours);
+        assertEq(maxAuctionDuration, 14 days);
+        assertEq(maxExtension, 12 hours);
+    }
+
+    function test_SetAuctionConfig_EmitsEvent() public {
+        IAuction.AuctionConfig memory newConfig = IAuction.AuctionConfig({
+            minBidAmount: uint32(2e6),
+            minAuctionDuration: uint32(2 hours),
+            maxAuctionDuration: uint32(14 days),
+            maxExtension: uint32(12 hours)
+        });
+
+        vm.expectEmit(true, true, true, true);
+        emit IAuction.AuctionConfigSet(newConfig);
+
+        vm.prank(auction.owner());
+        auction.setAuctionConfig(newConfig);
+    }
+
+    function test_SetAuctionConfig_ValidatesInput() public {
+        // Test zero bpsDenominator
+        // Test zero minBidAmount
+        IAuction.AuctionConfig memory invalidConfig = IAuction.AuctionConfig({
+            minBidAmount: 0,
+            minAuctionDuration: 1 hours,
+            maxAuctionDuration: 30 days,
+            maxExtension: 24 hours
+        });
+
+        vm.prank(auction.owner());
+        vm.expectRevert(abi.encodeWithSelector(IAuction.InvalidAuctionParams.selector));
+        auction.setAuctionConfig(invalidConfig);
+
+        // Test maxAuctionDuration <= minAuctionDuration
+        invalidConfig.minBidAmount = 1e6;
+        invalidConfig.maxAuctionDuration = 1 hours;
+
+        vm.prank(auction.owner());
+        vm.expectRevert(abi.encodeWithSelector(IAuction.InvalidAuctionParams.selector));
+        auction.setAuctionConfig(invalidConfig);
+    }
+
     // Test Ownable2Step functionality
     function testFuzz_TransferOwnership_TwoStep(address newOwner) public {
         vm.assume(newOwner != address(0));
@@ -271,7 +347,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     function testFuzz_BidAuthorizationHash_ComputesCorrectly(
         bytes32 castHash,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce,
         uint256 deadline
@@ -289,7 +365,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     function testFuzz_BidAuthorizationHash_DifferentInputs(
         bytes32 castHash,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce,
         uint256 deadline
@@ -307,7 +383,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     function testFuzz_VerifyBidAuthorization_ValidSignature(
         bytes32 castHash,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -334,7 +410,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     function testFuzz_VerifyBidAuthorization_InvalidSignature(
         bytes32 castHash,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -357,7 +433,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     function testFuzz_VerifyBidAuthorization_ExpiredDeadline(
         bytes32 castHash,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -392,8 +468,8 @@ contract AuctionTest is Test, AuctionTestHelper {
         uint256 amount,
         bytes32 nonce,
         uint256 deadline,
-        uint256 fid1,
-        uint256 fid2
+        uint96 fid1,
+        uint96 fid2
     ) public view {
         vm.assume(fid1 != fid2);
 

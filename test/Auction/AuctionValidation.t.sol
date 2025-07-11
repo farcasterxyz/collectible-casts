@@ -20,7 +20,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
 
     bytes32 public constant TEST_CAST_HASH = keccak256("test-cast");
     address public constant CREATOR = address(0x789);
-    uint256 public constant CREATOR_FID = 67890;
+    uint96 public constant CREATOR_FID = 67890;
 
     function setUp() public {
         usdc = new MockUSDC();
@@ -33,7 +33,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         auction.allowAuthorizer(authorizer);
     }
 
-    function testFuzz_Start_RevertsWithZeroCastHash(address bidder, uint256 bidderFid, uint256 amount, bytes32 nonce)
+    function testFuzz_Start_RevertsWithZeroCastHash(address bidder, uint96 bidderFid, uint256 amount, bytes32 nonce)
         public
     {
         vm.assume(bidder != address(0));
@@ -73,7 +73,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
     function testFuzz_Start_RevertsWithZeroCreator(
         bytes32 castHash,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -115,7 +115,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         bytes32 castHash,
         address creator,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -156,8 +156,8 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
     function testFuzz_Start_RevertsOnSelfBidding(
         bytes32 castHash,
         address creator,
-        uint256 creatorFid,
-        uint256 bidderFid,
+        uint96 creatorFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -198,7 +198,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
 
     function testFuzz_Start_RevertsWithShortDuration(
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce,
         uint256 shortDuration
@@ -210,12 +210,12 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         uint256 deadline = block.timestamp + 1 hours;
 
         IAuction.AuctionParams memory params = IAuction.AuctionParams({
-            minBid: amount,
-            minBidIncrement: 1000,
-            duration: shortDuration,
-            extension: 15 minutes,
-            extensionThreshold: 15 minutes,
-            protocolFee: 1000
+            minBid: uint64(amount),
+            minBidIncrementBps: uint16(1000),
+            duration: uint32(shortDuration),
+            extension: uint32(15 minutes),
+            extensionThreshold: uint32(15 minutes),
+            protocolFeeBps: uint16(1000)
         });
 
         bytes32 messageHash = auction.hashStartAuthorization(
@@ -238,18 +238,18 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
 
     function test_Start_RevertsWithLongDuration() public {
         address bidder = address(0x123);
-        uint256 bidderFid = 12345;
+        uint96 bidderFid = 12345;
         uint256 amount = 1e6;
         bytes32 nonce = keccak256("start-nonce");
         uint256 deadline = block.timestamp + 1 hours;
 
         IAuction.AuctionParams memory params = IAuction.AuctionParams({
-            minBid: 1e6,
-            minBidIncrement: 1000,
-            duration: 31 days, // More than MAX_AUCTION_DURATION
-            extension: 15 minutes,
-            extensionThreshold: 15 minutes,
-            protocolFee: 1000
+            minBid: uint64(1e6),
+            minBidIncrementBps: uint16(1000),
+            duration: uint32(31 days), // More than MAX_AUCTION_DURATION
+            extension: uint32(15 minutes),
+            extensionThreshold: uint32(15 minutes),
+            protocolFeeBps: uint16(1000)
         });
 
         bytes32 messageHash = auction.hashStartAuthorization(
@@ -272,18 +272,18 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
 
     function test_Start_RevertsWithExtensionGreaterThanDuration() public {
         address bidder = address(0x123);
-        uint256 bidderFid = 12345;
+        uint96 bidderFid = 12345;
         uint256 amount = 1e6;
         bytes32 nonce = keccak256("start-nonce");
         uint256 deadline = block.timestamp + 1 hours;
 
         IAuction.AuctionParams memory params = IAuction.AuctionParams({
-            minBid: 1e6,
-            minBidIncrement: 1000,
-            duration: 2 hours,
-            extension: 3 hours, // Greater than duration
-            extensionThreshold: 15 minutes,
-            protocolFee: 1000
+            minBid: uint64(1e6),
+            minBidIncrementBps: uint16(1000),
+            duration: uint32(2 hours),
+            extension: uint32(3 hours), // Greater than duration
+            extensionThreshold: uint32(15 minutes),
+            protocolFeeBps: uint16(1000)
         });
 
         bytes32 messageHash = auction.hashStartAuthorization(
@@ -306,18 +306,18 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
 
     function test_Start_RevertsWithHighMinBidIncrement() public {
         address bidder = address(0x123);
-        uint256 bidderFid = 12345;
+        uint96 bidderFid = 12345;
         uint256 amount = 1e6;
         bytes32 nonce = keccak256("start-nonce");
         uint256 deadline = block.timestamp + 1 hours;
 
         IAuction.AuctionParams memory params = IAuction.AuctionParams({
-            minBid: 1e6,
-            minBidIncrement: 10001, // More than 100%
-            duration: 24 hours,
-            extension: 15 minutes,
-            extensionThreshold: 15 minutes,
-            protocolFee: 1000
+            minBid: uint64(1e6),
+            minBidIncrementBps: uint16(10001), // More than 100%
+            duration: uint32(24 hours),
+            extension: uint32(15 minutes),
+            extensionThreshold: uint32(15 minutes),
+            protocolFeeBps: uint16(1000)
         });
 
         bytes32 messageHash = auction.hashStartAuthorization(
@@ -341,12 +341,12 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
     function test_Bid_RevertsOnSelfBidding() public {
         // Start auction first with a different bidder
         address firstBidder = address(0x123);
-        uint256 firstBidderFid = 12345;
+        uint96 firstBidderFid = 12345;
         uint256 firstAmount = 1e6;
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
         // Try to bid as the creator
-        uint256 creatorBidderFid = 99999;
+        uint96 creatorBidderFid = 99999;
         uint256 creatorAmount = 2e6;
         bytes32 nonce = keccak256("bid-nonce-creator");
         uint256 deadline = block.timestamp + 1 hours;
@@ -368,7 +368,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 
-    function _startAuction(address bidder, uint256 bidderFid, uint256 amount) internal {
+    function _startAuction(address bidder, uint96 bidderFid, uint256 amount) internal {
         bytes32 nonce = keccak256("start-nonce");
         uint256 deadline = block.timestamp + 1 hours;
 

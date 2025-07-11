@@ -95,9 +95,9 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
     function test_AuctionConfiguration() public view {
         // Check immutable configuration
         assertEq(
-            deployed.auction.collectibleCast(), address(deployed.collectibleCast), "Auction collectibleCast incorrect"
+            address(deployed.auction.collectible()), address(deployed.collectibleCast), "Auction collectible incorrect"
         );
-        assertEq(deployed.auction.usdc(), USDC_BASE, "Auction USDC incorrect");
+        assertEq(address(deployed.auction.usdc()), USDC_BASE, "Auction USDC incorrect");
         assertEq(deployed.auction.treasury(), treasury, "Auction treasury incorrect");
 
         // Check backend signer is authorized
@@ -114,11 +114,11 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         // Setup cast data
         bytes32 castHash = keccak256("test-cast");
         address creator = address(0x100);
-        uint256 creatorFid = 12345;
+        uint96 creatorFid = 12345;
 
         // Setup bidder
         address bidder = address(0x200);
-        uint256 bidderFid = 54321;
+        uint96 bidderFid = 54321;
         uint256 bidAmount = 1e6; // 1 USDC
 
         // Fund bidder with USDC
@@ -131,12 +131,12 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         IAuction.BidData memory bidData = IAuction.BidData({bidderFid: bidderFid, amount: bidAmount});
 
         IAuction.AuctionParams memory params = IAuction.AuctionParams({
-            minBid: 1e6,
-            minBidIncrement: 1000, // 10%
-            duration: 24 hours,
-            extension: 15 minutes,
-            extensionThreshold: 15 minutes,
-            protocolFee: 1000 // 10%
+            minBid: uint64(1e6),
+            minBidIncrementBps: uint16(1000), // 10%
+            duration: uint32(24 hours),
+            extension: uint32(15 minutes),
+            extensionThreshold: uint32(15 minutes),
+            protocolFeeBps: uint16(1000) // 10%
         });
 
         // Create signature (in real scenario, this would come from backend)

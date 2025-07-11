@@ -2,7 +2,6 @@
 pragma solidity ^0.8.30;
 
 interface IAuction {
-    // Custom errors
     error InvalidAddress();
     error InvalidBidAmount();
     error AuctionDoesNotExist();
@@ -20,14 +19,20 @@ interface IAuction {
     error InvalidCastHash();
     error InsufficientAllowance();
 
-    // Structs
+    struct AuctionConfig {
+        uint32 minBidAmount;
+        uint32 minAuctionDuration;
+        uint32 maxAuctionDuration;
+        uint32 maxExtension;
+    }
+
     struct AuctionParams {
-        uint256 minBid;
-        uint256 minBidIncrement;
-        uint256 duration;
-        uint256 extension;
-        uint256 extensionThreshold;
-        uint256 protocolFee;
+        uint64 minBid;
+        uint16 minBidIncrementBps;
+        uint16 protocolFeeBps;
+        uint32 duration;
+        uint32 extension;
+        uint32 extensionThreshold;
     }
 
     struct AuthData {
@@ -44,29 +49,28 @@ interface IAuction {
     }
 
     struct BidData {
-        uint256 bidderFid;
+        uint96 bidderFid;
         uint256 amount;
     }
 
     struct CastData {
         bytes32 castHash;
         address creator;
-        uint256 creatorFid;
+        uint96 creatorFid;
     }
 
     struct AuctionData {
         address creator;
-        uint256 creatorFid;
+        uint96 creatorFid;
         address highestBidder;
-        uint256 highestBidderFid;
+        uint96 highestBidderFid;
         uint256 highestBid;
-        uint256 lastBidAt;
-        uint256 endTime;
+        uint40 lastBidAt;
+        uint40 endTime;
         bool settled;
         AuctionParams params;
     }
 
-    // Enums
     enum AuctionState {
         None, // Auction doesn't exist
         Active, // Auction is accepting bids
@@ -75,16 +79,15 @@ interface IAuction {
 
     }
 
-    // Events
     event AuthorizerAllowed(address indexed authorizer);
     event AuthorizerDenied(address indexed authorizer);
     event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
-    event AuctionStarted(bytes32 indexed castHash, address indexed creator, uint256 creatorFid);
-    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint256 bidderFid, uint256 amount);
+    event AuctionConfigSet(AuctionConfig config);
+    event AuctionStarted(bytes32 indexed castHash, address indexed creator, uint96 creatorFid);
+    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount);
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime);
-    event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint256 winnerFid, uint256 amount);
+    event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 winnerFid, uint256 amount);
 
-    // Main auction functions
     function start(CastData memory cast, BidData memory bid, AuctionParams memory params, AuthData memory auth)
         external;
 
@@ -102,6 +105,7 @@ interface IAuction {
 
     function settle(bytes32 castHash) external;
 
-    // View functions
-    function getAuctionState(bytes32 castHash) external view returns (AuctionState);
+    function batchSettle(bytes32[] calldata castHashes) external;
+
+    function auctionState(bytes32 castHash) external view returns (AuctionState);
 }

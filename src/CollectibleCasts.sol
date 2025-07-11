@@ -24,7 +24,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         _baseURIString = baseURIString;
     }
 
-    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator) external {
+    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator) external {
         if (!minters[msg.sender]) revert Unauthorized();
         if (castHash == bytes32(0)) revert InvalidInput();
         if (creatorFid == 0) revert InvalidFid();
@@ -39,7 +39,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         emit Mint(to, tokenId, castHash, creatorFid, creator);
     }
 
-    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenUri) external {
+    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator, string memory tokenUri) external {
         if (!minters[msg.sender]) revert Unauthorized();
         if (castHash == bytes32(0)) revert InvalidInput();
         if (creatorFid == 0) revert InvalidFid();
@@ -130,7 +130,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         return string.concat(_baseURIString, "contract");
     }
 
-    function tokenFid(uint256 tokenId) external view returns (uint256) {
+    function tokenFid(uint256 tokenId) external view returns (uint96) {
         return _tokenData[tokenId].fid;
     }
 

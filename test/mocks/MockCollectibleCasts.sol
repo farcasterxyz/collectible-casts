@@ -16,7 +16,7 @@ contract MockCollectibleCasts is ICollectibleCasts {
     struct MintCall {
         address to;
         bytes32 castHash;
-        uint256 creatorFid;
+        uint96 creatorFid;
         address creator;
         string tokenURI;
     }
@@ -24,7 +24,7 @@ contract MockCollectibleCasts is ICollectibleCasts {
     MintCall[] public mintCalls;
 
     // Mint without custom tokenUri
-    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator) external {
+    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator) external {
         if (!minters[msg.sender]) revert Unauthorized();
         if (minted[castHash]) revert AlreadyMinted();
         if (creatorFid == 0) revert InvalidFid();
@@ -40,7 +40,7 @@ contract MockCollectibleCasts is ICollectibleCasts {
     }
 
     // Mint with custom tokenUri
-    function mint(address to, bytes32 castHash, uint256 creatorFid, address creator, string memory tokenUri) external {
+    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator, string memory tokenUri) external {
         if (!minters[msg.sender]) revert Unauthorized();
         if (minted[castHash]) revert AlreadyMinted();
         if (creatorFid == 0) revert InvalidFid();
@@ -88,7 +88,7 @@ contract MockCollectibleCasts is ICollectibleCasts {
         return _tokenData[tokenId];
     }
 
-    function tokenFid(uint256 tokenId) external view returns (uint256) {
+    function tokenFid(uint256 tokenId) external view returns (uint96) {
         return _tokenData[tokenId].fid;
     }
 

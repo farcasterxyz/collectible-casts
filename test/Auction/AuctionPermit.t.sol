@@ -20,7 +20,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
     bytes32 public constant TEST_CAST_HASH = keccak256("test-cast");
     address public constant CREATOR = address(0x789);
-    uint256 public constant CREATOR_FID = 67890;
+    uint96 public constant CREATOR_FID = 67890;
 
     // Permit signature domain
     bytes32 private constant PERMIT_TYPEHASH =
@@ -37,9 +37,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         auction.allowAuthorizer(authorizer);
     }
 
-    function testFuzz_StartWithPermit_Success(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_StartWithPermit_Success(uint96 bidderFid, uint256 amount, bytes32 nonce) public {
         (address bidder, uint256 bidderKey) = makeAddrAndKey("bidder");
-        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -87,9 +87,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
     function testFuzz_BidWithPermit_Success(
         address firstBidder,
-        uint256 firstBidderFid,
+        uint96 firstBidderFid,
         uint256 firstAmount,
-        uint256 secondBidderFid,
+        uint96 secondBidderFid,
         uint256 bidIncrement,
         bytes32 nonce
     ) public {
@@ -99,9 +99,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         vm.assume(firstBidder != address(auction)); // Not the auction contract
         vm.assume(firstBidder.code.length == 0); // Ensure EOA for clean test
         vm.assume(nonce != keccak256("start-nonce")); // Avoid nonce collision
-        firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
+        firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6); // 1 to 1000 USDC
-        secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
+        secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
 
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
@@ -150,13 +150,13 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
     }
 
     function testFuzz_StartWithPermit_ExpiredPermit(
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce,
         uint256 expiredOffset
     ) public {
         (address bidder, uint256 bidderKey) = makeAddrAndKey("bidder");
-        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         amount = _bound(amount, 1e6, 10000e6);
         expiredOffset = _bound(expiredOffset, 1, block.timestamp > 365 days ? 365 days : block.timestamp); // Avoid underflow
         uint256 deadline = block.timestamp + 1 hours;
@@ -195,9 +195,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth, permit);
     }
 
-    function testFuzz_StartWithPermit_InvalidSignature(uint256 bidderFid, uint256 amount, bytes32 nonce) public {
+    function testFuzz_StartWithPermit_InvalidSignature(uint96 bidderFid, uint256 amount, bytes32 nonce) public {
         (address bidder,) = makeAddrAndKey("bidder");
-        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -239,9 +239,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
     function testFuzz_BidWithPermit_PermitAlreadyUsed(
         address firstBidder,
-        uint256 firstBidderFid,
+        uint96 firstBidderFid,
         uint256 firstAmount,
-        uint256 secondBidderFid,
+        uint96 secondBidderFid,
         uint256 bidIncrement
     ) public {
         // Bound inputs
@@ -249,9 +249,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         vm.assume(firstBidder != CREATOR);
         vm.assume(firstBidder != address(auction)); // Not the auction contract
         vm.assume(firstBidder.code.length == 0); // Ensure EOA for clean test
-        firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
+        firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
-        secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
+        secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
 
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
@@ -294,12 +294,12 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
     }
 
     function testFuzz_StartWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
         (address bidder,) = makeAddrAndKey("bidder-no-allowance");
-        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -334,9 +334,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
 
     function testFuzz_BidWithPermit_FailsWhenInsufficientAllowanceAfterPermitFail(
         address firstBidder,
-        uint256 firstBidderFid,
+        uint96 firstBidderFid,
         uint256 firstAmount,
-        uint256 secondBidderFid,
+        uint96 secondBidderFid,
         uint256 bidIncrement,
         bytes32 nonce
     ) public {
@@ -344,9 +344,9 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         vm.assume(firstBidder != address(0));
         vm.assume(firstBidder != CREATOR);
         vm.assume(nonce != keccak256("start-nonce")); // Avoid nonce collision
-        firstBidderFid = _bound(firstBidderFid, 1, type(uint256).max);
+        firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
-        secondBidderFid = _bound(secondBidderFid, 1, type(uint256).max);
+        secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
 
         // Calculate valid bid increment
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
@@ -400,7 +400,7 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
         return keccak256(abi.encodePacked("\x19\x01", usdc.DOMAIN_SEPARATOR(), structHash));
     }
 
-    function _startAuction(address bidder, uint256 bidderFid, uint256 amount) internal {
+    function _startAuction(address bidder, uint96 bidderFid, uint256 amount) internal {
         bytes32 nonce = keccak256("start-nonce");
         uint256 deadline = block.timestamp + 1 hours;
 

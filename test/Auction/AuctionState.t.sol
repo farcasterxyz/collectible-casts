@@ -41,33 +41,33 @@ contract AuctionStateTest is Test, AuctionTestHelper {
     function testFuzz_StateTransitions(bytes32 castHash) public {
         vm.assume(castHash != bytes32(0));
         // Initially, auction should be in None state
-        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.None));
+        assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.None));
 
         // Start auction
         _startAuction(castHash);
 
         // Should now be Active
-        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Active));
+        assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Active));
 
         // Fast forward past end time
         vm.warp(block.timestamp + 25 hours);
 
         // Should now be Ended (automatically detected)
-        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Ended));
+        assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Ended));
 
         // Settle the auction
         auction.settle(castHash);
 
         // State should now be Settled
-        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Settled));
+        assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Settled));
     }
 
     function testFuzz_CannotStartAuctionTwice(
         bytes32 castHash,
         address creator,
-        uint256 creatorFid,
+        uint96 creatorFid,
         address bidder,
-        uint256 bidderFid,
+        uint96 bidderFid,
         uint256 amount,
         bytes32 nonce
     ) public {
@@ -75,8 +75,8 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         vm.assume(creator != address(0));
         vm.assume(bidder != address(0));
         vm.assume(creator != bidder);
-        creatorFid = _bound(creatorFid, 1, type(uint256).max);
-        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        creatorFid = uint96(_bound(creatorFid, 1, type(uint96).max));
+        bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -112,9 +112,9 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_BidChecksState(bytes32 castHash, uint256 bidderFid, uint256 bidAmount, bytes32 nonce) public {
+    function testFuzz_BidChecksState(bytes32 castHash, uint96 bidderFid, uint256 bidAmount, bytes32 nonce) public {
         vm.assume(castHash != bytes32(0));
-        bidderFid = _bound(bidderFid, 1, type(uint256).max);
+        bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         bidAmount = _bound(bidAmount, 1e6, 10000e6);
         // Try to bid on non-existent auction
         IAuction.BidData memory bidData = createBidData(bidderFid, bidAmount);
@@ -159,14 +159,14 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         auction.settle(castHash);
 
         // Verify state is now Settled
-        assertEq(uint256(auction.getAuctionState(castHash)), uint256(IAuction.AuctionState.Settled));
+        assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Settled));
     }
 
     function _startAuction(bytes32 castHash) internal {
         address creator = address(0x789);
-        uint256 creatorFid = 67890;
+        uint96 creatorFid = 67890;
         address bidder = address(0x123);
-        uint256 bidderFid = 12345;
+        uint96 bidderFid = 12345;
         uint256 amount = 1e6;
         bytes32 nonce = keccak256("start-nonce-1");
         uint256 deadline = block.timestamp + 1 hours;
