@@ -52,20 +52,15 @@ Instead of `--private-key`, you can use:
 
 The contracts are deployed in this specific order to handle dependencies:
 
-1. **CollectibleCast** - Main ERC-1155 token contract
-2. **Metadata** - Token metadata module
-3. **Minter** - Minting access control (depends on CollectibleCast)
-4. **TransferValidator** - Transfer restrictions module
-5. **Royalties** - ERC-2981 royalty implementation
-6. **Auction** - Auction system (depends on Minter and USDC)
+1. **CollectibleCasts** - Main ERC-721 token contract with integrated royalties
+2. **Auction** - Auction system (depends on CollectibleCasts and USDC)
 
 ## Post-Deployment Configuration
 
 The deployment script automatically:
-- Sets all modules on CollectibleCast
-- Allows Auction contract to mint tokens
+- Allows Auction contract to mint tokens on CollectibleCasts
 - Adds backend signer as auction authorizer
-- Transfers ownership to the specified owner address
+- Transfers ownership of both contracts to the specified owner address
 
 ## Base Mainnet Configuration
 
@@ -75,7 +70,9 @@ The deployment is configured for Base mainnet with USDC hardcoded to: `0x833589f
 
 By using CREATE2, contracts will have the same addresses across all networks where the ImmutableCreate2Factory (0x0000000000FFe8B47B3e2130213B802212439497) is deployed.
 
-To use custom salts for specific addresses, set the CREATE2_SALT environment variables in your `.env` file.
+To use custom salts for specific addresses, set the following environment variables in your `.env` file:
+- `COLLECTIBLE_CAST_CREATE2_SALT` - Salt for CollectibleCasts deployment
+- `AUCTION_CREATE2_SALT` - Salt for Auction deployment
 
 ## Testing Deployment
 

@@ -16,7 +16,6 @@ import {Auction} from "../src/Auction.sol";
 contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     struct Salts {
         bytes32 collectibleCast;
-        bytes32 minter;
         bytes32 auction;
     }
 
@@ -32,7 +31,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
 
     struct Addresses {
         address collectibleCast;
-        address minter;
         address auction;
     }
 
@@ -88,7 +86,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             abi.encode(params.deployer, params.baseURI)
         );
 
-        // Deploy Auction (needs collectibleCast, USDC, treasury, and owner)
+        // Deploy Auction (needs CollectibleCasts address, USDC, treasury, and owner)
         addrs.auction = register(
             "Auction",
             params.salts.auction,
@@ -145,7 +143,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         // Load salts from environment or use defaults
         params.salts = Salts({
             collectibleCast: vm.envOr("COLLECTIBLE_CAST_CREATE2_SALT", bytes32(0)),
-            minter: vm.envOr("MINTER_CREATE2_SALT", bytes32(0)),
             auction: vm.envOr("AUCTION_CREATE2_SALT", bytes32(0))
         });
 
