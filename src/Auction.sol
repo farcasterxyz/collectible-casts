@@ -11,7 +11,7 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 contract Auction is IAuction, Ownable2Step, EIP712 {
     bytes32 internal constant START_AUTHORIZATION_TYPEHASH = keccak256(
-        "StartAuthorization(bytes32 castHash,address creator,uint96 creatorFid,address bidder,uint96 bidderFid,uint256 amount,uint256 minBid,uint256 minBidIncrement,uint256 duration,uint256 extension,uint256 extensionThreshold,uint256 protocolFee,bytes32 nonce,uint256 deadline)"
+        "StartAuthorization(bytes32 castHash,address creator,uint96 creatorFid,address bidder,uint96 bidderFid,uint256 amount,uint64 minBid,uint16 minBidIncrementBps,uint32 duration,uint32 extension,uint32 extensionThreshold,uint16 protocolFeeBps,bytes32 nonce,uint256 deadline)"
     );
 
     bytes32 internal constant BID_AUTHORIZATION_TYPEHASH = keccak256(
