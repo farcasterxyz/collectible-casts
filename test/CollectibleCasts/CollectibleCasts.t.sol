@@ -24,20 +24,21 @@ contract CollectibleCastsTest is TestSuiteSetup {
         invalidReceiver = new MockNonERC721Receiver();
     }
 
-    function testFuzz_AllowMinter_OnlyOwner(address minterAddr, address notOwner) public {
-        // Ensure notOwner is different from the actual owner
-        vm.assume(notOwner != token.owner());
-        vm.assume(notOwner != address(0));
-
+    function testFuzz_AllowMinter_OnlyOwner(address minterAddr) public {
         // Test that owner can allow minter
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
         assertTrue(token.minters(minterAddr));
+    }
+
+    function testFuzz_AllowMinter_RevertsWhenNotOwner(address minterAddr, address notOwner) public {
+        // Ensure notOwner is different from the actual owner
+        vm.assume(notOwner != token.owner());
 
         // Test that non-owner cannot allow minter
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        token.allowMinter(makeAddr("anotherMinter"));
+        token.allowMinter(minterAddr);
     }
 
     function testFuzz_AllowMinter_EmitsEvent(address minterAddr) public {
@@ -48,11 +49,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
         token.allowMinter(minterAddr);
     }
 
-    function testFuzz_DenyMinter_OnlyOwner(address minterAddr, address notOwner) public {
-        // Ensure notOwner is different from the actual owner
-        vm.assume(notOwner != token.owner());
-        vm.assume(notOwner != address(0));
-
+    function testFuzz_DenyMinter_OnlyOwner(address minterAddr) public {
         // First allow the minter
         vm.prank(token.owner());
         token.allowMinter(minterAddr);
@@ -62,11 +59,16 @@ contract CollectibleCastsTest is TestSuiteSetup {
         vm.prank(token.owner());
         token.denyMinter(minterAddr);
         assertFalse(token.minters(minterAddr));
+    }
+
+    function testFuzz_DenyMinter_RevertsWhenNotOwner(address minterAddr, address notOwner) public {
+        // Ensure notOwner is different from the actual owner
+        vm.assume(notOwner != token.owner());
 
         // Test that non-owner cannot deny minter
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        token.denyMinter(makeAddr("anotherMinter"));
+        token.denyMinter(minterAddr);
     }
 
     function testFuzz_DenyMinter_EmitsEvent(address minterAddr) public {
@@ -83,10 +85,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
     }
 
     function testFuzz_Constructor_SetsOwner(address owner) public {
-        // Skip zero address and this contract
         vm.assume(owner != address(0));
-        vm.assume(owner != address(this));
-
         vm.prank(owner);
         CollectibleCasts newToken = new CollectibleCasts(owner, "https://example.com/");
 
@@ -107,22 +106,24 @@ contract CollectibleCastsTest is TestSuiteSetup {
         address notMinter,
         address recipient,
         bytes32 castHash,
-        uint96 fid
+        uint96 fid,
+        address creator
     ) public {
         // Ensure notMinter is not allowed
         vm.assume(!token.minters(notMinter));
         vm.assume(recipient != address(0));
-        fid = uint96(_bound(uint256(fid), 1, type(uint96).max)); // Need non-zero FID
+        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
+        fid = uint96(_bound(uint256(fid), 1, type(uint96).max));
 
         vm.prank(notMinter);
         vm.expectRevert(ICollectibleCasts.Unauthorized.selector);
-        token.mint(recipient, castHash, fid, makeAddr("creator"));
+        token.mint(recipient, castHash, fid, creator);
     }
 
     function testFuzz_Mint_RevertsWhenFidIsZero(address recipient, bytes32 castHash) public {
         // Bound inputs
         vm.assume(recipient != address(0));
-        vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
+        vm.assume(castHash != bytes32(0));
 
         address minterAddr = makeAddr("minter");
         address creator = makeAddr("creator");
@@ -331,13 +332,6 @@ contract CollectibleCastsTest is TestSuiteSetup {
         token.mint(recipient2, castHash, fid2, makeAddr("creator"));
     }
 
-    // Royalty Constants Tests
-
-    function test_RoyaltyConstants() public view {
-        assertEq(token.BPS_DENOMINATOR(), 10000);
-        assertEq(token.ROYALTY_BPS(), 500);
-    }
-
     function test_SupportsERC2981Interface() public view {
         // ERC-2981 interface ID
         bytes4 erc2981InterfaceId = 0x2a55205a;
@@ -398,7 +392,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
 
         // Should return 5% to creator
         assertEq(receiver, creator);
-        assertEq(royaltyAmount, salePrice * token.ROYALTY_BPS() / token.BPS_DENOMINATOR()); // 5%
+        assertEq(royaltyAmount, salePrice * ROYALTY_BPS / BPS_DENOMINATOR); // 5%
         assertEq(royaltyAmount, 50 ether); // 5% of 1000 ether
     }
 
@@ -423,7 +417,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
 
         // Should return 5% to creator
         assertEq(receiver, creator);
-        assertEq(royaltyAmount, salePrice * token.ROYALTY_BPS() / token.BPS_DENOMINATOR()); // 5%
+        assertEq(royaltyAmount, salePrice * ROYALTY_BPS / BPS_DENOMINATOR); // 5%
         assertTrue(royaltyAmount <= salePrice);
     }
 
@@ -480,12 +474,12 @@ contract CollectibleCastsTest is TestSuiteSetup {
         token.mint(alice, castHash, 123, creator);
 
         // Test with largest safe price that won't overflow
-        uint256 largePrice = type(uint256).max / token.ROYALTY_BPS();
+        uint256 largePrice = type(uint256).max / ROYALTY_BPS;
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, largePrice);
 
         assertEq(receiver, creator);
         // Calculate expected royalty
-        uint256 expectedRoyalty = (largePrice * token.ROYALTY_BPS()) / token.BPS_DENOMINATOR();
+        uint256 expectedRoyalty = (largePrice * ROYALTY_BPS) / BPS_DENOMINATOR;
         assertEq(royaltyAmount, expectedRoyalty);
         assertTrue(royaltyAmount > 0);
         assertTrue(royaltyAmount < largePrice);
@@ -507,7 +501,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
         (address receiver, uint256 royaltyAmount) = token.royaltyInfo(tokenId, 199); // 5% of 199 = 9.95, rounds to 9
 
         assertEq(receiver, creator);
-        assertEq(royaltyAmount, 9); // 199 * 500 / 10000 = 9
+        assertEq(royaltyAmount, 9); // 199 * ROYALTY_BPS / BPS_DENOMINATOR = 9
 
         // Test with very small amount
         (, royaltyAmount) = token.royaltyInfo(tokenId, 19); // 5% of 19 = 0.95, rounds to 0
@@ -516,7 +510,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
 
     function testFuzz_RoyaltyInfo_MathematicalCorrectness(uint256 salePrice) public {
         // Bound sale price to avoid overflow
-        salePrice = _bound(salePrice, 0, type(uint256).max / token.ROYALTY_BPS());
+        salePrice = _bound(salePrice, 0, type(uint256).max / ROYALTY_BPS);
 
         // Mint a token with creator
         address minterAddr = makeAddr("minter");
@@ -533,13 +527,13 @@ contract CollectibleCastsTest is TestSuiteSetup {
         (, uint256 royaltyAmount) = token.royaltyInfo(tokenId, salePrice);
 
         // Verify mathematical properties
-        uint256 expectedRoyalty = (salePrice * token.ROYALTY_BPS()) / token.BPS_DENOMINATOR();
+        uint256 expectedRoyalty = (salePrice * ROYALTY_BPS) / BPS_DENOMINATOR;
         assertEq(royaltyAmount, expectedRoyalty);
 
         // Verify royalty is never more than 5%
         if (salePrice > 0) {
-            uint256 royaltyPercentage = (royaltyAmount * token.BPS_DENOMINATOR()) / salePrice;
-            assertLe(royaltyPercentage, token.ROYALTY_BPS());
+            uint256 royaltyPercentage = (royaltyAmount * BPS_DENOMINATOR) / salePrice;
+            assertLe(royaltyPercentage, ROYALTY_BPS);
         }
     }
 

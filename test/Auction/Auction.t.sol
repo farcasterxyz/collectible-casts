@@ -9,13 +9,21 @@ import {MockCollectibleCasts} from "../mocks/MockCollectibleCasts.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
+import {TestSuiteSetup} from "../TestSuiteSetup.sol";
 
 contract AuctionTest is Test, AuctionTestHelper {
-    Auction public auction;
+    // Event declarations
+    event AuthorizerAllowed(address indexed authorizer);
+    event AuthorizerDenied(address indexed authorizer);
+    event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
 
+    Auction public auction;
     MockCollectibleCasts public collectibleCast;
-    address public constant USDC = address(0x3);
-    address public constant TREASURY = address(0x4);
+
+    // Use real Base USDC address from TestSuiteSetup
+    address public constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address public treasury;
+    address public owner;
 
     // Helper struct to avoid stack too deep errors
     struct BidParams {
@@ -35,8 +43,14 @@ contract AuctionTest is Test, AuctionTestHelper {
     );
 
     function setUp() public {
+        // Create named addresses
+        treasury = makeAddr("treasury");
+        owner = makeAddr("owner");
+
+        // Deploy contracts
         collectibleCast = new MockCollectibleCasts();
-        auction = new Auction(address(collectibleCast), USDC, TREASURY, address(this));
+        auction = new Auction(address(collectibleCast), USDC, treasury, owner);
+
         // Allow the auction contract to mint
         collectibleCast.allowMinter(address(auction));
     }
@@ -44,36 +58,33 @@ contract AuctionTest is Test, AuctionTestHelper {
     function test_Constructor_SetsConfiguration() public view {
         assertEq(address(auction.collectible()), address(collectibleCast));
         assertEq(address(auction.usdc()), USDC);
-        assertEq(auction.treasury(), TREASURY);
+        assertEq(auction.treasury(), treasury);
 
-        // Check default config
         (uint32 minBidAmount, uint32 minAuctionDuration, uint32 maxAuctionDuration, uint32 maxExtension) =
             auction.config();
         assertEq(minBidAmount, 1e6);
         assertEq(minAuctionDuration, 1 hours);
         assertEq(maxAuctionDuration, 30 days);
         assertEq(maxExtension, 24 hours);
-
-        // BPS_DENOMINATOR is now internal constant (10000)
     }
 
     function test_Constructor_SetsOwner() public view {
-        assertEq(auction.owner(), address(this));
+        assertEq(auction.owner(), owner);
     }
 
     function test_Constructor_RevertsIfCollectibleCastsIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(address(0), USDC, TREASURY, address(this));
+        new Auction(address(0), USDC, treasury, owner);
     }
 
     function test_Constructor_RevertsIfUSDCIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(address(collectibleCast), address(0), TREASURY, address(this));
+        new Auction(address(collectibleCast), address(0), treasury, owner);
     }
 
     function test_Constructor_RevertsIfTreasuryIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(address(collectibleCast), USDC, address(0), address(this));
+        new Auction(address(collectibleCast), USDC, address(0), owner);
     }
 
     function testFuzz_AllowAuthorizer_OnlyOwner(address authorizer, address notOwner) public {
@@ -132,9 +143,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         auction.denyAuthorizer(authorizer);
     }
 
-    event AuthorizerAllowed(address indexed authorizer);
-    event AuthorizerDenied(address indexed authorizer);
-
     function testFuzz_SetTreasury_OnlyOwner(address newTreasury, address notOwner) public {
         vm.assume(newTreasury != address(0));
         vm.assume(notOwner != auction.owner());
@@ -149,7 +157,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         vm.assume(newTreasury != address(0));
 
         vm.expectEmit(true, true, false, false);
-        emit TreasurySet(TREASURY, newTreasury);
+        emit TreasurySet(treasury, newTreasury);
 
         vm.prank(auction.owner());
         auction.setTreasury(newTreasury);
@@ -160,10 +168,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         vm.expectRevert(IAuction.InvalidAddress.selector);
         auction.setTreasury(address(0));
     }
-
-    event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
-
-    // Fuzz tests
 
     function testFuzz_AllowAuthorizer_UpdatesAllowlist(address authorizer) public {
         vm.assume(authorizer != address(0));
@@ -197,9 +201,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(auction.treasury(), newTreasury);
     }
 
-    // Edge case tests
-
-    // Test denying an authorizer that was never allowed
     function testFuzz_DenyAuthorizer_NotPreviouslyAllowed(address authorizer) public {
         vm.assume(authorizer != address(0));
 
@@ -217,7 +218,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertFalse(auction.authorizers(authorizer));
     }
 
-    // SetAuctionConfig tests
     function test_SetAuctionConfig_OnlyOwner() public {
         IAuction.AuctionConfig memory newConfig = IAuction.AuctionConfig({
             minBidAmount: uint32(2e6),
@@ -261,8 +261,6 @@ contract AuctionTest is Test, AuctionTestHelper {
     }
 
     function test_SetAuctionConfig_ValidatesInput() public {
-        // Test zero bpsDenominator
-        // Test zero minBidAmount
         IAuction.AuctionConfig memory invalidConfig = IAuction.AuctionConfig({
             minBidAmount: 0,
             minAuctionDuration: 1 hours,
@@ -293,7 +291,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         auction.transferOwnership(newOwner);
 
         // Ownership not transferred yet
-        assertEq(auction.owner(), address(this));
+        assertEq(auction.owner(), owner);
         assertEq(auction.pendingOwner(), newOwner);
 
         // Accept ownership
@@ -328,7 +326,7 @@ contract AuctionTest is Test, AuctionTestHelper {
     function test_Constructor_SetsDomainSeparator() public {
         // Deploy new auction to test domain separator is set in constructor
         MockCollectibleCasts newCollectibleCasts = new MockCollectibleCasts();
-        Auction newAuction = new Auction(address(newCollectibleCasts), USDC, TREASURY, address(this));
+        Auction newAuction = new Auction(address(newCollectibleCasts), USDC, treasury, owner);
 
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
@@ -500,7 +498,7 @@ contract AuctionTest is Test, AuctionTestHelper {
         // Deploy auction on different chain
         vm.chainId(999);
         MockCollectibleCasts wrongChainCollectibleCasts = new MockCollectibleCasts();
-        Auction wrongChainAuction = new Auction(address(wrongChainCollectibleCasts), USDC, TREASURY, address(this));
+        Auction wrongChainAuction = new Auction(address(wrongChainCollectibleCasts), USDC, treasury, owner);
 
         // Allow the authorizer on wrong chain auction
         vm.prank(wrongChainAuction.owner());

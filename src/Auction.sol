@@ -18,7 +18,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         "BidAuthorization(bytes32 castHash,address bidder,uint96 bidderFid,uint256 amount,bytes32 nonce,uint256 deadline)"
     );
 
-    uint256 internal constant BPS_DENOMINATOR = 10000;
+    uint256 internal constant BPS_DENOMINATOR = 10_000;
 
     ICollectibleCasts public immutable collectible;
     IERC20 public immutable usdc;
@@ -52,54 +52,54 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
 
     // ========== PUBLIC/EXTERNAL FUNCTIONS ==========
 
-    function start(CastData memory cast, BidData memory bid, AuctionParams memory params, AuthData memory auth)
+    function start(CastData memory cast, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
         external
     {
-        _start(cast, bid, params, auth);
-        usdc.transferFrom(msg.sender, address(this), bid.amount);
+        _start(cast, bidData, params, auth);
+        usdc.transferFrom(msg.sender, address(this), bidData.amount);
     }
 
     function start(
         CastData memory cast,
-        BidData memory bid,
+        BidData memory bidData,
         AuctionParams memory params,
         AuthData memory auth,
         PermitData memory permit
     ) external {
-        _start(cast, bid, params, auth);
-        _permitAndTransfer(bid.amount, permit);
+        _start(cast, bidData, params, auth);
+        _permitAndTransfer(bidData.amount, permit);
     }
 
-    function bid(bytes32 castHash, BidData memory bid, AuthData memory auth) external {
-        (address previousBidder, uint256 previousBid) = _bid(castHash, bid, auth);
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth) external {
+        (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
-        IERC20(usdc).transferFrom(msg.sender, address(this), bid.amount);
+        IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
         if (previousBidder != address(0)) {
             usdc.transfer(previousBidder, previousBid);
         }
     }
 
-    function bid(bytes32 castHash, BidData memory bid, AuthData memory auth, PermitData memory permit) external {
-        (address previousBidder, uint256 previousBid) = _bid(castHash, bid, auth);
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth, PermitData memory permit) external {
+        (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
-        _permitAndTransfer(bid.amount, permit);
+        _permitAndTransfer(bidData.amount, permit);
         if (previousBidder != address(0)) {
             usdc.transfer(previousBidder, previousBid);
         }
     }
 
     function settle(bytes32 castHash) external {
-        _settleAuction(castHash);
+        _settle(castHash);
     }
 
     function batchSettle(bytes32[] calldata castHashes) external {
         uint256 length = castHashes.length;
         for (uint256 i = 0; i < length; ++i) {
-            _settleAuction(castHashes[i]);
+            _settle(castHashes[i]);
         }
     }
 
-    function _settleAuction(bytes32 castHash) internal {
+    function _settle(bytes32 castHash) internal {
         AuctionState state = auctionState(castHash);
         if (state == AuctionState.None) revert AuctionDoesNotExist();
         if (state == AuctionState.Active) revert AuctionNotEnded();
@@ -249,7 +249,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         return a >= b ? a : b;
     }
 
-    function _start(CastData memory cast, BidData memory bid, AuctionParams memory params, AuthData memory auth)
+    function _start(CastData memory cast, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
         internal
     {
         if (auctionState(cast.castHash) != AuctionState.None) revert AuctionAlreadyExists();
@@ -273,8 +273,8 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
             cast.creator,
             cast.creatorFid,
             msg.sender, // bidder must be msg.sender
-            bid.bidderFid,
-            bid.amount,
+            bidData.bidderFid,
+            bidData.amount,
             params,
             auth.nonce,
             auth.deadline
@@ -294,24 +294,24 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         usedNonces[auth.nonce] = true;
 
         // Validate bid amount
-        if (bid.amount < params.minBid) revert InvalidBidAmount();
+        if (bidData.amount < params.minBid) revert InvalidBidAmount();
 
         // Create auction
         AuctionData storage auctionData = auctions[cast.castHash];
         auctionData.creator = cast.creator;
         auctionData.creatorFid = cast.creatorFid;
         auctionData.highestBidder = msg.sender;
-        auctionData.highestBidderFid = bid.bidderFid;
-        auctionData.highestBid = bid.amount;
+        auctionData.highestBidderFid = bidData.bidderFid;
+        auctionData.highestBid = bidData.amount;
         auctionData.lastBidAt = uint40(block.timestamp);
         auctionData.endTime = uint40(block.timestamp + params.duration);
         auctionData.params = params;
 
         emit AuctionStarted(cast.castHash, cast.creator, cast.creatorFid);
-        emit BidPlaced(cast.castHash, msg.sender, bid.bidderFid, bid.amount);
+        emit BidPlaced(cast.castHash, msg.sender, bidData.bidderFid, bidData.amount);
     }
 
-    function _bid(bytes32 castHash, BidData memory bid, AuthData memory auth)
+    function _bid(bytes32 castHash, BidData memory bidData, AuthData memory auth)
         internal
         returns (address previousBidder, uint256 previousBid)
     {
@@ -327,7 +327,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         // Verify bid authorization
         if (
             !verifyBidAuthorization(
-                castHash, msg.sender, bid.bidderFid, bid.amount, auth.nonce, auth.deadline, auth.signature
+                castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline, auth.signature
             )
         ) {
             revert UnauthorizedBidder();
@@ -341,7 +341,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         uint256 incrementAmount = (auctionData.highestBid * auctionData.params.minBidIncrementBps) / BPS_DENOMINATOR;
         uint256 minBid = auctionData.highestBid + _max(config.minBidAmount, incrementAmount);
 
-        if (bid.amount < minBid) revert InvalidBidAmount();
+        if (bidData.amount < minBid) revert InvalidBidAmount();
 
         // Store previous bidder info for refund
         previousBidder = auctionData.highestBidder;
@@ -349,8 +349,8 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
 
         // Update auction with new bid
         auctionData.highestBidder = msg.sender;
-        auctionData.highestBidderFid = bid.bidderFid;
-        auctionData.highestBid = bid.amount;
+        auctionData.highestBidderFid = bidData.bidderFid;
+        auctionData.highestBid = bidData.amount;
         auctionData.lastBidAt = uint40(block.timestamp);
 
         // Check if we need to extend the auction
@@ -360,7 +360,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
             emit AuctionExtended(castHash, auctionData.endTime);
         }
 
-        emit BidPlaced(castHash, msg.sender, bid.bidderFid, bid.amount);
+        emit BidPlaced(castHash, msg.sender, bidData.bidderFid, bidData.amount);
     }
 
     function _permitAndTransfer(uint256 amount, PermitData memory permit) internal {

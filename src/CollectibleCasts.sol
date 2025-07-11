@@ -11,8 +11,8 @@ import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
 /// @title CollectibleCasts
 /// @notice ERC-721 token representing collectible Farcaster casts
 contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
-    uint256 public constant BPS_DENOMINATOR = 10000;
-    uint256 public constant ROYALTY_BPS = 500;
+    uint256 internal constant BPS_DENOMINATOR = 10_000;
+    uint256 internal constant ROYALTY_BPS = 500;
 
     mapping(address => bool) public minters;
     mapping(uint256 => ICollectibleCasts.TokenData) internal _tokenData;
