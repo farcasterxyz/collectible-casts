@@ -118,6 +118,10 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         if (broadcast) vm.broadcast();
         contracts.auction.allowAuthorizer(params.backendSigner);
 
+        console.log("Adding anvil default account as authorizer...");
+        if (broadcast) vm.broadcast();
+        contracts.auction.allowAuthorizer(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+
         console.log("Transferring ownership...");
         if (broadcast) vm.broadcast();
         contracts.collectibleCast.transferOwnership(params.owner);
@@ -135,8 +139,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         params.deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
         params.owner = vm.envOr("OWNER_ADDRESS", params.deployer);
         params.treasury = vm.envAddress("TREASURY_ADDRESS");
-        // Base mainnet USDC
-        params.usdc = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+        params.usdc = vm.envAddress("USDC_ADDRESS");
         params.backendSigner = vm.envAddress("BACKEND_SIGNER_ADDRESS");
         params.baseURI = vm.envOr("BASE_URI", string("https://api.farcaster.xyz/v1/collectible-cast-metadata/"));
 
