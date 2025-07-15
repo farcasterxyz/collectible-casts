@@ -5,11 +5,12 @@ import {IAuction} from "./interfaces/IAuction.sol";
 import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
 import {IERC20Permit} from "./interfaces/IERC20Permit.sol";
 import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-contract Auction is IAuction, Ownable2Step, EIP712 {
+contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     bytes32 internal constant START_AUTHORIZATION_TYPEHASH = keccak256(
         "StartAuthorization(bytes32 castHash,address creator,uint96 creatorFid,address bidder,uint96 bidderFid,uint256 amount,uint64 minBid,uint16 minBidIncrementBps,uint32 duration,uint32 extension,uint32 extensionThreshold,uint16 protocolFeeBps,bytes32 nonce,uint256 deadline)"
     );
@@ -17,6 +18,9 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
     bytes32 internal constant BID_AUTHORIZATION_TYPEHASH = keccak256(
         "BidAuthorization(bytes32 castHash,address bidder,uint96 bidderFid,uint256 amount,bytes32 nonce,uint256 deadline)"
     );
+
+    bytes32 internal constant CANCEL_AUTHORIZATION_TYPEHASH =
+        keccak256("CancelAuthorization(bytes32 castHash,bytes32 nonce,uint256 deadline)");
 
     uint256 internal constant BPS_DENOMINATOR = 10_000;
 
@@ -54,6 +58,7 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
 
     function start(CastData memory cast, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
         external
+        whenNotPaused
     {
         _start(cast, bidData, params, auth);
         usdc.transferFrom(msg.sender, address(this), bidData.amount);
@@ -65,12 +70,12 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         AuctionParams memory params,
         AuthData memory auth,
         PermitData memory permit
-    ) external {
+    ) external whenNotPaused {
         _start(cast, bidData, params, auth);
         _permitAndTransfer(bidData.amount, permit);
     }
 
-    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth) external {
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth) external whenNotPaused {
         (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
         IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
@@ -79,7 +84,10 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         }
     }
 
-    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth, PermitData memory permit) external {
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth, PermitData memory permit)
+        external
+        whenNotPaused
+    {
         (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
         _permitAndTransfer(bidData.amount, permit);
@@ -88,15 +96,49 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         }
     }
 
-    function settle(bytes32 castHash) external {
+    function settle(bytes32 castHash) external whenNotPaused {
         _settle(castHash);
     }
 
-    function batchSettle(bytes32[] calldata castHashes) external {
+    function batchSettle(bytes32[] calldata castHashes) external whenNotPaused {
         uint256 length = castHashes.length;
         for (uint256 i = 0; i < length; ++i) {
             _settle(castHashes[i]);
         }
+    }
+
+    function cancel(bytes32 castHash, AuthData memory auth) external whenNotPaused {
+        // Check auction state
+        AuctionState state = auctionState(castHash);
+        if (state == AuctionState.None) revert AuctionNotFound();
+        if (state != AuctionState.Active) revert AuctionNotActive();
+
+        // Verify authorization
+        if (block.timestamp > auth.deadline) revert DeadlineExpired();
+        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
+
+        // Validate signature
+        bytes32 digest = hashCancelAuthorization(castHash, auth.nonce, auth.deadline);
+        address signer = ECDSA.recover(digest, auth.signature);
+        if (!authorizers[signer]) revert InvalidSignature();
+
+        // Mark nonce as used
+        usedNonces[auth.nonce] = true;
+
+        // Get auction data before cancelling
+        AuctionData storage auctionData = auctions[castHash];
+        address refundAddress = auctionData.highestBidder;
+        uint256 refundAmount = auctionData.highestBid;
+
+        // Mark as cancelled
+        auctionData.state = AuctionState.Cancelled;
+
+        // Refund the highest bidder
+        if (refundAmount > 0 && refundAddress != address(0)) {
+            usdc.transfer(refundAddress, refundAmount);
+        }
+
+        emit AuctionCancelled(castHash, refundAddress, signer);
     }
 
     function _settle(bytes32 castHash) internal {
@@ -104,10 +146,11 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         if (state == AuctionState.None) revert AuctionDoesNotExist();
         if (state == AuctionState.Active) revert AuctionNotEnded();
         if (state == AuctionState.Settled) revert AuctionAlreadySettled();
+        if (state == AuctionState.Cancelled) revert AuctionAlreadySettled(); // Can't settle a cancelled auction
 
         // Mark as settled
         AuctionData storage auctionData = auctions[castHash];
-        auctionData.settled = true;
+        auctionData.state = AuctionState.Settled;
 
         // Calculate payment distribution
         uint256 totalAmount = auctionData.highestBid;
@@ -153,6 +196,14 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         emit AuctionConfigSet(_config);
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     // ========== VIEW FUNCTIONS ==========
 
     function auctionState(bytes32 castHash) public view returns (AuctionState) {
@@ -162,10 +213,12 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
             return AuctionState.None;
         }
 
-        if (auctionData.settled) {
-            return AuctionState.Settled;
+        // If auction is settled or cancelled, return that state
+        if (auctionData.state == AuctionState.Settled || auctionData.state == AuctionState.Cancelled) {
+            return auctionData.state;
         }
 
+        // Otherwise, check if auction is active or ended based on time
         if (block.timestamp < auctionData.endTime) {
             return AuctionState.Active;
         }
@@ -183,6 +236,11 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
     ) public view returns (bytes32) {
         bytes32 structHash =
             keccak256(abi.encode(BID_AUTHORIZATION_TYPEHASH, castHash, bidder, bidderFid, amount, nonce, deadline));
+        return _hashTypedDataV4(structHash);
+    }
+
+    function hashCancelAuthorization(bytes32 castHash, bytes32 nonce, uint256 deadline) public view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, castHash, nonce, deadline));
         return _hashTypedDataV4(structHash);
     }
 
@@ -264,9 +322,6 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         // Validate auction parameters
         _validateAuctionParams(params);
 
-        // Prevent self-bidding on own auction
-        if (msg.sender == cast.creator) revert SelfBidding();
-
         // Verify authorization
         bytes32 digest = hashStartAuthorization(
             cast.castHash,
@@ -305,9 +360,10 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         auctionData.highestBid = bidData.amount;
         auctionData.lastBidAt = uint40(block.timestamp);
         auctionData.endTime = uint40(block.timestamp + params.duration);
+        auctionData.state = AuctionState.Active;
         auctionData.params = params;
 
-        emit AuctionStarted(cast.castHash, cast.creator, cast.creatorFid);
+        emit AuctionStarted(cast.castHash, cast.creator, cast.creatorFid, auctionData.endTime, signer);
         emit BidPlaced(cast.castHash, msg.sender, bidData.bidderFid, bidData.amount);
     }
 
@@ -320,9 +376,6 @@ contract Auction is IAuction, Ownable2Step, EIP712 {
         if (state != AuctionState.Active) revert AuctionNotActive();
 
         AuctionData storage auctionData = auctions[castHash];
-
-        // Prevent self-bidding
-        if (msg.sender == auctionData.creator) revert SelfBidding();
 
         // Verify bid authorization
         if (

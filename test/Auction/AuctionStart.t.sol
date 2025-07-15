@@ -90,8 +90,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         usdc.approve(address(auction), amount);
 
         // Start auction
+        uint40 expectedEndTime = uint40(block.timestamp + 1 days);
         vm.expectEmit(true, true, false, true);
-        emit AuctionStarted(castHash, creator, creatorFid);
+        emit AuctionStarted(castHash, creator, creatorFid, expectedEndTime, authorizer);
         vm.expectEmit(true, true, false, true);
         emit BidPlaced(castHash, bidder, bidderFid, amount);
 
@@ -215,7 +216,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         assertTrue(auction.usedNonces(nonce));
     }
 
-    event AuctionStarted(bytes32 indexed castHash, address indexed creator, uint96 creatorFid);
+    event AuctionStarted(
+        bytes32 indexed castHash, address indexed creator, uint96 creatorFid, uint40 endTime, address authorizer
+    );
     event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount);
 
     function testFuzz_Start_RevertsInvalidProtocolFee(

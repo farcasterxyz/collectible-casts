@@ -710,6 +710,76 @@ contract CollectibleCastsTest is TestSuiteSetup {
         assertEq(data.uri, "");
     }
 
+    // isMinted tests
+    function test_IsMinted_ReturnsFalseForUnmintedToken() public view {
+        uint256 tokenId = uint256(keccak256("unmintedToken"));
+        assertFalse(token.isMinted(tokenId));
+    }
+
+    function test_IsMintedWithCastHash_ReturnsFalseForUnmintedToken() public view {
+        bytes32 castHash = keccak256("unmintedCastHash");
+        assertFalse(token.isMinted(castHash));
+    }
+
+    function testFuzz_IsMinted_ReturnsTrueForMintedToken(bytes32 castHash, uint96 fid, address creator) public {
+        // Bound inputs
+        vm.assume(castHash != bytes32(0));
+        fid = uint96(_bound(uint256(fid), 1, type(uint96).max));
+
+        address minterAddr = makeAddr("minter");
+        uint256 tokenId = uint256(castHash);
+
+        // Allow minter
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+
+        // Mint token
+        vm.prank(minterAddr);
+        token.mint(alice, castHash, fid, creator);
+
+        // Both functions should return true for minted token
+        assertTrue(token.isMinted(tokenId));
+        assertTrue(token.isMinted(castHash));
+    }
+
+    function testFuzz_IsMinted_ReturnsFalseForUnmintedToken(uint256 tokenId) public view {
+        // Any unminted token should return false
+        assertFalse(token.isMinted(tokenId));
+    }
+
+    function testFuzz_IsMintedWithCastHash_ReturnsFalseForUnmintedToken(bytes32 castHash) public view {
+        // Any unminted castHash should return false
+        assertFalse(token.isMinted(castHash));
+    }
+
+    function test_IsMinted_ReturnsTrueEvenAfterTransfer() public {
+        bytes32 castHash = keccak256("transferTest");
+        uint256 tokenId = uint256(castHash);
+        uint96 fid = 123;
+        address creator = makeAddr("creator");
+        address recipient1 = alice;
+        address recipient2 = bob;
+
+        // Mint token
+        address minterAddr = makeAddr("minter");
+        vm.prank(token.owner());
+        token.allowMinter(minterAddr);
+        vm.prank(minterAddr);
+        token.mint(recipient1, castHash, fid, creator);
+
+        // Verify it's minted
+        assertTrue(token.isMinted(tokenId));
+        assertTrue(token.isMinted(castHash));
+
+        // Transfer the token
+        vm.prank(recipient1);
+        token.transferFrom(recipient1, recipient2, tokenId);
+
+        // Should still return true after transfer
+        assertTrue(token.isMinted(tokenId));
+        assertTrue(token.isMinted(castHash));
+    }
+
     function test_TokenFid_ReturnsZeroForUnmintedToken() public view {
         // Test tokenFid for unminted token returns 0
         uint256 tokenId = uint256(keccak256("unmintedFid"));

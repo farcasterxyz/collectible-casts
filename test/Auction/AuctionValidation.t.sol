@@ -153,7 +153,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function testFuzz_Start_RevertsOnSelfBidding(
+    function testFuzz_Start_AllowsSelfBidding(
         bytes32 castHash,
         address creator,
         uint96 creatorFid,
@@ -191,9 +191,14 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         vm.prank(creator);
         usdc.approve(address(auction), amount);
 
+        // Should succeed - self-bidding is now allowed
         vm.prank(creator);
-        vm.expectRevert(IAuction.SelfBidding.selector);
         auction.start(castData, bidData, params, auth);
+
+        // Verify auction was created with creator as bidder
+        (address auctionCreator,, address highestBidder,,,,,,) = auction.auctions(castHash);
+        assertEq(auctionCreator, creator);
+        assertEq(highestBidder, creator);
     }
 
     function testFuzz_Start_RevertsWithShortDuration(
@@ -338,14 +343,14 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
     }
 
-    function test_Bid_RevertsOnSelfBidding() public {
+    function test_Bid_AllowsSelfBidding() public {
         // Start auction first with a different bidder
         address firstBidder = address(0x123);
         uint96 firstBidderFid = 12345;
         uint256 firstAmount = 1e6;
         _startAuction(firstBidder, firstBidderFid, firstAmount);
 
-        // Try to bid as the creator
+        // Bid as the creator - should succeed
         uint96 creatorBidderFid = 99999;
         uint256 creatorAmount = 2e6;
         bytes32 nonce = keccak256("bid-nonce-creator");
@@ -363,9 +368,14 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         IAuction.BidData memory bidData = createBidData(creatorBidderFid, creatorAmount);
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
+        // Should succeed - self-bidding is now allowed
         vm.prank(CREATOR);
-        vm.expectRevert(IAuction.SelfBidding.selector);
         auction.bid(TEST_CAST_HASH, bidData, auth);
+
+        // Verify creator is now the highest bidder
+        (,, address highestBidder,, uint256 highestBid,,,,) = auction.auctions(TEST_CAST_HASH);
+        assertEq(highestBidder, CREATOR);
+        assertEq(highestBid, creatorAmount);
     }
 
     function _startAuction(address bidder, uint96 bidderFid, uint256 amount) internal {

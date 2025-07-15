@@ -6,11 +6,12 @@ import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import {IERC2981} from "openzeppelin-contracts/contracts/interfaces/IERC2981.sol";
 import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
 
 /// @title CollectibleCasts
 /// @notice ERC-721 token representing collectible Farcaster casts
-contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
+contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, IERC2981 {
     uint256 internal constant BPS_DENOMINATOR = 10_000;
     uint256 internal constant ROYALTY_BPS = 500;
 
@@ -24,7 +25,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         _baseURIString = baseURIString;
     }
 
-    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator) external {
+    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator) external whenNotPaused {
         if (!minters[msg.sender]) revert Unauthorized();
         if (castHash == bytes32(0)) revert InvalidInput();
         if (creatorFid == 0) revert InvalidFid();
@@ -39,7 +40,10 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         emit Mint(to, tokenId, castHash, creatorFid, creator);
     }
 
-    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator, string memory tokenUri) external {
+    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator, string memory tokenUri)
+        external
+        whenNotPaused
+    {
         if (!minters[msg.sender]) revert Unauthorized();
         if (castHash == bytes32(0)) revert InvalidInput();
         if (creatorFid == 0) revert InvalidFid();
@@ -85,10 +89,6 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         emit MinterDenied(account);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, IERC165) returns (bool) {
-        return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
-    }
-
     function tokenURI(uint256 tokenId)
         public
         view
@@ -107,6 +107,14 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         return bytes(baseURI).length > 0 ? string.concat(baseURI, Strings.toString(tokenId)) : "";
     }
 
+    function contractURI() external view returns (string memory) {
+        if (bytes(_contractURIString).length > 0) {
+            return _contractURIString;
+        }
+
+        return string.concat(_baseURIString, "contract");
+    }
+
     function royaltyInfo(uint256 tokenId, uint256 salePrice)
         external
         view
@@ -122,14 +130,6 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
         royaltyAmount = (salePrice * ROYALTY_BPS) / BPS_DENOMINATOR;
     }
 
-    function contractURI() external view returns (string memory) {
-        if (bytes(_contractURIString).length > 0) {
-            return _contractURIString;
-        }
-
-        return string.concat(_baseURIString, "contract");
-    }
-
     function tokenFid(uint256 tokenId) external view returns (uint96) {
         return _tokenData[tokenId].fid;
     }
@@ -140,6 +140,27 @@ contract CollectibleCasts is ERC721, Ownable2Step, ICollectibleCasts, IERC2981 {
 
     function tokenData(uint256 tokenId) external view returns (ICollectibleCasts.TokenData memory) {
         return _tokenData[tokenId];
+    }
+
+    function isMinted(uint256 tokenId) external view returns (bool) {
+        return _tokenData[tokenId].fid != 0;
+    }
+
+    function isMinted(bytes32 castHash) external view returns (bool) {
+        uint256 tokenId = uint256(castHash);
+        return _tokenData[tokenId].fid != 0;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, IERC165) returns (bool) {
+        return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function _baseURI() internal view virtual override returns (string memory) {

@@ -7,17 +7,17 @@ interface IAuction {
     error AuctionDoesNotExist();
     error AuctionAlreadyExists();
     error AuctionAlreadySettled();
+    error AuctionNotFound();
     error AuctionNotActive();
     error AuctionNotEnded();
     error DeadlineExpired();
     error NonceAlreadyUsed();
+    error InvalidSignature();
     error UnauthorizedBidder();
     error InvalidProtocolFee();
     error InvalidAuctionParams();
     error InvalidCreatorFid();
-    error SelfBidding();
     error InvalidCastHash();
-    error InsufficientAllowance();
 
     struct AuctionConfig {
         uint32 minBidAmount;
@@ -67,7 +67,7 @@ interface IAuction {
         uint256 highestBid;
         uint40 lastBidAt;
         uint40 endTime;
-        bool settled;
+        AuctionState state;
         AuctionParams params;
     }
 
@@ -75,7 +75,8 @@ interface IAuction {
         None, // Auction doesn't exist
         Active, // Auction is accepting bids
         Ended, // Auction ended but not settled
-        Settled // Auction settled and NFT minted
+        Settled, // Auction settled and NFT minted
+        Cancelled // Auction cancelled and refunded
 
     }
 
@@ -83,10 +84,13 @@ interface IAuction {
     event AuthorizerDenied(address indexed authorizer);
     event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
     event AuctionConfigSet(AuctionConfig config);
-    event AuctionStarted(bytes32 indexed castHash, address indexed creator, uint96 creatorFid);
+    event AuctionStarted(
+        bytes32 indexed castHash, address indexed creator, uint96 creatorFid, uint40 endTime, address authorizer
+    );
     event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount);
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime);
     event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 winnerFid, uint256 amount);
+    event AuctionCancelled(bytes32 indexed castHash, address indexed refundedBidder, address indexed authorizer);
 
     function start(CastData memory cast, BidData memory bid, AuctionParams memory params, AuthData memory auth)
         external;
@@ -107,5 +111,12 @@ interface IAuction {
 
     function batchSettle(bytes32[] calldata castHashes) external;
 
+    function cancel(bytes32 castHash, AuthData memory auth) external;
+
     function auctionState(bytes32 castHash) external view returns (AuctionState);
+
+    function hashCancelAuthorization(bytes32 castHash, bytes32 nonce, uint256 deadline)
+        external
+        view
+        returns (bytes32);
 }

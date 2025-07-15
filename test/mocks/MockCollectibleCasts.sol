@@ -107,6 +107,14 @@ contract MockCollectibleCasts is ICollectibleCasts {
         return string.concat(baseURI, "contract");
     }
 
+    function isMinted(uint256 tokenId) external view returns (bool) {
+        return _tokenData[tokenId].fid != 0;
+    }
+
+    function isMinted(bytes32 castHash) external view returns (bool) {
+        return minted[castHash];
+    }
+
     // Helper functions for testing
     function getMintCallCount() external view returns (uint256) {
         return mintCalls.length;

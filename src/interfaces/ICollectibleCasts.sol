@@ -35,4 +35,6 @@ interface ICollectibleCasts {
     function tokenCreator(uint256 tokenId) external view returns (address);
     function tokenURI(uint256 tokenId) external view returns (string memory);
     function contractURI() external view returns (string memory);
+    function isMinted(uint256 tokenId) external view returns (bool);
+    function isMinted(bytes32 castHash) external view returns (bool);
 }
