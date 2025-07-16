@@ -196,7 +196,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         auction.start(castData, bidData, params, auth);
 
         // Verify auction was created with creator as bidder
-        (address auctionCreator,, address highestBidder,,,,,,) = auction.auctions(castHash);
+        (address auctionCreator,, address highestBidder,,,,,,,) = auction.auctions(castHash);
         assertEq(auctionCreator, creator);
         assertEq(highestBidder, creator);
     }
@@ -373,7 +373,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
         auction.bid(TEST_CAST_HASH, bidData, auth);
 
         // Verify creator is now the highest bidder
-        (,, address highestBidder,, uint256 highestBid,,,,) = auction.auctions(TEST_CAST_HASH);
+        (,, address highestBidder,, uint256 highestBid,,,,,) = auction.auctions(TEST_CAST_HASH);
         assertEq(highestBidder, CREATOR);
         assertEq(highestBid, creatorAmount);
     }

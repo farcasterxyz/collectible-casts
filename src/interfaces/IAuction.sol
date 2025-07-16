@@ -67,6 +67,7 @@ interface IAuction {
         uint256 highestBid;
         uint40 lastBidAt;
         uint40 endTime;
+        uint32 bids;
         AuctionState state;
         AuctionParams params;
     }

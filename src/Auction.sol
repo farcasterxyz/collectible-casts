@@ -343,6 +343,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         auctionData.highestBid = bidData.amount;
         auctionData.lastBidAt = uint40(block.timestamp);
         auctionData.endTime = uint40(block.timestamp + params.duration);
+        auctionData.bids = 1;
         auctionData.state = AuctionState.Active;
         auctionData.params = params;
 
@@ -389,6 +390,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         auctionData.highestBidderFid = bidData.bidderFid;
         auctionData.highestBid = bidData.amount;
         auctionData.lastBidAt = uint40(block.timestamp);
+        auctionData.bids++;
 
         // Check if we need to extend the auction
         uint256 timeLeft = auctionData.endTime - block.timestamp;

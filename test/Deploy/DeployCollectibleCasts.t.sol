@@ -163,7 +163,7 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         vm.stopPrank();
 
         // Verify auction started
-        (,,,, uint256 highestBid,,,,) = deployed.auction.auctions(castHash);
+        (,,,, uint256 highestBid,,,,,) = deployed.auction.auctions(castHash);
         assertEq(highestBid, bidAmount, "Auction should have correct highest bid");
 
         // Fast forward to end
