@@ -25,16 +25,6 @@ contract AuctionTest is Test, AuctionTestHelper {
     address public treasury;
     address public owner;
 
-    // Helper struct to avoid stack too deep errors
-    struct BidParams {
-        bytes32 castHash;
-        address bidder;
-        uint96 bidderFid;
-        uint256 amount;
-        bytes32 nonce;
-        uint256 deadline;
-    }
-
     bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
@@ -279,6 +269,30 @@ contract AuctionTest is Test, AuctionTestHelper {
         vm.prank(auction.owner());
         vm.expectRevert(abi.encodeWithSelector(IAuction.InvalidAuctionParams.selector));
         auction.setAuctionConfig(invalidConfig);
+
+        // Test minAuctionDuration == 0
+        invalidConfig = IAuction.AuctionConfig({
+            minBidAmount: 1e6,
+            minAuctionDuration: 0,
+            maxAuctionDuration: 30 days,
+            maxExtension: 24 hours
+        });
+
+        vm.prank(auction.owner());
+        vm.expectRevert(abi.encodeWithSelector(IAuction.InvalidAuctionParams.selector));
+        auction.setAuctionConfig(invalidConfig);
+
+        // Test maxExtension == 0
+        invalidConfig = IAuction.AuctionConfig({
+            minBidAmount: 1e6,
+            minAuctionDuration: 1 hours,
+            maxAuctionDuration: 30 days,
+            maxExtension: 0
+        });
+
+        vm.prank(auction.owner());
+        vm.expectRevert(abi.encodeWithSelector(IAuction.InvalidAuctionParams.selector));
+        auction.setAuctionConfig(invalidConfig);
     }
 
     // Test Ownable2Step functionality
@@ -378,83 +392,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(auction.hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline), expectedHash);
     }
 
-    function testFuzz_VerifyBidAuthorization_ValidSignature(
-        bytes32 castHash,
-        address bidder,
-        uint96 bidderFid,
-        uint256 amount,
-        bytes32 nonce
-    ) public {
-        uint256 deadline = block.timestamp + 1 hours;
-
-        // Generate authorizer key
-        (address authorizer, uint256 authorizerKey) = makeAddrAndKey("authorizer");
-
-        // Allow the authorizer
-        vm.prank(auction.owner());
-        auction.allowAuthorizer(authorizer);
-
-        // Create the message hash
-        bytes32 messageHash = auction.hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline);
-
-        // Sign the message
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        // Verify the signature
-        assertTrue(auction.verifyBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline, signature));
-    }
-
-    function testFuzz_VerifyBidAuthorization_InvalidSignature(
-        bytes32 castHash,
-        address bidder,
-        uint96 bidderFid,
-        uint256 amount,
-        bytes32 nonce
-    ) public {
-        uint256 deadline = block.timestamp + 1 hours;
-
-        // Generate authorizer key (but don't allow it)
-        (, uint256 authorizerKey) = makeAddrAndKey("authorizer");
-
-        // Create the message hash
-        bytes32 messageHash = auction.hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline);
-
-        // Sign the message
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        // Verify should fail since authorizer is not allowed
-        assertFalse(auction.verifyBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline, signature));
-    }
-
-    function testFuzz_VerifyBidAuthorization_ExpiredDeadline(
-        bytes32 castHash,
-        address bidder,
-        uint96 bidderFid,
-        uint256 amount,
-        bytes32 nonce
-    ) public {
-        uint256 deadline = block.timestamp - 1; // Already expired
-
-        // Generate authorizer key
-        (address authorizer, uint256 authorizerKey) = makeAddrAndKey("authorizer");
-
-        // Allow the authorizer
-        vm.prank(auction.owner());
-        auction.allowAuthorizer(authorizer);
-
-        // Create the message hash
-        bytes32 messageHash = auction.hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline);
-
-        // Sign the message
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        // Verify should fail due to expired deadline
-        assertFalse(auction.verifyBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline, signature));
-    }
-
     function testFuzz_UsedNonces_PublicMapping(bytes32 testNonce) public view {
         // Test that usedNonces mapping is accessible
         assertFalse(auction.usedNonces(testNonce));
@@ -479,51 +416,5 @@ contract AuctionTest is Test, AuctionTestHelper {
 
         // Hashes should be different
         assertTrue(hash1 != hash2);
-    }
-
-    function test_VerifyBidAuthorization_WrongChainId() public {
-        // Setup test values
-        BidParams memory params = BidParams({
-            castHash: keccak256("test-cast"),
-            bidder: address(0x123),
-            bidderFid: 12345,
-            amount: 1e6,
-            nonce: keccak256("test-nonce-4"),
-            deadline: block.timestamp + 1 hours
-        });
-
-        // Generate authorizer key
-        (address authorizer, uint256 authorizerKey) = makeAddrAndKey("authorizer");
-
-        // Deploy auction on different chain
-        vm.chainId(999);
-        MockCollectibleCasts wrongChainCollectibleCasts = new MockCollectibleCasts();
-        Auction wrongChainAuction = new Auction(address(wrongChainCollectibleCasts), USDC, treasury, owner);
-
-        // Allow the authorizer on wrong chain auction
-        vm.prank(wrongChainAuction.owner());
-        wrongChainAuction.allowAuthorizer(authorizer);
-
-        // Create the message hash for wrong chain
-        bytes32 messageHash = wrongChainAuction.hashBidAuthorization(
-            params.castHash, params.bidder, params.bidderFid, params.amount, params.nonce, params.deadline
-        );
-
-        // Sign the message
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        // Reset chain id
-        vm.chainId(31337);
-
-        // Allow authorizer on correct chain
-        vm.prank(auction.owner());
-        auction.allowAuthorizer(authorizer);
-
-        // Verify should fail due to different chain id
-        bool result = auction.verifyBidAuthorization(
-            params.castHash, params.bidder, params.bidderFid, params.amount, params.nonce, params.deadline, signature
-        );
-        assertFalse(result);
     }
 }

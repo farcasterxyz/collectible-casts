@@ -115,8 +115,31 @@ interface IAuction {
 
     function auctionState(bytes32 castHash) external view returns (AuctionState);
 
+    function hashBidAuthorization(
+        bytes32 castHash,
+        address bidder,
+        uint96 bidderFid,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 deadline
+    ) external view returns (bytes32);
+
     function hashCancelAuthorization(bytes32 castHash, bytes32 nonce, uint256 deadline)
         external
         view
         returns (bytes32);
+
+    function hashStartAuthorization(
+        bytes32 castHash,
+        address creator,
+        uint96 creatorFid,
+        address bidder,
+        uint96 bidderFid,
+        uint256 amount,
+        AuctionParams memory params,
+        bytes32 nonce,
+        uint256 deadline
+    ) external view returns (bytes32);
+
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
 }

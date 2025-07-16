@@ -280,23 +280,6 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         return _hashTypedDataV4(structHash);
     }
 
-    function verifyBidAuthorization(
-        bytes32 castHash,
-        address bidder,
-        uint96 bidderFid,
-        uint256 amount,
-        bytes32 nonce,
-        uint256 deadline,
-        bytes memory signature
-    ) public view returns (bool) {
-        if (block.timestamp > deadline) return false;
-
-        bytes32 digest = hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline);
-        (address signer, ECDSA.RecoverError error,) = ECDSA.tryRecover(digest, signature);
-
-        return error == ECDSA.RecoverError.NoError && authorizers[signer];
-    }
-
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();
     }
@@ -378,16 +361,17 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         AuctionData storage auctionData = auctions[castHash];
 
         // Verify bid authorization
-        if (
-            !verifyBidAuthorization(
-                castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline, auth.signature
-            )
-        ) {
+        if (block.timestamp > auth.deadline) revert DeadlineExpired();
+        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
+
+        bytes32 digest =
+            hashBidAuthorization(castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline);
+        (address signer, ECDSA.RecoverError error,) = ECDSA.tryRecover(digest, auth.signature);
+        if (error != ECDSA.RecoverError.NoError || !authorizers[signer]) {
             revert UnauthorizedBidder();
         }
 
-        // Check nonce
-        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
+        // Mark nonce as used
         usedNonces[auth.nonce] = true;
 
         // Calculate minimum acceptable bid

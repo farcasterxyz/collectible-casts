@@ -340,6 +340,54 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 
+    function testFuzz_Bid_RevertsUnauthorizedBidder(
+        address firstBidder,
+        uint96 firstBidderFid,
+        uint256 firstAmount,
+        address secondBidder,
+        uint96 secondBidderFid,
+        uint256 bidIncrement
+    ) public {
+        // Bound inputs
+        vm.assume(firstBidder != address(0) && secondBidder != address(0));
+        vm.assume(firstBidder != secondBidder);
+        vm.assume(firstBidder != CREATOR && secondBidder != CREATOR);
+        firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
+        secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
+        firstAmount = _bound(firstAmount, 1e6, 1000e6);
+
+        // Calculate valid bid increment
+        uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
+        if (minIncrement < 1e6) minIncrement = 1e6;
+        bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
+        uint256 secondAmount = firstAmount + bidIncrement;
+
+        _startAuction(firstBidder, firstBidderFid, firstAmount);
+
+        // Try to bid with unauthorized signer (not an allowed authorizer)
+        bytes32 nonce = keccak256(abi.encodePacked("bid-nonce-unauthorized", secondBidder));
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // Create a new key that is NOT an allowed authorizer
+        (, uint256 unauthorizedKey) = makeAddrAndKey("unauthorizedSigner");
+
+        bytes32 messageHash =
+            auction.hashBidAuthorization(TEST_CAST_HASH, secondBidder, secondBidderFid, secondAmount, nonce, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(unauthorizedKey, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        usdc.mint(secondBidder, secondAmount);
+        vm.prank(secondBidder);
+        usdc.approve(address(auction), secondAmount);
+
+        IAuction.BidData memory bidData = createBidData(secondBidderFid, secondAmount);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        vm.prank(secondBidder);
+        vm.expectRevert(IAuction.UnauthorizedBidder.selector);
+        auction.bid(TEST_CAST_HASH, bidData, auth);
+    }
+
     function testFuzz_Bid_RevertsExpiredDeadline(
         address firstBidder,
         uint96 firstBidderFid,
@@ -383,7 +431,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         vm.prank(secondBidder);
-        vm.expectRevert(IAuction.UnauthorizedBidder.selector);
+        vm.expectRevert(IAuction.DeadlineExpired.selector);
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 
@@ -496,5 +544,54 @@ contract AuctionBidTest is Test, AuctionTestHelper {
 
         vm.prank(bidder);
         auction.start(castData, bidData, params, auth);
+    }
+
+    function test_Bid_RevertsWrongChainId() public {
+        // Start an auction first
+        address firstBidder = makeAddr("firstBidder");
+        uint96 firstBidderFid = 123;
+        uint256 firstAmount = 10e6;
+        _startAuction(firstBidder, firstBidderFid, firstAmount);
+
+        // Setup second bid
+        address secondBidder = makeAddr("secondBidder");
+        uint96 secondBidderFid = 456;
+        uint256 secondAmount = 20e6;
+
+        // Create auction on different chain to generate wrong signature
+        vm.chainId(999);
+        MockUSDC wrongChainUsdc = new MockUSDC();
+        Auction wrongChainAuction =
+            new Auction(address(collectibleCast), address(wrongChainUsdc), TREASURY, address(this));
+
+        // Allow the authorizer on wrong chain auction
+        wrongChainAuction.allowAuthorizer(authorizer);
+
+        // Create the bid authorization hash for wrong chain
+        bytes32 nonce = keccak256("wrong-chain-nonce");
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 messageHash = wrongChainAuction.hashBidAuthorization(
+            TEST_CAST_HASH, secondBidder, secondBidderFid, secondAmount, nonce, deadline
+        );
+
+        // Sign the message
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Reset chain id back to original
+        vm.chainId(31337);
+
+        // Prepare for bid on original chain
+        usdc.mint(secondBidder, secondAmount);
+        vm.prank(secondBidder);
+        usdc.approve(address(auction), secondAmount);
+
+        IAuction.BidData memory bidData = createBidData(secondBidderFid, secondAmount);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        // Should fail due to different chain id in signature
+        vm.prank(secondBidder);
+        vm.expectRevert(IAuction.UnauthorizedBidder.selector);
+        auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 }

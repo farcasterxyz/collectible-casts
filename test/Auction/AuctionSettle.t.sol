@@ -80,6 +80,29 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         assertEq(uint256(auction.auctionState(TEST_CAST_HASH)), uint256(IAuction.AuctionState.Settled));
     }
 
+    function test_Settle_RevertsIfCancelled() public {
+        // Start an auction
+        address bidder = address(0x123);
+        uint96 bidderFid = 12345;
+        uint256 amount = 100e6;
+        _startAuctionWithParams(TEST_CAST_HASH, CREATOR, CREATOR_FID, bidder, bidderFid, amount);
+
+        // Cancel it
+        bytes32 nonce = keccak256("cancel-nonce");
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes32 messageHash = auction.hashCancelAuthorization(TEST_CAST_HASH, nonce, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+        auction.cancel(TEST_CAST_HASH, auth);
+
+        // Try to settle the cancelled auction
+        vm.expectRevert(IAuction.AuctionAlreadySettled.selector);
+        auction.settle(TEST_CAST_HASH);
+    }
+
     function test_Settle_RevertsIfNotEnded() public {
         // Start auction
         address bidder = address(0x123);
