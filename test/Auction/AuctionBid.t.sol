@@ -384,7 +384,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         vm.prank(secondBidder);
-        vm.expectRevert(IAuction.UnauthorizedBidder.selector);
+        vm.expectRevert(IAuction.Unauthorized.selector);
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 
@@ -591,7 +591,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
 
         // Should fail due to different chain id in signature
         vm.prank(secondBidder);
-        vm.expectRevert(IAuction.UnauthorizedBidder.selector);
+        vm.expectRevert(IAuction.Unauthorized.selector);
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 }

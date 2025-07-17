@@ -12,8 +12,7 @@ interface IAuction {
     error AuctionNotEnded();
     error DeadlineExpired();
     error NonceAlreadyUsed();
-    error InvalidSignature();
-    error UnauthorizedBidder();
+    error Unauthorized();
     error InvalidProtocolFee();
     error InvalidAuctionParams();
     error InvalidCreatorFid();

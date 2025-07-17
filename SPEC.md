@@ -2,7 +2,7 @@
 
 ## 1 Overview
 
-Collectible Casts introduce a lightweight, on‑chain way for Farcaster users to financially support creators. Every cast can be _collected_; if more than one user attempts to collect the same cast within the bidding window, an ascending auction determines the final owner and price. The winning bidder receives an ERC‑1155 token that represents the collectible, minted directly to their wallet. Ninety percent of the winning bid is paid to the creator; the remaining ten percent accrues to the protocol treasury for growth incentives.
+Collectible Casts introduce a lightweight, on‑chain way for Farcaster users to financially support creators. Every cast can be _collected_; if more than one user attempts to collect the same cast within the bidding window, an ascending auction determines the final owner and price. The winning bidder receives an ERC‑721 token that represents the collectible, minted directly to their wallet. Ninety percent of the winning bid is paid to the creator; the remaining ten percent accrues to the protocol treasury for growth incentives.
 
 ---
 
@@ -12,7 +12,6 @@ Collectible Casts introduce a lightweight, on‑chain way for Farcaster users t
 - **Showcase support.** Give users a collectible that is more meaningful than a tip and shareable across wallets and profiles.
 - **Simplicity first.** Ship a minimal, auditable contract suite that we fully understand and can extend later.
 - **Extensible periphery.** Enable us to change and experiment with auction parameters by updating parameters in the contract or writing a whole new auction contract.
-- **Optional future resale.** Design the token so that transferability and fee enforcement can be enabled later without migrations.
 
 ## 3 Non‑Goals
 
@@ -24,27 +23,25 @@ Collectible Casts introduce a lightweight, on‑chain way for Farcaster users t
 
 ## 4 Glossary
 
-| Term               | Meaning                                                          |
-| ------------------ | ---------------------------------------------------------------- |
-| **Cast**           | A post on Farcaster (identified by a 32 byte hash).              |
-| **FID**            | Farcaster ID, a unique integer ID representing a Farcaster user. |
-| **Collectible**    | ERC‑1155 token representing ownership of a cast.                 |
-| **Opening Bid**    | First bid on a cast; must be ≥ 1 USDC.                           |
-| **Overbid**        | A subsequent bid ≥ max(1 USDC, 10 % of current price).           |
-| **Backend Signer** | Off‑chain service that authorises auction parameters and bids.   |
+| Term                   | Meaning                                                          |
+| ---------------------- | ---------------------------------------------------------------- |
+| **Cast**               | A post on Farcaster (identified by a 32 byte hash).              |
+| **FID**                | Farcaster ID, a unique integer ID representing a Farcaster user. |
+| **Collectible**        | ERC‑721 token representing ownership of a cast.                  |
+| **Opening Bid**        | First bid on a cast; must be ≥ 1 USDC.                           |
+| **Overbid**            | A subsequent bid ≥ max(1 USDC, 10 % of current price).           |
+| **Backend Authorizer** | Off‑chain service that authorises auction parameters and bids.   |
 
 ---
 
 ## 5 Smart‑Contract Architecture
-
-We deploy five small, modular contracts:
 
 ### 5.1 `CollectibleCast` (ERC‑721)
 
 Responsibility: The core collectible token contract. This is the core immutable dependency and we must think carefully about the design. We should keep it as simple as possible.
 
 - Use 32 byte cast hash as a synthetic token ID
-- Should also store the FID associated with each cast
+- Should also store the FID and address associated with each cast
 - Implements EIP‑2981 royalty info (5% royalty to creator).
 - Implement contract level and token level metadata functions
 - Default metadata "base URL" for contract and token metadata
@@ -56,13 +53,13 @@ Responsibility: The core collectible token contract. This is the core immutable 
 
 Responsibility: Manages collectible auction logic.
 
-- Escrows USDC bids (permits one‑shot `permit` + `bid`).
+- Escrows USDC bids
 - Emits events: `AuctionCreated`, `BidPlaced`, `AuctionSettled`, `BidRefunded`.
 - Backend‑signed message provides initial auction parameters.
 - On settlement: mints token via `CollectibleCast`, pays creator 90%, routes 10% to treasury.
 - Bids must provide a backend-signed message for authorization.
 - Parameterize auction configuration
-- Parameterize splits and other high level configuration
+- Parameterize payment splits and other high level configuration
 - Use USDC permit for one step approve + bid
 - Attempt automatic refund on outbid
 

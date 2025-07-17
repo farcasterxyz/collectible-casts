@@ -146,7 +146,7 @@ contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
         bytes memory signature = _signCancellation(castHash, nonce, deadline, creatorPk);
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
-        vm.expectRevert(IAuction.InvalidSignature.selector);
+        vm.expectRevert(IAuction.Unauthorized.selector);
         auction.cancel(castHash, auth);
     }
 

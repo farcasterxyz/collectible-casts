@@ -120,7 +120,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         // Validate signature
         bytes32 digest = hashCancelAuthorization(castHash, auth.nonce, auth.deadline);
         address signer = ECDSA.recover(digest, auth.signature);
-        if (!authorizers[signer]) revert InvalidSignature();
+        if (!authorizers[signer]) revert Unauthorized();
 
         // Mark nonce as used
         usedNonces[auth.nonce] = true;
@@ -324,7 +324,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         // Verify signature
         address signer = ECDSA.recover(digest, auth.signature);
         if (!authorizers[signer]) {
-            revert UnauthorizedBidder();
+            revert Unauthorized();
         }
 
         // Check nonce
@@ -369,7 +369,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
             hashBidAuthorization(castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline);
         address signer = ECDSA.recover(digest, auth.signature);
         if (!authorizers[signer]) {
-            revert UnauthorizedBidder();
+            revert Unauthorized();
         }
 
         // Mark nonce as used
