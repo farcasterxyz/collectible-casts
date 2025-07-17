@@ -322,8 +322,8 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         if (block.timestamp > auth.deadline) revert DeadlineExpired();
 
         // Verify signature
-        (address signer, ECDSA.RecoverError error,) = ECDSA.tryRecover(digest, auth.signature);
-        if (error != ECDSA.RecoverError.NoError || !authorizers[signer]) {
+        address signer = ECDSA.recover(digest, auth.signature);
+        if (!authorizers[signer]) {
             revert UnauthorizedBidder();
         }
 
@@ -367,8 +367,8 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
         bytes32 digest =
             hashBidAuthorization(castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline);
-        (address signer, ECDSA.RecoverError error,) = ECDSA.tryRecover(digest, auth.signature);
-        if (error != ECDSA.RecoverError.NoError || !authorizers[signer]) {
+        address signer = ECDSA.recover(digest, auth.signature);
+        if (!authorizers[signer]) {
             revert UnauthorizedBidder();
         }
 

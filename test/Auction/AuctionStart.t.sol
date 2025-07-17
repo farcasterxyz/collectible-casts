@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
+import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
@@ -355,7 +356,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
 
         // Should revert due to invalid signature
         vm.prank(bidder);
-        vm.expectRevert(IAuction.UnauthorizedBidder.selector);
+        vm.expectRevert(ECDSA.ECDSAInvalidSignature.selector);
         auction.start(castData, bidData, params, auth);
     }
 

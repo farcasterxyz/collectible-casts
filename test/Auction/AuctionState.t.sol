@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
+import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
@@ -126,8 +127,8 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         // Start auction
         _startAuction(castHash);
 
-        // Now bidding should work (but will fail with UnauthorizedBidder due to invalid signature)
-        vm.expectRevert(IAuction.UnauthorizedBidder.selector);
+        // Now bidding should work (but will fail with ECDSAInvalidSignatureLength due to empty signature)
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, 0));
         auction.bid(castHash, bidData, auth);
 
         // Fast forward past end time

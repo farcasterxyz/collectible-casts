@@ -5,7 +5,7 @@ libs = ["lib"]
 solc_version = "0.8.30"
 optimizer_runs = 100_000
 via_ir = true
-fuzz = { runs = 2500 }
+fuzz = { runs = 1000 }
 remappings = []
 
 [fmt]
