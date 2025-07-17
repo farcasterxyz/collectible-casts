@@ -271,7 +271,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
 
         // Try to start auction with invalid protocol fee
         vm.prank(bidder);
-        vm.expectRevert(IAuction.InvalidProtocolFee.selector);
+        vm.expectRevert(IAuction.InvalidAuctionParams.selector);
         auction.start(castData, bidData, params, auth);
     }
 
@@ -357,6 +357,61 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         // Should revert due to invalid signature
         vm.prank(bidder);
         vm.expectRevert(ECDSA.ECDSAInvalidSignature.selector);
+        auction.start(castData, bidData, params, auth);
+    }
+
+    function testFuzz_Start_RevertsUnauthorizedSigner(address bidder, uint96 bidderFid, uint256 amount, bytes32 nonce)
+        public
+    {
+        // Setup
+        vm.assume(bidder != address(0));
+        vm.assume(bidder.code.length == 0);
+        vm.assume(bidderFid > 0);
+        amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
+
+        IAuction.CastData memory castData =
+            IAuction.CastData({castHash: TEST_CAST_HASH, creator: CREATOR, creatorFid: CREATOR_FID});
+
+        IAuction.BidData memory bidData = IAuction.BidData({bidderFid: bidderFid, amount: amount});
+
+        IAuction.AuctionParams memory params = IAuction.AuctionParams({
+            minBid: 1e6,
+            minBidIncrementBps: 500,
+            protocolFeeBps: 1000,
+            duration: 1 days,
+            extension: 5 minutes,
+            extensionThreshold: 5 minutes
+        });
+
+        // Create auth with unauthorized signer (not in authorizers mapping)
+        uint256 unauthorizedKey = 0x123456;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes32 messageHash = auction.hashStartAuthorization(
+            castData.castHash,
+            castData.creator,
+            castData.creatorFid,
+            bidder,
+            bidData.bidderFid,
+            bidData.amount,
+            params,
+            nonce,
+            deadline
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(unauthorizedKey, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        IAuction.AuthData memory auth = IAuction.AuthData({nonce: nonce, deadline: deadline, signature: signature});
+
+        // Give bidder USDC
+        deal(address(usdc), bidder, amount);
+        vm.prank(bidder);
+        usdc.approve(address(auction), amount);
+
+        // Expect revert
+        vm.prank(bidder);
+        vm.expectRevert(IAuction.Unauthorized.selector);
         auction.start(castData, bidData, params, auth);
     }
 

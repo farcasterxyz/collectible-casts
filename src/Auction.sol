@@ -108,7 +108,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     }
 
     function cancel(bytes32 castHash, AuthData memory auth) external whenNotPaused {
-        // Check auction state
+        // Auction must be active
         AuctionState state = auctionState(castHash);
         if (state == AuctionState.None) revert AuctionNotFound();
         if (state != AuctionState.Active) revert AuctionNotActive();
@@ -125,7 +125,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         // Mark nonce as used
         usedNonces[auth.nonce] = true;
 
-        // Get auction data before cancelling
+        // Load refund info
         AuctionData storage auctionData = auctions[castHash];
         address refundAddress = auctionData.highestBidder;
         uint256 refundAmount = auctionData.highestBid;
@@ -260,26 +260,28 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
     // ========== INTERNAL FUNCTIONS ==========
 
-    function _max(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a >= b ? a : b;
-    }
-
     function _start(CastData memory cast, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
         internal
     {
+        // Auction must not exist
         if (auctionState(cast.castHash) != AuctionState.None) revert AuctionAlreadyExists();
 
-        // Validate cast hash
+        // Validate cast parameters
         if (cast.castHash == bytes32(0)) revert InvalidCastHash();
-
-        // Validate creator
         if (cast.creator == address(0)) revert InvalidAddress();
         if (cast.creatorFid == 0) revert InvalidCreatorFid();
+
+        // Validate bid amount
+        if (bidData.amount < params.minBid) revert InvalidBidAmount();
 
         // Validate auction parameters
         _validateAuctionParams(params);
 
-        // Verify authorization
+        // Verify start authorization
+        if (block.timestamp > auth.deadline) revert DeadlineExpired();
+        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
+
+        // Verify signature
         bytes32 digest = hashStartAuthorization(
             cast.castHash,
             cast.creator,
@@ -291,37 +293,30 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
             auth.nonce,
             auth.deadline
         );
-
-        // Check deadline
-        if (block.timestamp > auth.deadline) revert DeadlineExpired();
-
-        // Verify signature
         address signer = ECDSA.recover(digest, auth.signature);
         if (!authorizers[signer]) {
             revert Unauthorized();
         }
 
-        // Check nonce
-        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
+        // Mark nonce as used
         usedNonces[auth.nonce] = true;
 
-        // Validate bid amount
-        if (bidData.amount < params.minBid) revert InvalidBidAmount();
-
         // Create auction
-        AuctionData storage auctionData = auctions[cast.castHash];
-        auctionData.creator = cast.creator;
-        auctionData.creatorFid = cast.creatorFid;
-        auctionData.highestBidder = msg.sender;
-        auctionData.highestBidderFid = bidData.bidderFid;
-        auctionData.highestBid = bidData.amount;
-        auctionData.lastBidAt = uint40(block.timestamp);
-        auctionData.endTime = uint40(block.timestamp + params.duration);
-        auctionData.bids = 1;
-        auctionData.state = AuctionState.Active;
-        auctionData.params = params;
+        uint40 endTime = uint40(block.timestamp + params.duration);
+        auctions[cast.castHash] = AuctionData({
+          creator: cast.creator,
+          creatorFid: cast.creatorFid,
+          highestBidder: msg.sender,
+          highestBidderFid: bidData.bidderFid,
+          highestBid: bidData.amount,
+          lastBidAt: uint40(block.timestamp),
+          endTime: endTime,
+          bids: 1,
+          state: AuctionState.Active,
+          params: params
+        });
 
-        emit AuctionStarted(cast.castHash, cast.creator, cast.creatorFid, auctionData.endTime, signer);
+        emit AuctionStarted(cast.castHash, cast.creator, cast.creatorFid, endTime, signer);
         emit BidPlaced(cast.castHash, msg.sender, bidData.bidderFid, bidData.amount);
     }
 
@@ -329,6 +324,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         internal
         returns (address previousBidder, uint256 previousBid)
     {
+        // Auction must be active
         AuctionState state = auctionState(castHash);
         if (state == AuctionState.None) revert AuctionNotFound();
         if (state != AuctionState.Active) revert AuctionNotActive();
@@ -339,6 +335,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         if (block.timestamp > auth.deadline) revert DeadlineExpired();
         if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
 
+        // Check signature
         bytes32 digest =
             hashBidAuthorization(castHash, msg.sender, bidData.bidderFid, bidData.amount, auth.nonce, auth.deadline);
         address signer = ECDSA.recover(digest, auth.signature);
@@ -377,6 +374,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     }
 
     function _settle(bytes32 castHash) internal {
+        // Auction must be in Ended state
         AuctionState state = auctionState(castHash);
         if (state == AuctionState.None) revert AuctionNotFound();
         if (state == AuctionState.Active) revert AuctionNotEnded();
@@ -410,7 +408,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     }
 
     function _validateAuctionParams(AuctionParams memory params) internal view {
-        if (params.protocolFeeBps > BPS_DENOMINATOR) revert InvalidProtocolFee();
+        if (params.protocolFeeBps > BPS_DENOMINATOR) revert InvalidAuctionParams();
 
         if (params.duration < config.minAuctionDuration || params.duration > config.maxAuctionDuration) {
             revert InvalidAuctionParams();
@@ -435,5 +433,9 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         if (params.minBid < config.minBidAmount) {
             revert InvalidAuctionParams();
         }
+    }
+
+    function _max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a >= b ? a : b;
     }
 }

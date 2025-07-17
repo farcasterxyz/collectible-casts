@@ -13,7 +13,6 @@ interface IAuction {
     error DeadlineExpired();
     error NonceAlreadyUsed();
     error Unauthorized();
-    error InvalidProtocolFee();
     error InvalidAuctionParams();
     error InvalidCreatorFid();
     error InvalidCastHash();
