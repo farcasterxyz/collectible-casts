@@ -4,15 +4,9 @@ pragma solidity ^0.8.30;
 import {console} from "forge-std/console.sol";
 import {ImmutableCreate2Deployer} from "./ImmutableCreate2Deployer.sol";
 
-// Import all our contracts
 import {CollectibleCasts} from "../src/CollectibleCasts.sol";
 import {Auction} from "../src/Auction.sol";
 
-/**
- * @title DeployCollectibleCasts
- * @notice Deployment script for the CollectibleCasts contract suite
- *         Following the Farcaster deployment pattern
- */
 contract DeployCollectibleCasts is ImmutableCreate2Deployer {
     struct Salts {
         bytes32 collectibleCast;
@@ -39,9 +33,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         Auction auction;
     }
 
-    /**
-     * @notice Main entry point for deployment
-     */
     function run() public returns (Contracts memory contracts) {
         bool broadcast = vm.envOr("BROADCAST", true);
         DeploymentParams memory params = loadDeploymentParams();
@@ -72,21 +63,15 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         return contracts;
     }
 
-    /**
-     * @notice Deploy all contracts
-     */
     function runDeploy(bool broadcast, DeploymentParams memory params) internal returns (Contracts memory) {
         Addresses memory addrs;
 
-        // Deploy CollectibleCasts
         addrs.collectibleCast = register(
             "CollectibleCasts",
             params.salts.collectibleCast,
             type(CollectibleCasts).creationCode,
             abi.encode(params.deployer, params.baseURI)
         );
-
-        // Deploy Auction (needs CollectibleCasts address, USDC, treasury, and owner)
         addrs.auction = register(
             "Auction",
             params.salts.auction,
@@ -94,16 +79,11 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
             abi.encode(addrs.collectibleCast, params.usdc, params.treasury, params.deployer)
         );
 
-        // Deploy all registered contracts
         deploy(broadcast);
 
-        // Return typed contract instances
         return Contracts({collectibleCast: CollectibleCasts(addrs.collectibleCast), auction: Auction(addrs.auction)});
     }
 
-    /**
-     * @notice Configure contracts post-deployment
-     */
     function runSetup(bool broadcast, DeploymentParams memory params, Contracts memory contracts) internal {
         console.log("");
         console.log("========================================");
@@ -128,9 +108,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         console.log("Configuration complete!");
     }
 
-    /**
-     * @notice Load deployment parameters from environment
-     */
     function loadDeploymentParams() internal view returns (DeploymentParams memory params) {
         params.deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
         params.owner = vm.envOr("OWNER_ADDRESS", params.deployer);
@@ -139,7 +116,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         params.backendSigner = vm.envAddress("BACKEND_SIGNER_ADDRESS");
         params.baseURI = vm.envOr("BASE_URI", string("https://api.farcaster.xyz/v2/cast-collectibles/metadata?id="));
 
-        // Load salts from environment or use defaults
         params.salts = Salts({
             collectibleCast: vm.envOr("COLLECTIBLE_CAST_CREATE2_SALT", bytes32(0)),
             auction: vm.envOr("AUCTION_CREATE2_SALT", bytes32(0))

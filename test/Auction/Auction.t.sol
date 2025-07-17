@@ -12,7 +12,6 @@ import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 import {TestSuiteSetup} from "../TestSuiteSetup.sol";
 
 contract AuctionTest is Test, AuctionTestHelper {
-    // Event declarations
     event AuthorizerAllowed(address indexed authorizer);
     event AuthorizerDenied(address indexed authorizer);
     event TreasurySet(address indexed oldTreasury, address indexed newTreasury);

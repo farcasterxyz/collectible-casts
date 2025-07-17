@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
 import {IAuction} from "./interfaces/IAuction.sol";
@@ -10,6 +10,11 @@ import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
+/**
+ * @title Auction
+ * @notice English auctions for CollectibleCasts NFTs with signature-based auth
+ * @dev USDC-only, auto-extensions, protocol fees, batch settlement
+ */
 contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     bytes32 internal constant START_AUTHORIZATION_TYPEHASH = keccak256(
         "StartAuthorization(bytes32 castHash,address creator,uint96 creatorFid,address bidder,uint96 bidderFid,uint256 amount,uint64 minBid,uint16 minBidIncrementBps,uint32 duration,uint32 extension,uint32 extensionThreshold,uint16 protocolFeeBps,bytes32 nonce,uint256 deadline)"
@@ -34,6 +39,13 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     mapping(bytes32 => bool) public usedNonces;
     mapping(bytes32 => AuctionData) public auctions;
 
+    /**
+     * @notice Creates auction contract
+     * @param _collectibleCast NFT contract address
+     * @param _usdc USDC token address
+     * @param _treasury Fee recipient
+     * @param _owner Contract owner
+     */
     constructor(address _collectibleCast, address _usdc, address _treasury, address _owner)
         Ownable(_owner)
         EIP712("CollectibleCastsAuction", "1")
@@ -56,6 +68,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
     // ========== PUBLIC/EXTERNAL FUNCTIONS ==========
 
+    /// @inheritdoc IAuction
     function start(CastData memory cast, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
         external
         whenNotPaused
@@ -64,6 +77,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         usdc.transferFrom(msg.sender, address(this), bidData.amount);
     }
 
+    /// @inheritdoc IAuction
     function start(
         CastData memory cast,
         BidData memory bidData,
@@ -75,6 +89,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         _permitAndTransfer(bidData.amount, permit);
     }
 
+    /// @inheritdoc IAuction
     function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth) external whenNotPaused {
         (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
@@ -84,6 +99,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         }
     }
 
+    /// @inheritdoc IAuction
     function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth, PermitData memory permit)
         external
         whenNotPaused
@@ -96,10 +112,12 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         }
     }
 
+    /// @inheritdoc IAuction
     function settle(bytes32 castHash) external whenNotPaused {
         _settle(castHash);
     }
 
+    /// @inheritdoc IAuction
     function batchSettle(bytes32[] calldata castHashes) external whenNotPaused {
         uint256 length = castHashes.length;
         for (uint256 i = 0; i < length; ++i) {
@@ -107,6 +125,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         }
     }
 
+    /// @inheritdoc IAuction
     function cancel(bytes32 castHash, AuthData memory auth) external whenNotPaused {
         // Auction must be active
         AuctionState state = auctionState(castHash);
@@ -143,23 +162,43 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
     // ========== PERMISSIONED FUNCTIONS ==========
 
+    /**
+     * @notice Grants signer authorization
+     * @param authorizer Address to authorize
+     * @dev Owner only
+     */
     function allowAuthorizer(address authorizer) external onlyOwner {
         if (authorizer == address(0)) revert InvalidAddress();
         authorizers[authorizer] = true;
         emit AuthorizerAllowed(authorizer);
     }
 
+    /**
+     * @notice Revokes signer authorization
+     * @param authorizer Address to unauthorize
+     * @dev Owner only
+     */
     function denyAuthorizer(address authorizer) external onlyOwner {
         authorizers[authorizer] = false;
         emit AuthorizerDenied(authorizer);
     }
 
+    /**
+     * @notice Sets treasury address
+     * @param _treasury New treasury
+     * @dev Owner only
+     */
     function setTreasury(address _treasury) external onlyOwner {
         if (_treasury == address(0)) revert InvalidAddress();
         emit TreasurySet(treasury, _treasury);
         treasury = _treasury;
     }
 
+    /**
+     * @notice Sets auction config
+     * @param _config New configuration
+     * @dev Owner only. Validates parameters.
+     */
     function setAuctionConfig(AuctionConfig memory _config) external onlyOwner {
         if (_config.minBidAmount == 0) revert InvalidAuctionParams();
         if (_config.minAuctionDuration == 0) revert InvalidAuctionParams();
@@ -170,16 +209,25 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         emit AuctionConfigSet(_config);
     }
 
+    /**
+     * @notice Pauses auctions
+     * @dev Owner only
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpauses auctions
+     * @dev Owner only
+     */
     function unpause() external onlyOwner {
         _unpause();
     }
 
     // ========== VIEW FUNCTIONS ==========
 
+    /// @inheritdoc IAuction
     function auctionState(bytes32 castHash) public view returns (AuctionState) {
         AuctionData storage auctionData = auctions[castHash];
 
@@ -200,24 +248,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         return AuctionState.Ended;
     }
 
-    function hashBidAuthorization(
-        bytes32 castHash,
-        address bidder,
-        uint96 bidderFid,
-        uint256 amount,
-        bytes32 nonce,
-        uint256 deadline
-    ) public view returns (bytes32) {
-        bytes32 structHash =
-            keccak256(abi.encode(BID_AUTHORIZATION_TYPEHASH, castHash, bidder, bidderFid, amount, nonce, deadline));
-        return _hashTypedDataV4(structHash);
-    }
-
-    function hashCancelAuthorization(bytes32 castHash, bytes32 nonce, uint256 deadline) public view returns (bytes32) {
-        bytes32 structHash = keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, castHash, nonce, deadline));
-        return _hashTypedDataV4(structHash);
-    }
-
+    /// @inheritdoc IAuction
     function hashStartAuthorization(
         bytes32 castHash,
         address creator,
@@ -254,6 +285,27 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         return _hashTypedDataV4(structHash);
     }
 
+    /// @inheritdoc IAuction
+    function hashBidAuthorization(
+        bytes32 castHash,
+        address bidder,
+        uint96 bidderFid,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 deadline
+    ) public view returns (bytes32) {
+        bytes32 structHash =
+            keccak256(abi.encode(BID_AUTHORIZATION_TYPEHASH, castHash, bidder, bidderFid, amount, nonce, deadline));
+        return _hashTypedDataV4(structHash);
+    }
+
+    /// @inheritdoc IAuction
+    function hashCancelAuthorization(bytes32 castHash, bytes32 nonce, uint256 deadline) public view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, castHash, nonce, deadline));
+        return _hashTypedDataV4(structHash);
+    }
+
+    /// @inheritdoc IAuction
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();
     }
@@ -304,16 +356,16 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         // Create auction
         uint40 endTime = uint40(block.timestamp + params.duration);
         auctions[cast.castHash] = AuctionData({
-          creator: cast.creator,
-          creatorFid: cast.creatorFid,
-          highestBidder: msg.sender,
-          highestBidderFid: bidData.bidderFid,
-          highestBid: bidData.amount,
-          lastBidAt: uint40(block.timestamp),
-          endTime: endTime,
-          bids: 1,
-          state: AuctionState.Active,
-          params: params
+            creator: cast.creator,
+            creatorFid: cast.creatorFid,
+            highestBidder: msg.sender,
+            highestBidderFid: bidData.bidderFid,
+            highestBid: bidData.amount,
+            lastBidAt: uint40(block.timestamp),
+            endTime: endTime,
+            bids: 1,
+            state: AuctionState.Active,
+            params: params
         });
 
         emit AuctionStarted(cast.castHash, cast.creator, cast.creatorFid, endTime, signer);

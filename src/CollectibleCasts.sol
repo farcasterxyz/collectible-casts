@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
 import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
@@ -9,22 +9,30 @@ import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
 
-/// @title CollectibleCasts
-/// @notice ERC-721 token representing collectible Farcaster casts
+/**
+ * @title CollectibleCasts
+ * @notice ERC-721 NFTs for Farcaster casts with 5% creator royalties
+ * @dev Token ID = uint256(castHash). Pausable with role-based minting.
+ */
 contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, IERC2981 {
     uint256 internal constant BPS_DENOMINATOR = 10_000;
-    uint256 internal constant ROYALTY_BPS = 500;
+    uint256 internal constant ROYALTY_BPS = 500; // 5%
 
     mapping(address => bool) public minters;
     mapping(uint256 => ICollectibleCasts.TokenData) internal _tokenData;
-
     string internal _baseURIString;
     string internal _contractURIString;
 
+    /**
+     * @notice Creates CollectibleCasts NFT contract
+     * @param owner Contract owner address
+     * @param baseURIString Base metadata URI
+     */
     constructor(address owner, string memory baseURIString) ERC721("CollectibleCasts", "CASTS") Ownable(owner) {
         _baseURIString = baseURIString;
     }
 
+    /// @inheritdoc ICollectibleCasts
     function mint(address to, bytes32 castHash, uint96 creatorFid, address creator) external whenNotPaused {
         if (!minters[msg.sender]) revert Unauthorized();
         if (castHash == bytes32(0)) revert InvalidInput();
@@ -40,6 +48,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         emit Mint(to, tokenId, castHash, creatorFid, creator);
     }
 
+    /// @inheritdoc ICollectibleCasts
     function mint(address to, bytes32 castHash, uint96 creatorFid, address creator, string memory tokenUri)
         external
         whenNotPaused
@@ -59,17 +68,20 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         emit Mint(to, tokenId, castHash, creatorFid, creator);
     }
 
+    /// @inheritdoc ICollectibleCasts
     function setBaseURI(string memory baseURI_) external onlyOwner {
         _baseURIString = baseURI_;
         emit BaseURISet(baseURI_);
         emit BatchMetadataUpdate(0, type(uint256).max);
     }
 
+    /// @inheritdoc ICollectibleCasts
     function setContractURI(string memory contractURI_) external onlyOwner {
         _contractURIString = contractURI_;
         emit ContractURIUpdated(contractURI_);
     }
 
+    /// @inheritdoc ICollectibleCasts
     function setTokenURIs(uint256[] memory tokenIds, string[] memory uris) external onlyOwner {
         if (tokenIds.length != uris.length) revert InvalidInput();
 
@@ -79,16 +91,19 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         }
     }
 
+    /// @inheritdoc ICollectibleCasts
     function allowMinter(address account) external onlyOwner {
         minters[account] = true;
         emit MinterAllowed(account);
     }
 
+    /// @inheritdoc ICollectibleCasts
     function denyMinter(address account) external onlyOwner {
         minters[account] = false;
         emit MinterDenied(account);
     }
 
+    /// @inheritdoc ICollectibleCasts
     function tokenURI(uint256 tokenId)
         public
         view
@@ -107,6 +122,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         return bytes(baseURI).length > 0 ? string.concat(baseURI, Strings.toString(tokenId)) : "";
     }
 
+    /// @inheritdoc ICollectibleCasts
     function contractURI() external view returns (string memory) {
         if (bytes(_contractURIString).length > 0) {
             return _contractURIString;
@@ -115,6 +131,13 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         return string.concat(_baseURIString, "contract");
     }
 
+    /**
+     * @notice ERC-2981 royalty info (5% to creator)
+     * @param tokenId Token to query
+     * @param salePrice Sale amount
+     * @return receiver Creator address
+     * @return royaltyAmount 5% of sale price
+     */
     function royaltyInfo(uint256 tokenId, uint256 salePrice)
         external
         view
@@ -130,39 +153,58 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         royaltyAmount = (salePrice * ROYALTY_BPS) / BPS_DENOMINATOR;
     }
 
+    /// @inheritdoc ICollectibleCasts
     function tokenFid(uint256 tokenId) external view returns (uint96) {
         return _tokenData[tokenId].fid;
     }
 
+    /// @inheritdoc ICollectibleCasts
     function tokenCreator(uint256 tokenId) external view returns (address) {
         return _tokenData[tokenId].creator;
     }
 
+    /// @inheritdoc ICollectibleCasts
     function tokenData(uint256 tokenId) external view returns (ICollectibleCasts.TokenData memory) {
         return _tokenData[tokenId];
     }
 
+    /// @inheritdoc ICollectibleCasts
     function isMinted(uint256 tokenId) external view returns (bool) {
         return _tokenData[tokenId].fid != 0;
     }
 
+    /// @inheritdoc ICollectibleCasts
     function isMinted(bytes32 castHash) external view returns (bool) {
         uint256 tokenId = uint256(castHash);
         return _tokenData[tokenId].fid != 0;
     }
 
+    /**
+     * @notice Pauses minting
+     * @dev Owner only
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpauses minting
+     * @dev Owner only
+     */
     function unpause() external onlyOwner {
         _unpause();
     }
 
+    /**
+     * @notice ERC-165 interface detection
+     * @param interfaceId Interface to check
+     * @return Supports interface
+     */
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, IERC165) returns (bool) {
         return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
 
+    /// @dev Returns base URI for token metadata
     function _baseURI() internal view virtual override returns (string memory) {
         return _baseURIString;
     }
