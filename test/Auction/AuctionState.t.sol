@@ -121,7 +121,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         IAuction.BidData memory bidData = createBidData(bidderFid, bidAmount);
         IAuction.AuthData memory auth = createAuthData(nonce, block.timestamp + 1 hours, "");
 
-        vm.expectRevert(IAuction.AuctionDoesNotExist.selector);
+        vm.expectRevert(IAuction.AuctionNotFound.selector);
         auction.bid(castHash, bidData, auth);
 
         // Start auction
@@ -142,7 +142,7 @@ contract AuctionStateTest is Test, AuctionTestHelper {
     function testFuzz_SettleChecksState(bytes32 castHash) public {
         vm.assume(castHash != bytes32(0));
         // Try to settle non-existent auction
-        vm.expectRevert(IAuction.AuctionDoesNotExist.selector);
+        vm.expectRevert(IAuction.AuctionNotFound.selector);
         auction.settle(castHash);
 
         // Start auction

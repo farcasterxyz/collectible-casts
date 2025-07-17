@@ -457,7 +457,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         vm.prank(bidder);
-        vm.expectRevert(IAuction.AuctionDoesNotExist.selector);
+        vm.expectRevert(IAuction.AuctionNotFound.selector);
         auction.bid(nonExistentTokenId, bidData, auth);
     }
 

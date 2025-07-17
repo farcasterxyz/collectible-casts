@@ -141,32 +141,6 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         emit AuctionCancelled(castHash, refundAddress, signer);
     }
 
-    function _settle(bytes32 castHash) internal {
-        AuctionState state = auctionState(castHash);
-        if (state == AuctionState.None) revert AuctionDoesNotExist();
-        if (state == AuctionState.Active) revert AuctionNotEnded();
-        if (state == AuctionState.Settled) revert AuctionAlreadySettled();
-        if (state == AuctionState.Cancelled) revert AuctionAlreadySettled(); // Can't settle a cancelled auction
-
-        // Mark as settled
-        AuctionData storage auctionData = auctions[castHash];
-        auctionData.state = AuctionState.Settled;
-
-        // Calculate payment distribution
-        uint256 totalAmount = auctionData.highestBid;
-        uint256 treasuryAmount = (totalAmount * auctionData.params.protocolFeeBps) / BPS_DENOMINATOR;
-        uint256 creatorAmount = totalAmount - treasuryAmount;
-
-        // Transfer payments
-        usdc.transfer(treasury, treasuryAmount);
-        usdc.transfer(auctionData.creator, creatorAmount);
-
-        // Mint NFT to the winner
-        collectible.mint(auctionData.highestBidder, castHash, uint96(auctionData.creatorFid), auctionData.creator);
-
-        emit AuctionSettled(castHash, auctionData.highestBidder, auctionData.highestBidderFid, auctionData.highestBid);
-    }
-
     // ========== PERMISSIONED FUNCTIONS ==========
 
     function allowAuthorizer(address authorizer) external onlyOwner {
@@ -356,7 +330,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         returns (address previousBidder, uint256 previousBid)
     {
         AuctionState state = auctionState(castHash);
-        if (state == AuctionState.None) revert AuctionDoesNotExist();
+        if (state == AuctionState.None) revert AuctionNotFound();
         if (state != AuctionState.Active) revert AuctionNotActive();
 
         AuctionData storage auctionData = auctions[castHash];
@@ -400,6 +374,32 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         }
 
         emit BidPlaced(castHash, msg.sender, bidData.bidderFid, bidData.amount);
+    }
+
+    function _settle(bytes32 castHash) internal {
+        AuctionState state = auctionState(castHash);
+        if (state == AuctionState.None) revert AuctionNotFound();
+        if (state == AuctionState.Active) revert AuctionNotEnded();
+        if (state == AuctionState.Settled) revert AuctionAlreadySettled();
+        if (state == AuctionState.Cancelled) revert AuctionIsCancelled();
+
+        // Mark as settled
+        AuctionData storage auctionData = auctions[castHash];
+        auctionData.state = AuctionState.Settled;
+
+        // Calculate payment distribution
+        uint256 totalAmount = auctionData.highestBid;
+        uint256 treasuryAmount = (totalAmount * auctionData.params.protocolFeeBps) / BPS_DENOMINATOR;
+        uint256 creatorAmount = totalAmount - treasuryAmount;
+
+        // Transfer payments
+        usdc.transfer(treasury, treasuryAmount);
+        usdc.transfer(auctionData.creator, creatorAmount);
+
+        // Mint NFT to the winner
+        collectible.mint(auctionData.highestBidder, castHash, uint96(auctionData.creatorFid), auctionData.creator);
+
+        emit AuctionSettled(castHash, auctionData.highestBidder, auctionData.highestBidderFid, auctionData.highestBid);
     }
 
     function _permitAndTransfer(uint256 amount, PermitData memory permit) internal {

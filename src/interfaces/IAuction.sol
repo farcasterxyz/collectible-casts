@@ -4,9 +4,9 @@ pragma solidity ^0.8.30;
 interface IAuction {
     error InvalidAddress();
     error InvalidBidAmount();
-    error AuctionDoesNotExist();
     error AuctionAlreadyExists();
     error AuctionAlreadySettled();
+    error AuctionIsCancelled();
     error AuctionNotFound();
     error AuctionNotActive();
     error AuctionNotEnded();
