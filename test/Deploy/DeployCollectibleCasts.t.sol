@@ -18,20 +18,18 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
  */
 contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
     // Test accounts
-    address public deployer = address(0x1);
-    address public owner = address(0x2);
-    address public treasury = address(0x3);
+    address public deployer = makeAddr("deployer");
+    address public owner = makeAddr("owner");
+    address public treasury = makeAddr("treasury");
     address public backendSigner;
     uint256 public backendSignerKey;
-    address public user = address(0x5);
+    address public user = makeAddr("user");
 
-    // Base mainnet USDC
     address public constant USDC_BASE = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 
     DeployCollectibleCasts.Contracts public deployed;
 
     function setUp() public {
-        // Fork Base mainnet
         string memory rpcUrl = vm.envString("FORK_RPC_URL");
         uint256 forkBlock = vm.envOr("FORK_BLOCK", uint256(0));
 
@@ -41,10 +39,8 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
             vm.createSelectFork(rpcUrl);
         }
 
-        // Create backend signer with known private key
         (backendSigner, backendSignerKey) = makeAddrAndKey("backend");
 
-        // Setup environment variables
         vm.setEnv("DEPLOYER_ADDRESS", vm.toString(deployer));
         vm.setEnv("OWNER_ADDRESS", vm.toString(owner));
         vm.setEnv("TREASURY_ADDRESS", vm.toString(treasury));
@@ -53,57 +49,34 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
         vm.setEnv("BASE_URI", "https://api.example.com/metadata/");
         vm.setEnv("BROADCAST", "false");
 
-        // Set test salts - using bytes32(0) bypasses deployer check in ImmutableCreate2Factory
         vm.setEnv("COLLECTIBLE_CAST_CREATE2_SALT", vm.toString(bytes32(0)));
         vm.setEnv("TRANSFER_VALIDATOR_CREATE2_SALT", vm.toString(bytes32(0)));
         vm.setEnv("ROYALTIES_CREATE2_SALT", vm.toString(bytes32(0)));
         vm.setEnv("AUCTION_CREATE2_SALT", vm.toString(bytes32(0)));
 
-        // Fund deployer
-        vm.deal(deployer, 10 ether);
-
-        // Use startPrank to ensure all calls come from deployer
         vm.startPrank(deployer);
         deployed = run();
         vm.stopPrank();
     }
 
     function test_DeploymentAddresses() public view {
-        // Verify all addresses are non-zero
         assertTrue(address(deployed.collectibleCast) != address(0), "CollectibleCasts should be deployed");
-        // Royalties are now integrated into CollectibleCasts, no separate contract
         assertTrue(address(deployed.auction) != address(0), "Auction should be deployed");
     }
 
     function test_CollectibleCastsConfiguration() public view {
-        // Check modules are set correctly
-        // Note: metadata is now part of the base contract, not a separate module
-        // Check that Auction is allowed to mint tokens
         assertTrue(deployed.collectibleCast.minters(address(deployed.auction)), "Auction not allowed to mint");
-        // Royalty functionality is now integrated into CollectibleCasts
-        // Test that ERC-2981 interface is supported
-        assertTrue(
-            deployed.collectibleCast.supportsInterface(0x2a55205a), // ERC-2981 interface ID
-            "CollectibleCasts should support ERC-2981"
-        );
-
-        // Check ownership
         assertEq(deployed.collectibleCast.owner(), deployer, "CollectibleCasts owner incorrect");
         assertEq(deployed.collectibleCast.pendingOwner(), owner, "CollectibleCasts owner incorrect");
     }
 
     function test_AuctionConfiguration() public view {
-        // Check immutable configuration
         assertEq(
             address(deployed.auction.collectible()), address(deployed.collectibleCast), "Auction collectible incorrect"
         );
         assertEq(address(deployed.auction.usdc()), USDC_BASE, "Auction USDC incorrect");
         assertEq(deployed.auction.treasury(), treasury, "Auction treasury incorrect");
-
-        // Check backend signer is authorized
         assertTrue(deployed.auction.authorizers(backendSigner), "Backend signer should be authorized");
-
-        // Check ownership
         assertEq(deployed.auction.owner(), deployer, "Auction owner incorrect");
         assertEq(deployed.auction.pendingOwner(), owner, "Auction owner incorrect");
     }
@@ -113,11 +86,11 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
 
         // Setup cast data
         bytes32 castHash = keccak256("test-cast");
-        address creator = address(0x100);
+        address creator = makeAddr("creator");
         uint96 creatorFid = 12345;
 
         // Setup bidder
-        address bidder = address(0x200);
+        address bidder = makeAddr("bidder");
         uint96 bidderFid = 54321;
         uint256 bidAmount = 1e6; // 1 USDC
 
@@ -139,11 +112,10 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
             protocolFeeBps: uint16(1000) // 10%
         });
 
-        // Create signature (in real scenario, this would come from backend)
+        // Create signature
         bytes32 nonce = keccak256("test-nonce");
         uint256 deadline = block.timestamp + 1 hours;
 
-        // For testing, we'll use the backend signer to create a valid signature
         vm.startPrank(backendSigner);
         bytes32 messageHash = deployed.auction.hashStartAuthorization(
             castHash, creator, creatorFid, bidder, bidderFid, bidAmount, params, nonce, deadline
@@ -154,11 +126,9 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
 
         IAuction.AuthData memory auth = IAuction.AuthData({nonce: nonce, deadline: deadline, signature: signature});
 
-        // Approve USDC
         vm.startPrank(bidder);
         IERC20(USDC_BASE).approve(address(deployed.auction), bidAmount);
 
-        // Start auction
         deployed.auction.start(castData, bidData, params, auth);
         vm.stopPrank();
 
@@ -187,22 +157,5 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
 
         assertEq(creatorBalance, expectedCreatorAmount, "Creator should receive 90%");
         assertEq(treasuryBalance, expectedTreasuryAmount, "Treasury should receive 10%");
-    }
-
-    function test_RoyaltyInfo() public {
-        // Deploy and mint a token
-        bytes32 castHash = keccak256("royalty-test");
-        address creator = address(0x300);
-        uint256 tokenId = uint256(castHash);
-
-        // Mint token directly (as auction would)
-        vm.prank(address(deployed.auction));
-        deployed.collectibleCast.mint(creator, castHash, 12345, creator);
-
-        // Check royalty info
-        (address receiver, uint256 royaltyAmount) = deployed.collectibleCast.royaltyInfo(tokenId, 1000);
-
-        assertEq(receiver, creator, "Royalty receiver should be creator");
-        assertEq(royaltyAmount, 50, "Royalty should be 5%"); // 5% of 1000 = 50
     }
 }

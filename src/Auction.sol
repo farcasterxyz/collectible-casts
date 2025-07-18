@@ -33,9 +33,9 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     /// @dev Basis points denominator (10,000 = 100%)
     uint256 internal constant BPS_DENOMINATOR = 10_000;
 
-    /// @dev Collectible NFT contract for minting
+    /// @dev Collectible NFT contract
     ICollectibleCasts public immutable collectible;
-    /// @dev USDC token for auction payments
+    /// @dev USDC token
     IERC20 public immutable usdc;
 
     /// @dev Protocol fee recipient address

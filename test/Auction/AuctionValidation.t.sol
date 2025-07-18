@@ -5,13 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {MockCollectibleCasts} from "../mocks/MockCollectibleCasts.sol";
+import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionValidationTest is Test, AuctionTestHelper {
     Auction public auction;
     MockUSDC public usdc;
-    MockCollectibleCasts public collectibleCast;
+    CollectibleCasts public collectibleCast;
 
     address public constant TREASURY = address(0x4);
 
@@ -24,7 +24,7 @@ contract AuctionValidationTest is Test, AuctionTestHelper {
 
     function setUp() public {
         usdc = new MockUSDC();
-        collectibleCast = new MockCollectibleCasts();
+        collectibleCast = new CollectibleCasts(address(this), "https://example.com");
         auction = new Auction(address(collectibleCast), address(usdc), TREASURY, address(this));
         collectibleCast.allowMinter(address(auction));
 

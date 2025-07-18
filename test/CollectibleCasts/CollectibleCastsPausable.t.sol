@@ -9,6 +9,8 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract CollectibleCastsPausableTest is TestSuiteSetup {
     CollectibleCasts public token;
+
+    address public owner = makeAddr("owner");
     address public minter = makeAddr("minter");
     address public recipient = makeAddr("recipient");
     address public creator = makeAddr("creator");
@@ -16,14 +18,13 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
 
     function setUp() public override {
         super.setUp();
-        token = new CollectibleCasts(address(this), "https://example.com/");
-
-        // Allow minter
+        token = new CollectibleCasts(owner, "https://example.com/");
+        vm.prank(owner);
         token.allowMinter(minter);
     }
 
-    function test_Pause_OnlyOwner() public {
-        address notOwner = makeAddr("notOwner");
+    function testFuzz_Pause_OnlyOwner(address notOwner) public {
+        vm.assume(notOwner != owner);
 
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
@@ -33,30 +34,29 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
     function test_Pause_Success() public {
         assertFalse(token.paused());
 
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.pause();
 
         assertTrue(token.paused());
     }
 
-    function test_Unpause_OnlyOwner() public {
-        // First pause the contract
-        vm.prank(token.owner());
+    function testFuzz_Unpause_OnlyOwner(address notOwner) public {
+        vm.assume(notOwner != owner);
+
+        vm.prank(owner);
         token.pause();
 
-        address notOwner = makeAddr("notOwner");
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         token.unpause();
     }
 
     function test_Unpause_Success() public {
-        // First pause the contract
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.pause();
         assertTrue(token.paused());
 
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.unpause();
 
         assertFalse(token.paused());
@@ -65,11 +65,9 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
     function test_Mint_RevertsWhenPaused() public {
         bytes32 castHash = keccak256("test");
 
-        // Pause the contract
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.pause();
 
-        // Try to mint
         vm.prank(minter);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         token.mint(recipient, castHash, creatorFid, creator);
@@ -79,11 +77,9 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
         bytes32 castHash = keccak256("test");
         string memory tokenUri = "https://example.com/token";
 
-        // Pause the contract
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.pause();
 
-        // Try to mint with URI
         vm.prank(minter);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         token.mint(recipient, castHash, creatorFid, creator, tokenUri);
@@ -92,13 +88,11 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
     function test_Mint_SucceedsWhenUnpaused() public {
         bytes32 castHash = keccak256("test");
 
-        // Pause and unpause the contract
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.pause();
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.unpause();
 
-        // Should be able to mint
         vm.prank(minter);
         token.mint(recipient, castHash, creatorFid, creator);
 
@@ -110,15 +104,12 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
         address recipient2 = makeAddr("recipient2");
 
-        // Mint token first
         vm.prank(minter);
         token.mint(recipient, castHash, creatorFid, creator);
 
-        // Pause the contract
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.pause();
 
-        // Transfer should still work
         vm.prank(recipient);
         token.transferFrom(recipient, recipient2, tokenId);
 
@@ -130,48 +121,43 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
         uint256 tokenId = uint256(castHash);
         address recipient2 = makeAddr("recipient2");
 
-        // Mint token first
         vm.prank(minter);
         token.mint(recipient, castHash, creatorFid, creator);
 
-        // Pause the contract
-        vm.prank(token.owner());
+        vm.prank(owner);
         token.pause();
 
-        // Safe transfer should still work
         vm.prank(recipient);
         token.safeTransferFrom(recipient, recipient2, tokenId);
 
         assertEq(token.ownerOf(tokenId), recipient2);
     }
 
-    function testFuzz_Pause_EmitsEvent(address owner) public {
-        vm.assume(owner != address(0));
-        CollectibleCasts newToken = new CollectibleCasts(owner, "https://example.com/");
+    function testFuzz_Pause_EmitsEvent(address contractOwner) public {
+        vm.assume(contractOwner != address(0));
+        CollectibleCasts newToken = new CollectibleCasts(contractOwner, "https://example.com/");
 
         vm.expectEmit(true, false, false, true);
-        emit Paused(owner);
+        emit Paused(contractOwner);
 
-        vm.prank(owner);
+        vm.prank(contractOwner);
         newToken.pause();
     }
 
-    function testFuzz_Unpause_EmitsEvent(address owner) public {
-        vm.assume(owner != address(0));
-        CollectibleCasts newToken = new CollectibleCasts(owner, "https://example.com/");
+    function testFuzz_Unpause_EmitsEvent(address contractOwner) public {
+        vm.assume(contractOwner != address(0));
+        CollectibleCasts newToken = new CollectibleCasts(contractOwner, "https://example.com/");
 
-        // First pause
-        vm.prank(owner);
+        vm.prank(contractOwner);
         newToken.pause();
 
         vm.expectEmit(true, false, false, true);
-        emit Unpaused(owner);
+        emit Unpaused(contractOwner);
 
-        vm.prank(owner);
+        vm.prank(contractOwner);
         newToken.unpause();
     }
 
-    // Events from Pausable
     event Paused(address account);
     event Unpaused(address account);
 }

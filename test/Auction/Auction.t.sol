@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {ICollectibleCasts} from "../../src/interfaces/ICollectibleCasts.sol";
-import {MockCollectibleCasts} from "../mocks/MockCollectibleCasts.sol";
+import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
@@ -17,12 +17,12 @@ contract AuctionTest is Test, AuctionTestHelper {
     event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
 
     Auction public auction;
-    MockCollectibleCasts public collectibleCast;
+    CollectibleCasts public collectibleCast;
 
     // Use real Base USDC address from TestSuiteSetup
     address public constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
-    address public treasury;
-    address public owner;
+    address public treasury = makeAddr("treasury");
+    address public owner = makeAddr("owner");
 
     bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -32,15 +32,10 @@ contract AuctionTest is Test, AuctionTestHelper {
     );
 
     function setUp() public {
-        // Create named addresses
-        treasury = makeAddr("treasury");
-        owner = makeAddr("owner");
-
         // Deploy contracts
-        collectibleCast = new MockCollectibleCasts();
+        collectibleCast = new CollectibleCasts(address(this), "https://example.com/");
         auction = new Auction(address(collectibleCast), USDC, treasury, owner);
 
-        // Allow the auction contract to mint
         collectibleCast.allowMinter(address(auction));
     }
 
@@ -170,12 +165,10 @@ contract AuctionTest is Test, AuctionTestHelper {
     function testFuzz_DenyAuthorizer_UpdatesAllowlist(address authorizer) public {
         vm.assume(authorizer != address(0));
 
-        // First allow the authorizer
         vm.prank(auction.owner());
         auction.allowAuthorizer(authorizer);
         assertTrue(auction.authorizers(authorizer));
 
-        // Then deny the authorizer
         vm.prank(auction.owner());
         auction.denyAuthorizer(authorizer);
         assertFalse(auction.authorizers(authorizer));
@@ -193,7 +186,6 @@ contract AuctionTest is Test, AuctionTestHelper {
     function testFuzz_DenyAuthorizer_NotPreviouslyAllowed(address authorizer) public {
         vm.assume(authorizer != address(0));
 
-        // Verify not allowed initially
         assertFalse(auction.authorizers(authorizer));
 
         // Deny without allowing first
@@ -207,7 +199,8 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertFalse(auction.authorizers(authorizer));
     }
 
-    function test_SetAuctionConfig_OnlyOwner() public {
+    function testFuzz_SetAuctionConfig_OnlyOwner(address notOwner) public {
+        vm.assume(notOwner != owner);
         IAuction.AuctionConfig memory newConfig = IAuction.AuctionConfig({
             minBidAmount: uint32(2e6),
             minAuctionDuration: uint32(2 hours),
@@ -216,7 +209,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         });
 
         // Non-owner should fail
-        address notOwner = makeAddr("notOwner");
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
         auction.setAuctionConfig(newConfig);
@@ -338,7 +330,7 @@ contract AuctionTest is Test, AuctionTestHelper {
 
     function test_Constructor_SetsDomainSeparator() public {
         // Deploy new auction to test domain separator is set in constructor
-        MockCollectibleCasts newCollectibleCasts = new MockCollectibleCasts();
+        CollectibleCasts newCollectibleCasts = new CollectibleCasts(address(this), "https://example.com");
         Auction newAuction = new Auction(address(newCollectibleCasts), USDC, treasury, owner);
 
         bytes32 expectedDomainSeparator = keccak256(
