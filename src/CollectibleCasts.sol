@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity 0.8.30;
 
 import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
@@ -11,24 +11,33 @@ import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
 
 /**
  * @title CollectibleCasts
- * @notice ERC-721 NFTs for Farcaster casts with 5% creator royalties
- * @dev Token ID = uint256(castHash). Pausable with role-based minting.
+ * @notice ERC-721 NFTs for Farcaster collectible casts
+ * @custom:security-contact security@merklemanufactory.com
  */
 contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, IERC2981 {
+    /// @dev Basis points denominator (10,000 = 100%)
     uint256 internal constant BPS_DENOMINATOR = 10_000;
-    uint256 internal constant ROYALTY_BPS = 500; // 5%
+    /// @dev Royalty percentage in basis points (500 = 5%)
+    uint256 internal constant ROYALTY_BPS = 500;
 
-    mapping(address => bool) public minters;
-    mapping(uint256 => ICollectibleCasts.TokenData) internal _tokenData;
+    /// @dev Mapping of address to minting authorization status
+    mapping(address account => bool authorized) public minters;
+    /// @dev Mapping of token ID to token metadata and creator info
+    mapping(uint256 tokenId => ICollectibleCasts.TokenData data) internal _tokenData;
+    /// @dev Base URI for token metadata
     string internal _baseURIString;
+    /// @dev Contract-level metadata URI
     string internal _contractURIString;
 
     /**
-     * @notice Creates CollectibleCasts NFT contract
+     * @notice Creates CollectibleCasts contract
      * @param owner Contract owner address
      * @param baseURIString Base metadata URI
      */
-    constructor(address owner, string memory baseURIString) ERC721("CollectibleCasts", "CASTS") Ownable(owner) {
+    constructor(address owner, string memory baseURIString)
+        ERC721("Farcaster collectible casts", "CASTS")
+        Ownable(owner)
+    {
         _baseURIString = baseURIString;
     }
 
@@ -131,13 +140,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         return string.concat(_baseURIString, "contract");
     }
 
-    /**
-     * @notice ERC-2981 royalty info (5% to creator)
-     * @param tokenId Token to query
-     * @param salePrice Sale amount
-     * @return receiver Creator address
-     * @return royaltyAmount 5% of sale price
-     */
+    /// @inheritdoc IERC2981
     function royaltyInfo(uint256 tokenId, uint256 salePrice)
         external
         view
@@ -180,25 +183,26 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
     }
 
     /**
-     * @notice Pauses minting
-     * @dev Owner only
+     * @notice Pauses all minting operations
+     * @dev Only callable by contract owner
      */
     function pause() external onlyOwner {
         _pause();
     }
 
     /**
-     * @notice Unpauses minting
-     * @dev Owner only
+     * @notice Resumes all minting operations
+     * @dev Only callable by contract owner
      */
     function unpause() external onlyOwner {
         _unpause();
     }
 
     /**
-     * @notice ERC-165 interface detection
-     * @param interfaceId Interface to check
-     * @return Supports interface
+     * @notice Checks if contract supports a given interface
+     * @param interfaceId The interface identifier to check
+     * @return True if interface is supported
+     * @dev Supports ERC721, ERC2981, and ERC165 interfaces
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, IERC165) returns (bool) {
         return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);

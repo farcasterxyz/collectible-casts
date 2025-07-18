@@ -1,231 +1,182 @@
 # Collectible Casts
 
-A lightweight on-chain system for Farcaster users to financially support creators through collectible NFTs with ascending auctions.
+A new way for Farcaster users to financially support creators through collectible NFTs.
 
 ## Overview
 
-Collectible Casts allows any Farcaster cast to be collected as an ERC-721 NFT. When multiple users want to collect the same cast, an ascending auction determines the final owner and price. The winning bidder receives a unique NFT representing ownership of that cast.
+Collectible Casts introduce a simple mechanism where every cast can be _collected_. If more than one user attempts to collect the same cast within the bidding window, an ascending auction determines the final owner and price. The winning bidder receives an ERC-721 token representing the collectible, minted directly to their wallet. Ninety percent of the winning bid goes to the creator; the remaining ten percent accrues to the protocol treasury for growth incentives.
 
-**Key Features:**
-- 🎨 **ERC-721 NFTs** - Each cast becomes a unique, tradeable collectible
-- 🏷️ **Ascending Auctions** - Fair price discovery through competitive bidding
-- 💰 **Creator Monetization** - 90% of proceeds go directly to creators
-- 🔐 **Backend Authorization** - Secure auction creation with EIP-712 signatures
-- ⚡ **USDC Payments** - Simple, stable payments on Base network
-- 🎯 **Anti-Snipe Protection** - 15-minute extensions prevent last-second bidding
+## Goals
+
+- **Creator monetization** - Let any creator earn immediately from their content without waiting for weekly reward cycles
+- **Showcase support** - Give users a collectible that is more meaningful than a tip and shareable across wallets and profiles
+- **Simplicity first** - Ship a minimal, auditable contract suite that we fully understand and simple core dependencies
+- **Extensible periphery** - Make experimentation with auction parameters easy without deploying new contracts. Make deploying new auction contracts possible.
+- **Ossify NFT metadata** - Start with offchain metadata but make it possible to progressively ossify.
+
+## Non-Goals
+
+- A fully-featured secondary marketplace at launch
+- Perfect royalty enforcement across all venues
+- Support for arbitrary ERC-20 payment tokens (USDC hardcoded for v1)
+- Highly onchain token metadata
 
 ## Architecture
 
-The system consists of two main contracts:
+Two main contracts work together:
 
 ```
+┌─────────────────┐    mints    ┌─────────────────┐
+│    Auction      │ ──────────▶ │ CollectibleCasts│
+│                 │             │   (ERC-721)     │
+│ • USDC escrow   │             │ • NFT management│
+│ • Bid tracking  │             │ • Royalties     │
+│ • Settlement    │             │ • Metadata      │
+└─────┬───────────┘             └─────────────────┘
+      │ escrow
+      ▼
 ┌─────────────────┐
-│ CollectibleCast │  Core ERC-721 NFT contract
-│                 │  - Stores cast metadata (FID, creator)
-│                 │  - Implements ERC-2981 royalties (5%)
-│                 │  - Manages minter permissions
-└────────┬────────┘
-         │ mints tokens
-┌────────▼────────┐
-│    Auction      │  Handles the auction mechanics
-│                 │  - USDC escrow and bidding
-│                 │  - EIP-712 signature validation
-│                 │  - Automatic refunds
-│                 │  - Settlement and minting
+│   USDC Token    │
+│   (Base)        │
 └─────────────────┘
 ```
 
-## Documentation
+### Auction Flow
 
-- [SPEC.md](./SPEC.md) - Complete system specification
-- [PLAN.md](./PLAN.md) - Implementation plan and design decisions
-- [TASKS.md](./TASKS.md) - Development history and future roadmap
-- [CLAUDE.md](./CLAUDE.md) - AI assistant guidelines
+1. **Start**: A backend signer authorizes auction creation via EIP-712 signature, signing over the initial auction parameters and bid.
+2. **Bidding**: Users place competing bids with automatic refunds. Bids must be submitted with an offchain authorizer signature.
+3. **Anti-snipe**: Auction end time is extended for new bids placed near end. Parameters are configurable at auction start time.
+4. **Settlement**: When ended, anyone can settle to mint NFT and distribute payments.
+5. **Cancellation**: Auctions can be cancelled when active or ended with a signature from an offchain authorizer.
 
-## Setup
+## Quick Start
 
 ```bash
 # Install Foundry
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 
-# Clone repository
-git clone <repository-url>
+# Clone and setup
+git clone https://github.com/farcasterxyz/collectible-casts
 cd collectible-casts
-
-# Install dependencies
 forge install
 
-# Build contracts
+# Build and test
 forge build
+forge test
 ```
 
 ## Development
 
+### Testing
+
 ```bash
-# Run all tests
+# Run all tests (189 total across 13 suites)
 forge test
 
-# Run tests with gas reporting
+# Run with gas reporting
 forge test --gas-report
 
-# Run tests with high verbosity
-forge test -vvv
-
-# Run specific test
-forge test --match-test testName
-
-# Run tests with coverage
+# Run with coverage
 forge coverage
-python3 script/check-coverage.py
 
-# Format code
-forge fmt
-
-# Run CI-level fuzz tests (10,000 runs)
-FOUNDRY_PROFILE=ci forge test
+# Fuzz testing profiles
+forge test                    # Default: 2,048 runs
+FOUNDRY_PROFILE=ci forge test # CI: 10,000 runs
+FOUNDRY_PROFILE=deep forge test # Deep: 50,000 runs
 ```
 
-## Testing
+### Code Quality
 
-The project maintains 100% test coverage across all production contracts:
-- 128 comprehensive tests
-- Extensive fuzz testing for edge cases
-- EIP-712 signature validation tests
-- Gas optimization tests
+```bash
+# Format code (120 char lines)
+forge fmt
 
-Test profiles:
-- `default`: 2,048 fuzz runs (development)
-- `ci`: 10,000 fuzz runs (continuous integration)
-- `deep`: 50,000 fuzz runs (deep testing)
+# Check formatting
+forge fmt --check
+
+# Generate documentation
+forge doc
+
+# Contract size analysis
+forge build --sizes
+```
 
 ## Deployment
 
+### Environment Setup
+
+Required environment variables:
+
 ```bash
-# Set up environment variables
 export DEPLOYER_ADDRESS=<your-deployer-address>
 export OWNER_ADDRESS=<contract-owner-address>
 export TREASURY_ADDRESS=<protocol-treasury>
-export BACKEND_SIGNER_ADDRESS=<backend-signer>
+export BACKEND_SIGNER_ADDRESS=<backend-authorizer>
 export BASE_URI=<metadata-base-uri>
+```
 
-# Deploy to Base mainnet
+### Deploy to Base
+
+```bash
+# Base Mainnet
 forge script script/DeployCollectibleCasts.s.sol \
-  --rpc-url <BASE_RPC_URL> \
-  --private-key <PRIVATE_KEY> \
+  --rpc-url $BASE_RPC_URL \
+  --private-key $PRIVATE_KEY \
   --broadcast \
   --verify
 
-# Deploy to testnet (Base Sepolia)
+# Base Sepolia (testnet)
 forge script script/DeployCollectibleCasts.s.sol \
-  --rpc-url <BASE_SEPOLIA_RPC_URL> \
-  --private-key <PRIVATE_KEY> \
+  --rpc-url $BASE_SEPOLIA_RPC_URL \
+  --private-key $PRIVATE_KEY \
   --broadcast
 ```
 
-## Contract Interfaces
+The deployment script uses CREATE2 for deterministic addresses and automatically configures permissions and parameters.
 
-### CollectibleCast
+## System Design
 
-```solidity
-// Minting (only allowed minters)
-function mint(
-    address to,
-    bytes32 castHash,
-    uint256 creatorFid,
-    address creator,
-    string memory tokenURI
-) external;
+### Core Components
 
-// Access control
-function allowMinter(address account) external onlyOwner;
-function denyMinter(address account) external onlyOwner;
+**CollectibleCasts (ERC-721)**
 
-// Metadata
-function setBaseURI(string memory baseURI) external onlyOwner;
-function setTokenURIs(uint256[] memory tokenIds, string[] memory uris) external onlyOwner;
+- Stores cast metadata (creator FID, address)
+- Implements ERC-2981 royalties (5% to creator)
+- Restricts minting to authorized auction contract
+- Supports custom metadata URIs per token
 
-// Royalties (ERC-2981)
-function royaltyInfo(uint256 tokenId, uint256 salePrice) 
-    external view returns (address receiver, uint256 royaltyAmount);
-```
+**Auction**
 
-### Auction
+- Manages USDC escrow for all active auctions
+- Validates EIP-712 signatures from backend authorizers
+- Handles bid tracking with automatic refunds
+- Settles auctions by minting NFTs and distributing payments
 
-```solidity
-// Start an auction (with backend signature)
-function start(
-    ICast.CastData calldata cast,
-    ISignature.BidData calldata bid, 
-    IAuction.AuctionParams calldata params,
-    ISignature.StartAuthorization calldata auth
-) external;
+### Key Mechanisms
 
-// Place a bid (with backend signature)
-function bid(
-    bytes32 castHash,
-    ISignature.BidData calldata bid,
-    ISignature.BidAuthorization calldata auth
-) external;
+**Token ID Derivation**: `uint256(castHash)` ensures deterministic minting
 
-// Settle completed auction (permissionless)
-function settle(bytes32 castHash) external;
+**Bid Validation**:
 
-// USDC operations with permit
-function startWithPermit(...) external;
-function bidWithPermit(...) external;
-```
+- Minimum increments: 10% or 1 USDC (whichever greater)
+- Maximum duration: 30 days (configurable in contract)
+- Auction parameters configurable per auction
 
-## Key Features
+**Payment Flow**:
 
-### Backend Authorization
+- Bids held in escrow until settlement
+- Protocol fee configurable (likely 10%)
+- Remainder goes to cast creator
+- Failed bidders automatically refunded on outbid
+
+**Authorization**:
+
+- All auction operations require EIP-712 signatures from an offchain "authorizer"
 - Multiple backend signers supported via allowlist
-- EIP-712 signatures prevent replay attacks
-- Random nonces ensure signature uniqueness
-- Configurable auction parameters per cast
+- Random nonce for replay protection
 
-### Auction Mechanics
-- **Opening bid**: Minimum 1 USDC
-- **Bid increment**: 10% or 1 USDC (whichever is greater)
-- **Duration**: Configurable (typically 24 hours)
-- **Anti-snipe**: 15-minute extension if bid placed near end
-- **Auto-refund**: Previous bidder automatically refunded
+## Documentation
 
-### Revenue Split
-- **Creator**: 90% of winning bid
-- **Protocol Treasury**: 10% for growth and incentives
-
-## Security
-
-- ✅ 100% test coverage on all production contracts
-- ✅ No external dependencies beyond OpenZeppelin
-- ✅ Immutable contracts (no upgradability)
-- ✅ EIP-712 signatures prevent cross-chain replay
-- ✅ Checks-effects-interactions pattern
-- ✅ Custom errors for gas efficiency
-
-## Gas Costs (Approximate)
-
-- **Starting an auction**: ~150k gas
-- **Placing a bid**: ~100k gas (includes refund)
-- **Settling auction**: ~120k gas (includes minting)
-
-## Future Enhancements
-
-The contract includes a module system for future extensibility:
-- Alternative payment tokens (currently USDC only)
-- Transfer restrictions (currently unrestricted)
-- Enhanced metadata providers
-- Batch operations for efficiency
-
-## License
-
-UNLICENSED (All rights reserved)
-
-## Acknowledgments
-
-Built with:
-- [Foundry](https://github.com/foundry-rs/foundry) - Development framework
-- [OpenZeppelin](https://openzeppelin.com/contracts/) - Security-audited components
-- Test-Driven Development principles
-- Love for the Farcaster community 💜
+- **[SPEC.md](./SPEC.md)** - Notes from original spec
+- **[CLAUDE.md](./CLAUDE.md)** - Notes for our buddy Claude

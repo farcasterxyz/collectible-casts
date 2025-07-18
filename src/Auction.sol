@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity 0.8.30;
 
 import {IAuction} from "./interfaces/IAuction.sol";
 import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
@@ -12,32 +12,43 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title Auction
- * @notice English auctions for CollectibleCasts NFTs with signature-based auth
- * @dev USDC-only, auto-extensions, protocol fees, batch settlement
+ * @notice Ascending escrowed USDC auction for Farcaster collectible casts with offchain authorizers
+ * @custom:security-contact security@merklemanufactory.com
  */
 contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
+    /// @dev EIP-712 type hash for auction start authorization. Signed by offchain authorizer.
     bytes32 internal constant START_AUTHORIZATION_TYPEHASH = keccak256(
         "StartAuthorization(bytes32 castHash,address creator,uint96 creatorFid,address bidder,uint96 bidderFid,uint256 amount,uint64 minBid,uint16 minBidIncrementBps,uint32 duration,uint32 extension,uint32 extensionThreshold,uint16 protocolFeeBps,bytes32 nonce,uint256 deadline)"
     );
 
+    /// @dev EIP-712 type hash for bid authorization. Signed by offchain authorizer.
     bytes32 internal constant BID_AUTHORIZATION_TYPEHASH = keccak256(
         "BidAuthorization(bytes32 castHash,address bidder,uint96 bidderFid,uint256 amount,bytes32 nonce,uint256 deadline)"
     );
 
+    /// @dev EIP-712 type hash for auction cancellation authorization. Signed by offchain authorizer.
     bytes32 internal constant CANCEL_AUTHORIZATION_TYPEHASH =
         keccak256("CancelAuthorization(bytes32 castHash,bytes32 nonce,uint256 deadline)");
 
+    /// @dev Basis points denominator (10,000 = 100%)
     uint256 internal constant BPS_DENOMINATOR = 10_000;
 
+    /// @dev Collectible NFT contract for minting
     ICollectibleCasts public immutable collectible;
+    /// @dev USDC token for auction payments
     IERC20 public immutable usdc;
 
+    /// @dev Protocol fee recipient address
     address public treasury;
+    /// @dev Global auction configuration parameters
     AuctionConfig public config;
 
-    mapping(address => bool) public authorizers;
-    mapping(bytes32 => bool) public usedNonces;
-    mapping(bytes32 => AuctionData) public auctions;
+    /// @dev Mapping of address to authorization status for signing
+    mapping(address signer => bool authorized) public authorizers;
+    /// @dev Mapping of nonce to usage status to prevent replay attacks
+    mapping(bytes32 nonce => bool used) public usedNonces;
+    /// @dev Mapping of cast hash to auction data
+    mapping(bytes32 castHash => AuctionData data) public auctions;
 
     /**
      * @notice Creates auction contract

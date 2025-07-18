@@ -3,13 +3,13 @@ pragma solidity ^0.8.30;
 
 /**
  * @title ICollectibleCasts
- * @notice Interface for minting and managing Farcaster cast NFTs
+ * @notice Interface for minting and managing Farcaster collectible cast NFTs
  */
 interface ICollectibleCasts {
     /**
      * @notice Token metadata storage
      * @param fid Farcaster ID of the cast creator
-     * @param creator Creator's Ethereum address (receives royalties)
+     * @param creator Creator's primary address at mint time (receives optional royalties)
      * @param uri Optional custom metadata URI
      */
     struct TokenData {
@@ -18,7 +18,7 @@ interface ICollectibleCasts {
         string uri;
     }
 
-    error Unauthorized(); // Caller lacks required permissions
+    error Unauthorized(); // Caller is unauthorized for this operation
     error AlreadyMinted(); // Token with this cast hash already exists
     error InvalidFid(); // Farcaster ID is zero or invalid
     error InvalidInput(); // Input parameters are malformed or invalid
@@ -26,10 +26,10 @@ interface ICollectibleCasts {
     /**
      * @notice Emitted when a cast NFT is minted
      * @param to Recipient address
-     * @param tokenId Token ID (uint256 representation of castHash)
+     * @param tokenId Token ID (uint256 representation of cast hash)
      * @param castHash Unique Farcaster cast identifier
      * @param fid Creator's Farcaster ID
-     * @param creator Creator's Ethereum address
+     * @param creator Creator's primary address at mint time
      */
     event Mint(address indexed to, uint256 indexed tokenId, bytes32 indexed castHash, uint96 fid, address creator);
 
@@ -45,7 +45,7 @@ interface ICollectibleCasts {
      * @param to Recipient address
      * @param castHash Unique cast identifier
      * @param creatorFid Creator's Farcaster ID
-     * @param creator Creator's address (for royalties)
+     * @param creator Creator's primary address at mint time
      * @dev Token ID = uint256(castHash)
      */
     function mint(address to, bytes32 castHash, uint96 creatorFid, address creator) external;
@@ -55,7 +55,7 @@ interface ICollectibleCasts {
      * @param to Recipient address
      * @param castHash Unique cast identifier
      * @param creatorFid Creator's Farcaster ID
-     * @param creator Creator's address (for royalties)
+     * @param creator Creator's primary address at mint time
      * @param tokenUri Custom metadata URI
      * @dev Custom URI takes precedence over base URI
      */
@@ -105,21 +105,21 @@ interface ICollectibleCasts {
     function minters(address account) external view returns (bool);
 
     /**
-     * @notice Gets complete token data
+     * @notice Get complete token data
      * @param tokenId Token to query
      * @return Token metadata struct
      */
     function tokenData(uint256 tokenId) external view returns (TokenData memory);
 
     /**
-     * @notice Gets creator's Farcaster ID
+     * @notice Gets cast creator's Farcaster ID
      * @param tokenId Token to query
      * @return Creator's FID
      */
     function tokenFid(uint256 tokenId) external view returns (uint96);
 
     /**
-     * @notice Gets creator's address
+     * @notice Gets cast creator's primary address
      * @param tokenId Token to query
      * @return Creator's address (royalty recipient)
      */
@@ -149,7 +149,7 @@ interface ICollectibleCasts {
     /**
      * @notice Checks if cast has been minted
      * @param castHash Cast identifier to check
-     * @return Cast has been tokenized
+     * @return Cast has been minted
      */
     function isMinted(bytes32 castHash) external view returns (bool);
 }

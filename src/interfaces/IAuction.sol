@@ -3,8 +3,7 @@ pragma solidity ^0.8.30;
 
 /**
  * @title IAuction
- * @notice Interface for English auctions of Farcaster cast NFTs
- * @dev Features: signature-based auth, auto-extensions, USDC payments, batch settlement
+ * @notice Ascending escrowed USDC auction for Farcaster collectible casts
  */
 interface IAuction {
     error InvalidAddress(); // Zero address provided where valid address required
@@ -16,14 +15,14 @@ interface IAuction {
     error AuctionNotActive(); // Auction is not in active state
     error AuctionNotEnded(); // Auction is still active, cannot settle
     error DeadlineExpired(); // Signature deadline has passed
-    error NonceAlreadyUsed(); // Nonce has been used for previous operation
+    error NonceAlreadyUsed(); // Nonce has been used for previous signed operation
     error Unauthorized(); // Signer is not authorized for this operation
     error InvalidAuctionParams(); // Auction parameters are invalid or out of bounds
     error InvalidCreatorFid(); // Creator Farcaster ID is zero or invalid
     error InvalidCastHash(); // Cast hash is zero or invalid
 
     /**
-     * @notice Global auction configuration
+     * @notice Global auction configuration. Used to validate per-auction params.
      * @param minBidAmount Min bid in USDC (6 decimals)
      * @param minAuctionDuration Min duration (seconds)
      * @param maxAuctionDuration Max duration (seconds)
@@ -37,7 +36,7 @@ interface IAuction {
     }
 
     /**
-     * @notice Auction-specific parameters
+     * @notice Auction-specific parameters. Signed and passed by offchain authorizer.
      * @param minBid Starting bid in USDC (6 decimals)
      * @param minBidIncrementBps Min bid increment (bps)
      * @param protocolFeeBps Protocol fee (bps)
@@ -55,10 +54,10 @@ interface IAuction {
     }
 
     /**
-     * @notice Authorization signature data
-     * @param nonce Replay protection nonce
-     * @param deadline Signature expiration
-     * @param signature EIP-712 signature
+     * @notice Offchain authorizer signature data
+     * @param nonce Replay protection nonce. Random 32 byte value.
+     * @param deadline Signature expiration timestamp
+     * @param signature EIP-712 signature bytes
      */
     struct AuthData {
         bytes32 nonce;
@@ -67,7 +66,7 @@ interface IAuction {
     }
 
     /**
-     * @notice ERC-20 Permit data
+     * @notice ERC20 Permit data
      * @param deadline Permit expiration
      * @param v Signature recovery byte
      * @param r Signature r value
@@ -93,8 +92,8 @@ interface IAuction {
     /**
      * @notice Cast data
      * @param castHash Unique cast identifier
-     * @param creator Creator's address
-     * @param creatorFid Creator's Farcaster ID
+     * @param creator Cast creator's primary address at time of auction
+     * @param creatorFid Cast creator's Farcaster ID
      */
     struct CastData {
         bytes32 castHash;
@@ -104,7 +103,7 @@ interface IAuction {
 
     /**
      * @notice Auction state data
-     * @param creator Cast creator's address
+     * @param creator Cast creator's primary address
      * @param creatorFid Cast creator's FID
      * @param highestBidder Current leader
      * @param highestBidderFid Leader's FID
@@ -130,7 +129,8 @@ interface IAuction {
 
     /**
      * @notice Auction states
-     * @dev None -> Active -> Ended -> Settled (or Active -> Cancelled)
+     * @dev None -> Active -> Ended -> Settled  or
+     *      None -> Active -> Cancelled
      */
     enum AuctionState {
         None,
@@ -140,21 +140,20 @@ interface IAuction {
         Cancelled
     }
 
-    event AuthorizerAllowed(address indexed authorizer); // Address granted signature authorization
-    event AuthorizerDenied(address indexed authorizer); // Address revoked signature authorization
+    event AuthorizerAllowed(address indexed authorizer); // Allowed a new offchain authorizer
+    event AuthorizerDenied(address indexed authorizer); // Removed an offchain authorizer
     event TreasurySet(address indexed oldTreasury, address indexed newTreasury); // Treasury address updated
     event AuctionConfigSet(AuctionConfig config); // Global auction configuration updated
     event AuctionStarted(
         bytes32 indexed castHash, address indexed creator, uint96 creatorFid, uint40 endTime, address authorizer
-    ); // New auction started with initial bid
+    ); // New auction started with initial bid and signed parameters
     event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount); // Bid placed on auction
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime); // Auction end time extended due to late bid
-
     event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 winnerFid, uint256 amount); // Auction settled, NFT minted to winner
     event AuctionCancelled(bytes32 indexed castHash, address indexed refundedBidder, address indexed authorizer); // Auction cancelled, highest bidder refunded
 
     /**
-     * @notice Starts an auction with USDC transfer
+     * @notice Starts an auction with prior USDC allowance
      * @param cast Cast to auction
      * @param bid Initial bid
      * @param params Auction settings
@@ -164,12 +163,12 @@ interface IAuction {
         external;
 
     /**
-     * @notice Starts an auction with permit
+     * @notice Starts an auction with USDC permit signature
      * @param cast Cast to auction
      * @param bid Initial bid
      * @param params Auction settings
      * @param auth Signature authorization
-     * @param permit USDC permit data
+     * @param permit USDC permit signature data
      */
     function start(
         CastData memory cast,
@@ -180,7 +179,7 @@ interface IAuction {
     ) external;
 
     /**
-     * @notice Places a bid with USDC transfer
+     * @notice Places a bid with prior USDC allowance
      * @param castHash Cast identifier
      * @param bid Bid details
      * @param auth Signature authorization
@@ -189,11 +188,11 @@ interface IAuction {
     function bid(bytes32 castHash, BidData memory bid, AuthData memory auth) external;
 
     /**
-     * @notice Places a bid with permit
+     * @notice Places a bid with USDC permit signature
      * @param castHash Cast identifier
      * @param bid Bid details
      * @param auth Signature authorization
-     * @param permit USDC permit data
+     * @param permit USDC permit signature data
      */
     function bid(bytes32 castHash, BidData memory bid, AuthData memory auth, PermitData memory permit) external;
 
@@ -205,13 +204,13 @@ interface IAuction {
     function settle(bytes32 castHash) external;
 
     /**
-     * @notice Batch settles auctions
+     * @notice Batch settles multiple auctions
      * @param castHashes Casts to settle
      */
     function batchSettle(bytes32[] calldata castHashes) external;
 
     /**
-     * @notice Cancels active auction
+     * @notice Cancels an active auction
      * @param castHash Cast identifier
      * @param auth Signature authorization
      * @dev Refunds highest bidder
@@ -219,7 +218,7 @@ interface IAuction {
     function cancel(bytes32 castHash, AuthData memory auth) external;
 
     /**
-     * @notice Gets auction state
+     * @notice Read auction state
      * @param castHash Cast identifier
      * @return Current state
      */
@@ -264,7 +263,7 @@ interface IAuction {
     ) external view returns (bytes32);
 
     /**
-     * @notice Gets EIP-712 domain separator
+     * @notice EIP-712 domain separator
      * @return Domain separator for signatures
      */
     function DOMAIN_SEPARATOR() external view returns (bytes32);
