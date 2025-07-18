@@ -4,27 +4,30 @@ A new way for Farcaster users to financially support creators through collectibl
 
 ## Overview
 
-Collectible Casts introduce a simple mechanism where every cast can be _collected_. If more than one user attempts to collect the same cast within the bidding window, an ascending auction determines the final owner and price. The winning bidder receives an ERC-721 token representing the collectible, minted directly to their wallet. Ninety percent of the winning bid goes to the creator; the remaining ten percent accrues to the protocol treasury for growth incentives.
+Collectible Casts introduce a mechanism where every cast can be _collected_. If more than one user attempts to collect the same cast within the bidding window, an ascending auction determines the final owner and price. The winning bidder receives an ERC721 token representing the collectible, minted directly to their wallet. 90% of the winning bid goes to the creator; the remaining 10% accrues to the protocol treasury for growth incentives.
 
 ## Goals
 
 - **Creator monetization** - Let any creator earn immediately from their content without waiting for weekly reward cycles
 - **Showcase support** - Give users a collectible that is more meaningful than a tip and shareable across wallets and profiles
-- **Simplicity first** - Ship a minimal, auditable contract suite that we fully understand and simple core dependencies
-- **Extensible periphery** - Make experimentation with auction parameters easy without deploying new contracts. Make deploying new auction contracts possible.
+- **Simplicity first** - Ship minimal contracts that we fully understand with few core dependencies
+- **Start permissioned** - Restrict initial auctions to Farcaster users
+- **Changeable periphery** - Make experimentation with auction parameters very easy. Make deploying new auction contracts pretty easy.
 - **Ossify NFT metadata** - Start with offchain metadata but make it possible to progressively ossify.
 
 ## Non-Goals
 
-- A fully-featured secondary marketplace at launch
-- Perfect royalty enforcement across all venues
-- Support for arbitrary ERC-20 payment tokens (USDC hardcoded for v1)
-- Highly onchain token metadata
+- Our own secondary marketplace at launch
+- Perfect royalty enforcement across all marketplaces
+- Multiple clients at launch
+- Gasless bidding at launch
+- Support for arbitrary ERC20 payment tokens (Base USDC only)
+- Extremely onchain token metadata
 - Extreme gas efficiency
 
 ## Architecture
 
-Two main contracts work together:
+Two contracts, `Auction` and `CollectibleCasts`:
 
 ```
 ┌─────────────────┐    mints    ┌─────────────────┐
@@ -44,12 +47,28 @@ Two main contracts work together:
 
 ### Auction Flow
 
-1. **Start**: A backend signer authorizes auction creation via EIP-712 signature, signing over the initial auction parameters and bid.
-2. **Bidding**: Users place competing bids with automatic refunds. Bids must be submitted with an offchain authorizer signature.
-3. **Anti-snipe**: Auction end time is extended for new bids placed near end. Parameters are configurable at auction start time.
-4. **Settlement**: When ended, anyone can settle to mint NFT and distribute payments.
-5. **Cancellation**: Auctions can be cancelled when active or ended with a signature from an offchain authorizer.
-6. **Emergency Recovery**: Contract owner can recover funds from stuck auctions (e.g., USDC blacklisted addresses) to a specified address.
+**Start**:
+A backend signer authorizes auction creation with an EIP712 signature, signing over the initial auction parameters and bid. This enables us to change some auction parameters (min bid amount, min increment, fee split, duration, extension time, extension threshold) from the Farcaster app backend and set different policies for new vs historical casts. Auctions start on first bid and the initial bid must provide this authorization signature from the backend.
+
+**Bidding**:
+Users place ascending USDC bids with automatic refunds. New bids must be the greater of an absolute min bid amount and min bid increment in BPS. Each bid must be submitted with an offchain authorizer signature. This allows us to restrict bids to Farcaster users. Users who are outbid are automatically refunded.
+
+**Extension**:
+The auction's end time is extended when new bids are placed near the end. These parameters are configurable by the offchain authorizer at auction start time.
+
+**Settlement**:
+Once ended, anyone can settle an auction. This distributes payment and mints the collectible NFT to the winner. We intend to run batch settlement jobs to settle auctions for app users.
+
+**Cancellation**:
+Offchain authorizers can cancel Active and Ended auctions before they are Settled. They will do this in the event that a cast is deleted or a user opts out of collectible casts.
+
+**Emergency Recovery**:
+In the event of a stuck auction, owner can "recover" an auction, cancelling it and sending funds to a specified address instead of the high bidder.
+
+## Assumptions and Acknowledgments
+
+- Auctions will always use Base USDC. No weird ERC20s. No native ETH bidding.
+- "Push" refunds have some edge case risk in the event that a bidder is blacklisted by the USDC contract.
 
 ### Auction State Transitions
 
@@ -66,31 +85,6 @@ stateDiagram-v2
     Settled --> [*]: Terminal state
     Cancelled --> [*]: Terminal state
     Recovered --> [*]: Terminal state
-    
-    note right of Active
-        Bidding open
-        Can be extended
-    end note
-    
-    note right of Ended
-        No new bids
-        Awaiting settlement
-    end note
-    
-    note right of Settled
-        NFT minted
-        Payments distributed
-    end note
-    
-    note right of Cancelled
-        Authorizer cancelled
-        Bidder refunded
-    end note
-    
-    note right of Recovered
-        Emergency recovery
-        Owner action only
-    end note
 ```
 
 ## Quick Start
@@ -178,47 +172,6 @@ forge script script/DeployCollectibleCasts.s.sol \
 ```
 
 The deployment script uses CREATE2 for deterministic addresses and automatically configures permissions and parameters.
-
-## System Design
-
-### Core Components
-
-**CollectibleCasts (ERC-721)**
-
-- Stores cast metadata (creator FID, address)
-- Implements ERC-2981 royalties (5% to creator)
-- Restricts minting to authorized auction contract
-- Supports custom metadata URIs per token
-
-**Auction**
-
-- Manages USDC escrow for all active auctions
-- Validates EIP-712 signatures from backend authorizers
-- Handles bid tracking with automatic refunds
-- Settles auctions by minting NFTs and distributing payments
-
-### Key Mechanisms
-
-**Token ID Derivation**: `uint256(castHash)` ensures deterministic minting
-
-**Bid Validation**:
-
-- Minimum increments: 10% or 1 USDC (whichever greater)
-- Maximum duration: 30 days (configurable in contract)
-- Auction parameters configurable per auction
-
-**Payment Flow**:
-
-- Bids held in escrow until settlement
-- Protocol fee configurable (likely 10%)
-- Remainder goes to cast creator
-- Failed bidders automatically refunded on outbid
-
-**Authorization**:
-
-- All auction operations require EIP-712 signatures from an offchain "authorizer"
-- Multiple backend signers supported via allowlist
-- Random nonce for replay protection
 
 ## Documentation
 
