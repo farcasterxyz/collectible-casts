@@ -1,49 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Test} from "forge-std/Test.sol";
-import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
-import {MockCollectibleCasts} from "../mocks/MockCollectibleCasts.sol";
-import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {AuctionTestHelper} from "./AuctionTestHelper.sol";
+import {AuctionTestBase} from "./AuctionTestBase.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
-contract AuctionBidsCounterTest is Test, AuctionTestHelper {
-    Auction public auction;
-    MockCollectibleCasts public collectibleCast;
-    MockUSDC public usdc;
-
-    address public treasury;
-    address public owner;
-    address public authorizer;
-    uint256 public authorizerPk = 0x123;
-    address public creator;
+contract AuctionBidsCounterTest is AuctionTestBase {
     address public bidder1;
-    address public bidder2;
     address public bidder3;
 
-    function setUp() public {
-        // Create named addresses
-        treasury = makeAddr("treasury");
-        owner = makeAddr("owner");
-        authorizer = vm.addr(authorizerPk);
-        creator = makeAddr("creator");
+    function setUp() public override {
+        super.setUp();
+
         bidder1 = makeAddr("bidder1");
-        bidder2 = makeAddr("bidder2");
         bidder3 = makeAddr("bidder3");
-
-        // Deploy contracts
-        usdc = new MockUSDC();
-        collectibleCast = new MockCollectibleCasts();
-        auction = new Auction(address(collectibleCast), address(usdc), treasury, owner);
-
-        // Allow the auction contract to mint
-        collectibleCast.allowMinter(address(auction));
-
-        // Set up authorizer
-        vm.prank(owner);
-        auction.allowAuthorizer(authorizer);
 
         // Fund bidders with USDC
         usdc.mint(bidder1, 1000e6);
@@ -176,14 +146,7 @@ contract AuctionBidsCounterTest is Test, AuctionTestHelper {
         assertEq(bidsBefore, 3, "Should have 3 bids before cancellation");
 
         // Cancel auction
-        bytes32 cancelNonce = keccak256("cancel_nonce");
-        uint256 cancelDeadline = block.timestamp + 1 hours;
-        bytes32 cancelDigest = auction.hashCancelAuthorization(castHash, cancelNonce, cancelDeadline);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, cancelDigest);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        IAuction.AuthData memory cancelAuth = createAuthData(cancelNonce, cancelDeadline, signature);
-        auction.cancel(castHash, cancelAuth);
+        _cancelAuction(castHash);
 
         // Check bids count after cancel - should remain the same
         (,,,,,,, uint32 bidsAfter,,) = auction.auctions(castHash);
@@ -296,40 +259,34 @@ contract AuctionBidsCounterTest is Test, AuctionTestHelper {
 
     // Helper functions
     function _startAuction(bytes32 castHash, address _creator, address firstBidder, uint256 amount) internal {
-        IAuction.CastData memory cast = createCastData(castHash, _creator, 123);
-        IAuction.BidData memory bidData = createBidData(456, amount);
-        IAuction.AuctionParams memory params = createAuctionParams(
-            amount, // minBid
-            500, // minBidIncrementBps (5%)
-            1 hours, // duration
-            5 minutes, // extension
-            10 minutes, // extensionThreshold
-            1000 // protocolFeeBps (10%)
+        _startAuctionWithParams(
+            castHash,
+            _creator,
+            123, // creatorFid
+            firstBidder,
+            456, // bidderFid
+            amount,
+            IAuction.AuctionParams({
+                minBid: uint64(amount),
+                minBidIncrementBps: 500, // 5%
+                duration: 1 hours,
+                extension: 5 minutes,
+                extensionThreshold: 10 minutes,
+                protocolFeeBps: 1000 // 10%
+            })
         );
-
-        bytes32 nonce = keccak256("start_nonce");
-        uint256 deadline = block.timestamp + 1 hours;
-
-        bytes32 digest =
-            auction.hashStartAuthorization(castHash, _creator, 123, firstBidder, 456, amount, params, nonce, deadline);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, digest);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
-
-        vm.prank(firstBidder);
-        auction.start(cast, bidData, params, auth);
     }
 
     function _placeBid(bytes32 castHash, address _bidder, uint96 bidderFid, uint256 amount, bytes32 nonce) internal {
+        // Use base class helper with specific nonce
         uint256 deadline = block.timestamp + 1 hours;
 
-        bytes32 digest = auction.hashBidAuthorization(castHash, _bidder, bidderFid, amount, nonce, deadline);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, digest);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        bytes memory signature = _signBidAuthorization(castHash, _bidder, bidderFid, amount, nonce, deadline);
 
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        _fundAndApprove(_bidder, amount);
 
         vm.prank(_bidder);
         auction.bid(castHash, bidData, auth);

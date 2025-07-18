@@ -1,28 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Test} from "forge-std/Test.sol";
-import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {ICollectibleCasts} from "../../src/interfaces/ICollectibleCasts.sol";
 import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {AuctionTestHelper} from "./AuctionTestHelper.sol";
-import {TestSuiteSetup} from "../TestSuiteSetup.sol";
+import {AuctionTestBase} from "./AuctionTestBase.sol";
+import {Auction} from "../../src/Auction.sol";
 
-contract AuctionTest is Test, AuctionTestHelper {
+contract AuctionTest is AuctionTestBase {
     event AuthorizerAllowed(address indexed authorizer);
     event AuthorizerDenied(address indexed authorizer);
     event TreasurySet(address indexed oldTreasury, address indexed newTreasury);
-
-    Auction public auction;
-    CollectibleCasts public collectibleCast;
-
-    // Use real Base USDC address from TestSuiteSetup
-    address public constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
-    address public treasury = makeAddr("treasury");
-    address public owner = makeAddr("owner");
 
     bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -31,17 +20,9 @@ contract AuctionTest is Test, AuctionTestHelper {
         "BidAuthorization(bytes32 castHash,address bidder,uint96 bidderFid,uint256 amount,bytes32 nonce,uint256 deadline)"
     );
 
-    function setUp() public {
-        // Deploy contracts
-        collectibleCast = new CollectibleCasts(address(this), "https://example.com/");
-        auction = new Auction(address(collectibleCast), USDC, treasury, owner);
-
-        collectibleCast.allowMinter(address(auction));
-    }
-
     function test_Constructor_SetsConfiguration() public view {
         assertEq(address(auction.collectible()), address(collectibleCast));
-        assertEq(address(auction.usdc()), USDC);
+        assertEq(address(auction.usdc()), address(usdc));
         assertEq(auction.treasury(), treasury);
 
         (uint32 minBidAmount, uint32 minAuctionDuration, uint32 maxAuctionDuration, uint32 maxExtension) =
@@ -58,7 +39,7 @@ contract AuctionTest is Test, AuctionTestHelper {
 
     function test_Constructor_RevertsIfCollectibleCastsIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(address(0), USDC, treasury, owner);
+        new Auction(address(0), address(usdc), treasury, owner);
     }
 
     function test_Constructor_RevertsIfUSDCIsZero() public {
@@ -68,7 +49,7 @@ contract AuctionTest is Test, AuctionTestHelper {
 
     function test_Constructor_RevertsIfTreasuryIsZero() public {
         vm.expectRevert(IAuction.InvalidAddress.selector);
-        new Auction(address(collectibleCast), USDC, address(0), owner);
+        new Auction(address(collectibleCast), address(usdc), address(0), owner);
     }
 
     function testFuzz_AllowAuthorizer_OnlyOwner(address authorizer, address notOwner) public {
@@ -183,20 +164,21 @@ contract AuctionTest is Test, AuctionTestHelper {
         assertEq(auction.treasury(), newTreasury);
     }
 
-    function testFuzz_DenyAuthorizer_NotPreviouslyAllowed(address authorizer) public {
-        vm.assume(authorizer != address(0));
+    function testFuzz_DenyAuthorizer_NotPreviouslyAllowed(address authorizerToDeny) public {
+        vm.assume(authorizerToDeny != address(0));
+        vm.assume(authorizerToDeny != authorizer); // Not the already-allowed authorizer from base setup
 
-        assertFalse(auction.authorizers(authorizer));
+        assertFalse(auction.authorizers(authorizerToDeny));
 
         // Deny without allowing first
         vm.expectEmit(true, false, false, false);
-        emit AuthorizerDenied(authorizer);
+        emit AuthorizerDenied(authorizerToDeny);
 
         vm.prank(auction.owner());
-        auction.denyAuthorizer(authorizer);
+        auction.denyAuthorizer(authorizerToDeny);
 
         // Still false
-        assertFalse(auction.authorizers(authorizer));
+        assertFalse(auction.authorizers(authorizerToDeny));
     }
 
     function testFuzz_SetAuctionConfig_OnlyOwner(address notOwner) public {

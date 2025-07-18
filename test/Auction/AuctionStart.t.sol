@@ -1,49 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.30;
 
-import {Test} from "forge-std/Test.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {Auction} from "../../src/Auction.sol";
 import {IAuction} from "../../src/interfaces/IAuction.sol";
-import {MockUSDC} from "../mocks/MockUSDC.sol";
-import {MockCollectibleCasts} from "../mocks/MockCollectibleCasts.sol";
-import {AuctionTestHelper} from "./AuctionTestHelper.sol";
+import {AuctionTestBase} from "./AuctionTestBase.sol";
 
-contract AuctionStartTest is Test, AuctionTestHelper {
-    Auction public auction;
-    MockUSDC public usdc;
-    MockCollectibleCasts public collectibleCast;
-
-    // Mock addresses
-    address public constant TREASURY = address(0x4);
-
-    // Test accounts
-    address public authorizer;
-    uint256 public authorizerKey;
-
-    bytes32 public constant TEST_CAST_HASH = keccak256("test-cast");
-    address public constant CREATOR = address(0x789);
-    uint96 public constant CREATOR_FID = 67890;
-
-    function setUp() public {
-        // Deploy mock USDC
-        usdc = new MockUSDC();
-
-        // Deploy mock CollectibleCasts
-        collectibleCast = new MockCollectibleCasts();
-
-        // Deploy auction with mock CollectibleCasts and USDC
-        auction = new Auction(address(collectibleCast), address(usdc), TREASURY, address(this));
-
-        // Allow auction to mint
-        collectibleCast.allowMinter(address(auction));
-
-        // Setup authorizer
-        (authorizer, authorizerKey) = makeAddrAndKey("authorizer");
-        vm.prank(auction.owner());
-        auction.allowAuthorizer(authorizer);
-    }
-
+contract AuctionStartTest is AuctionTestBase {
     function testFuzz_Start_Success(
         bytes32 castHash,
         address creator,
@@ -59,35 +21,22 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         vm.assume(bidder != address(0));
         vm.assume(creatorFid != 0);
         vm.assume(bidderFid != 0);
-        // No EOA restriction needed
         amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create structs using helper functions
         IAuction.CastData memory castData = createCastData(castHash, creator, creatorFid);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
-        IAuction.AuctionParams memory params = createAuctionParams(
-            1e6, // minBid
-            1000, // minBidIncrement (10%)
-            24 hours, // duration
-            15 minutes, // extension
-            15 minutes, // extensionThreshold
-            1000 // protocolFee
-        );
+        IAuction.AuctionParams memory params = _getDefaultAuctionParams();
 
         // Create start authorization signature
-        bytes32 messageHash = auction.hashStartAuthorization(
-            castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        bytes memory signature =
+            _signStartAuthorization(castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Setup: Give bidder some USDC and approve auction contract
-        usdc.mint(bidder, amount);
-        vm.prank(bidder);
-        usdc.approve(address(auction), amount);
+        _fundAndApprove(bidder, amount);
 
         // Start auction
         uint40 expectedEndTime = uint40(block.timestamp + 1 days);
@@ -110,9 +59,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
     function test_Start_SetsLastBidAt() public {
         // Setup test parameters
         bytes32 castHash = TEST_CAST_HASH;
-        address creator = CREATOR;
-        uint96 creatorFid = CREATOR_FID;
-        address bidder = address(0x123);
+        address creator = DEFAULT_CREATOR;
+        uint96 creatorFid = DEFAULT_CREATOR_FID;
+        address bidder = makeAddr("testBidder");
         uint96 bidderFid = 12345;
         uint256 amount = 100e6; // 100 USDC
         bytes32 nonce = keccak256("test-nonce");
@@ -121,28 +70,16 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         // Create structs
         IAuction.CastData memory castData = createCastData(castHash, creator, creatorFid);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
-        IAuction.AuctionParams memory params = createAuctionParams(
-            1e6, // minBid
-            1000, // minBidIncrement (10%)
-            24 hours, // duration
-            15 minutes, // extension
-            15 minutes, // extensionThreshold
-            1000 // protocolFee
-        );
+        IAuction.AuctionParams memory params = _getDefaultAuctionParams();
 
         // Create start authorization signature
-        bytes32 messageHash = auction.hashStartAuthorization(
-            castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        bytes memory signature =
+            _signStartAuthorization(castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Setup: Give bidder some USDC and approve auction contract
-        usdc.mint(bidder, amount);
-        vm.prank(bidder);
-        usdc.approve(address(auction), amount);
+        _fundAndApprove(bidder, amount);
 
         // Record timestamp before start
         uint256 timestampBefore = block.timestamp;
@@ -171,9 +108,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
 
         // Use fixed addresses to avoid event issues
         bytes32 castHash = keccak256(abi.encodePacked("fuzz", duration, amount));
-        address creator = address(0x789);
-        uint96 creatorFid = 67890;
-        address bidder = address(0x123);
+        address creator = DEFAULT_CREATOR;
+        uint96 creatorFid = DEFAULT_CREATOR_FID;
+        address bidder = makeAddr("fuzzBidder");
         uint96 bidderFid = 12345;
         bytes32 nonce = keccak256(abi.encodePacked("fuzz-nonce", castHash));
         uint256 deadline = block.timestamp + 1 hours;
@@ -191,18 +128,13 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         );
 
         // Create start authorization signature
-        bytes32 messageHash = auction.hashStartAuthorization(
-            castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        bytes memory signature =
+            _signStartAuthorization(castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Setup: Give bidder some USDC and approve auction contract
-        usdc.mint(bidder, amount);
-        vm.prank(bidder);
-        usdc.approve(address(auction), amount);
+        _fundAndApprove(bidder, amount);
 
         // Start auction - should succeed with valid parameters
         vm.prank(bidder);
@@ -255,18 +187,13 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         );
 
         // Create start authorization signature
-        bytes32 messageHash = auction.hashStartAuthorization(
-            castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        bytes memory signature =
+            _signStartAuthorization(castHash, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Setup: Give bidder some USDC and approve auction contract
-        usdc.mint(bidder, amount);
-        vm.prank(bidder);
-        usdc.approve(address(auction), amount);
+        _fundAndApprove(bidder, amount);
 
         // Try to start auction with invalid protocol fee
         vm.prank(bidder);
@@ -309,7 +236,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         bytes32 messageHash = auction.hashStartAuthorization(
             castHash, creator, creatorFid, bidder, bidderFid, belowMinAmount, params, nonce, deadline
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
@@ -333,7 +260,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
-        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
+        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
         IAuction.AuctionParams memory params = createAuctionParams(
             1e6, // minBid
@@ -363,12 +290,11 @@ contract AuctionStartTest is Test, AuctionTestHelper {
     {
         // Setup
         vm.assume(bidder != address(0));
-        // No EOA restriction needed
         vm.assume(bidderFid > 0);
         amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
 
         IAuction.CastData memory castData =
-            IAuction.CastData({castHash: TEST_CAST_HASH, creator: CREATOR, creatorFid: CREATOR_FID});
+            IAuction.CastData({castHash: TEST_CAST_HASH, creator: DEFAULT_CREATOR, creatorFid: DEFAULT_CREATOR_FID});
 
         IAuction.BidData memory bidData = IAuction.BidData({bidderFid: bidderFid, amount: amount});
 
@@ -428,19 +354,18 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         vm.assume(creator != bidder);
         vm.assume(creatorFid != 0);
         vm.assume(bidderFid != 0);
-        // No EOA restriction needed
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
         // First, use the nonce by starting an auction
         IAuction.CastData memory castData1 = createCastData(castHash, creator, creatorFid);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
-        IAuction.AuctionParams memory params = createAuctionParams(1e6, 1000, 24 hours, 15 minutes, 15 minutes, 1000);
+        IAuction.AuctionParams memory params = _getDefaultAuctionParams();
 
         bytes32 messageHash1 = auction.hashStartAuthorization(
             castHash, creator, creatorFid, bidder, bidderFid, amount, params, reusedNonce, deadline
         );
-        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(authorizerKey, messageHash1);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(authorizerPk, messageHash1);
         bytes memory signature1 = abi.encodePacked(r1, s1, v1);
         IAuction.AuthData memory auth1 = createAuthData(reusedNonce, deadline, signature1);
 
@@ -459,7 +384,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         bytes32 messageHash2 = auction.hashStartAuthorization(
             differentCastHash, creator, creatorFid, bidder, bidderFid, amount, params, reusedNonce, deadline
         );
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(authorizerKey, messageHash2);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(authorizerPk, messageHash2);
         bytes memory signature2 = abi.encodePacked(r2, s2, v2);
         IAuction.AuthData memory auth2 = createAuthData(reusedNonce, deadline, signature2);
 
@@ -477,7 +402,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
-        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
+        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
         IAuction.AuctionParams memory params = createAuctionParams(
             1e6, // minBid
@@ -489,9 +414,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         );
 
         bytes32 messageHash = auction.hashStartAuthorization(
-            TEST_CAST_HASH, CREATOR, CREATOR_FID, bidder, bidderFid, amount, params, nonce, deadline
+            TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID, bidder, bidderFid, amount, params, nonce, deadline
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
@@ -516,7 +441,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
-        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
+        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
         IAuction.AuctionParams memory params = createAuctionParams(
             1e6, // minBid
@@ -528,9 +453,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         );
 
         bytes32 messageHash = auction.hashStartAuthorization(
-            TEST_CAST_HASH, CREATOR, CREATOR_FID, bidder, bidderFid, amount, params, nonce, deadline
+            TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID, bidder, bidderFid, amount, params, nonce, deadline
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
@@ -552,7 +477,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         lowAmount = _bound(lowAmount, 1, 0.99e6); // Below 1 USDC minimum
         uint256 deadline = block.timestamp + 1 hours;
 
-        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
+        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID);
         IAuction.BidData memory bidData = createBidData(bidderFid, lowAmount);
         // Create params with minBid below MIN_BID_AMOUNT
         IAuction.AuctionParams memory params = IAuction.AuctionParams({
@@ -565,9 +490,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         });
 
         bytes32 messageHash = auction.hashStartAuthorization(
-            TEST_CAST_HASH, CREATOR, CREATOR_FID, bidder, bidderFid, lowAmount, params, nonce, deadline
+            TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID, bidder, bidderFid, lowAmount, params, nonce, deadline
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
@@ -594,7 +519,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         expiredOffset = _bound(expiredOffset, 1, block.timestamp > 365 days ? 365 days : block.timestamp); // Avoid underflow
         uint256 deadline = block.timestamp - expiredOffset; // Already expired
 
-        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
+        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
         IAuction.AuctionParams memory params = createAuctionParams(
             1e6, // minBid
@@ -607,9 +532,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
 
         // Create signature with expired deadline
         bytes32 messageHash = auction.hashStartAuthorization(
-            TEST_CAST_HASH, CREATOR, CREATOR_FID, bidder, bidderFid, amount, params, nonce, deadline
+            TEST_CAST_HASH, DEFAULT_CREATOR, DEFAULT_CREATOR_FID, bidder, bidderFid, amount, params, nonce, deadline
         );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
