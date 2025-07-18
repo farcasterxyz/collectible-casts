@@ -12,7 +12,7 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title Auction
- * @notice Ascending escrowed USDC auction for Farcaster collectible casts with offchain authorizers
+ * @notice Ascending escrowed USDC auction for Farcaster collectible casts
  * @custom:security-contact security@merklemanufactory.com
  */
 contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
@@ -142,7 +142,6 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     function cancel(bytes32 castHash, AuthData memory auth) external whenNotPaused {
         // Auction must be active or ended (not settled or cancelled)
         AuctionState state = auctionState(castHash);
-        if (state == AuctionState.None) revert AuctionNotFound();
         if (state != AuctionState.Active && state != AuctionState.Ended) revert AuctionNotActive();
 
         // Verify authorization
@@ -177,30 +176,21 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
     /// @inheritdoc IAuction
     function recover(bytes32 castHash, address refundTo) external onlyOwner {
-        // Validate recovery address - must be non-zero to prevent fund loss
+        // Validate recovery address
         if (refundTo == address(0)) revert InvalidAddress();
 
-        // Check auction state - can only recover Active or Ended auctions
-        // This handles DoS scenarios like blacklisted USDC addresses or malicious contracts
+        // Check auction state: must be Active or Ended
         AuctionState state = auctionState(castHash);
-        if (state == AuctionState.None) revert AuctionNotFound();
-        if (state == AuctionState.Settled) revert AuctionAlreadySettled();
-        if (state == AuctionState.Cancelled) revert AuctionIsCancelled();
-        if (state == AuctionState.Recovered) revert AuctionIsRecovered();
-        // Only Active and Ended states are valid for recovery
-        if (state != AuctionState.Active && state != AuctionState.Ended) {
-            revert(); // Should never reach here given above checks
-        }
+        if (state != AuctionState.Active && state != AuctionState.Ended) revert AuctionNotCancellable();
 
         // Load auction data and get refund amount
         AuctionData storage auctionData = auctions[castHash];
         uint256 refundAmount = auctionData.highestBid;
 
-        // Mark as recovered - this is a terminal state
+        // Mark as recovered
         auctionData.state = AuctionState.Recovered;
 
-        // Transfer funds to recovery address
-        // This bypasses the normal refund flow to handle transfer failures
+        // Transfer funds
         if (refundAmount > 0) {
             usdc.transfer(refundTo, refundAmount);
         }
@@ -429,7 +419,6 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     {
         // Auction must be active
         AuctionState state = auctionState(castHash);
-        if (state == AuctionState.None) revert AuctionNotFound();
         if (state != AuctionState.Active) revert AuctionNotActive();
 
         AuctionData storage auctionData = auctions[castHash];
@@ -479,11 +468,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     function _settle(bytes32 castHash) internal {
         // Auction must be in Ended state
         AuctionState state = auctionState(castHash);
-        if (state == AuctionState.None) revert AuctionNotFound();
-        if (state == AuctionState.Active) revert AuctionNotEnded();
-        if (state == AuctionState.Settled) revert AuctionAlreadySettled();
-        if (state == AuctionState.Cancelled) revert AuctionIsCancelled();
-        if (state == AuctionState.Recovered) revert AuctionIsRecovered();
+        if (state != AuctionState.Ended) revert AuctionNotEnded();
 
         // Mark as settled
         AuctionData storage auctionData = auctions[castHash];

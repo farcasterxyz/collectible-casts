@@ -242,7 +242,7 @@ contract AuctionBidsCounterTest is Test, AuctionTestHelper {
         assertEq(bids, 10, "Should have 10 bids");
     }
 
-    function test_BidsCounter_ZeroBids_NeverExists() public {
+    function test_BidsCounter_ZeroBids_NeverExists() public view {
         bytes32 castHash = keccak256("cast_zero");
 
         // Check that non-existent auction has no bid data

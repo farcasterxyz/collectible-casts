@@ -99,7 +99,7 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         auction.cancel(TEST_CAST_HASH, auth);
 
         // Try to settle the cancelled auction
-        vm.expectRevert(IAuction.AuctionIsCancelled.selector);
+        vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(TEST_CAST_HASH);
     }
 
@@ -127,14 +127,14 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         auction.settle(TEST_CAST_HASH);
 
         // Try to settle again
-        vm.expectRevert(IAuction.AuctionAlreadySettled.selector);
+        vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(TEST_CAST_HASH);
     }
 
     function test_Settle_RevertsIfNonExistent() public {
         bytes32 nonExistentTokenId = keccak256("non-existent");
 
-        vm.expectRevert(IAuction.AuctionNotFound.selector);
+        vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(nonExistentTokenId);
     }
 
@@ -242,7 +242,7 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         vm.warp(block.timestamp + 25 hours);
 
         // Should revert when trying to settle non-existent auction
-        vm.expectRevert(IAuction.AuctionNotFound.selector);
+        vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.batchSettle(castHashes);
     }
 
@@ -292,7 +292,7 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
         auction.settle(castHashes[1]);
 
         // Should revert when trying to settle already settled auction
-        vm.expectRevert(IAuction.AuctionAlreadySettled.selector);
+        vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.batchSettle(castHashes);
     }
 

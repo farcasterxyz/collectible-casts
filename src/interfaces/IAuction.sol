@@ -9,9 +9,6 @@ interface IAuction {
     error InvalidAddress(); // Zero address provided where valid address required
     error InvalidBidAmount(); // Bid amount insufficient or invalid
     error AuctionAlreadyExists(); // Auction for this cast already exists
-    error AuctionAlreadySettled(); // Auction has already been settled
-    error AuctionIsCancelled(); // Operation not allowed on cancelled auction
-    error AuctionNotFound(); // No auction exists for this cast
     error AuctionNotActive(); // Auction is not in active state
     error AuctionNotEnded(); // Auction is still active, cannot settle
     error DeadlineExpired(); // Signature deadline has passed
@@ -20,7 +17,7 @@ interface IAuction {
     error InvalidAuctionParams(); // Auction parameters are invalid or out of bounds
     error InvalidCreatorFid(); // Creator Farcaster ID is zero or invalid
     error InvalidCastHash(); // Cast hash is zero or invalid
-    error AuctionIsRecovered(); // Operation not allowed on recovered auction
+    error AuctionNotCancellable(); // Auction is in a state that cannot be cancelled
 
     /**
      * @notice Global auction configuration. Used to validate per-auction params.
@@ -130,10 +127,6 @@ interface IAuction {
 
     /**
      * @notice Auction states
-     * @dev None -> Active -> Ended -> Settled  or
-     *      None -> Active -> Cancelled  or
-     *      None -> Active -> Recovered  or
-     *      Active/Ended -> Recovered
      */
     enum AuctionState {
         None,
@@ -163,24 +156,24 @@ interface IAuction {
     /**
      * @notice Starts an auction with prior USDC allowance
      * @param cast Cast to auction
-     * @param bid Initial bid
+     * @param bidData Initial bid
      * @param params Auction settings
      * @param auth Signature authorization
      */
-    function start(CastData memory cast, BidData memory bid, AuctionParams memory params, AuthData memory auth)
+    function start(CastData memory cast, BidData memory bidData, AuctionParams memory params, AuthData memory auth)
         external;
 
     /**
      * @notice Starts an auction with USDC permit signature
      * @param cast Cast to auction
-     * @param bid Initial bid
+     * @param bidData Initial bid
      * @param params Auction settings
      * @param auth Signature authorization
      * @param permit USDC permit signature data
      */
     function start(
         CastData memory cast,
-        BidData memory bid,
+        BidData memory bidData,
         AuctionParams memory params,
         AuthData memory auth,
         PermitData memory permit
@@ -189,20 +182,20 @@ interface IAuction {
     /**
      * @notice Places a bid with prior USDC allowance
      * @param castHash Cast identifier
-     * @param bid Bid details
+     * @param bidData Bid details
      * @param auth Signature authorization
      * @dev Auto-refunds previous bidder
      */
-    function bid(bytes32 castHash, BidData memory bid, AuthData memory auth) external;
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth) external;
 
     /**
      * @notice Places a bid with USDC permit signature
      * @param castHash Cast identifier
-     * @param bid Bid details
+     * @param bidData Bid details
      * @param auth Signature authorization
      * @param permit USDC permit signature data
      */
-    function bid(bytes32 castHash, BidData memory bid, AuthData memory auth, PermitData memory permit) external;
+    function bid(bytes32 castHash, BidData memory bidData, AuthData memory auth, PermitData memory permit) external;
 
     /**
      * @notice Settles ended auction

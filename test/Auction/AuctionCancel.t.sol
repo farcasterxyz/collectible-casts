@@ -64,7 +64,7 @@ contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
         bytes memory signature = _signCancellation(castHash, nonce, deadline, authorizerPk);
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
-        vm.expectRevert(IAuction.AuctionNotFound.selector);
+        vm.expectRevert(IAuction.AuctionNotActive.selector);
         auction.cancel(castHash, auth);
     }
 
@@ -395,7 +395,7 @@ contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
         auction.cancel(castHash, auth);
 
         // Try to settle cancelled auction
-        vm.expectRevert(IAuction.AuctionIsCancelled.selector);
+        vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(castHash);
     }
 

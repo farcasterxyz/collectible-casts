@@ -67,7 +67,7 @@ contract AuctionRecoverTest is TestSuiteSetup, AuctionTestHelper {
         bytes32 castHash = keccak256("nonexistent");
 
         vm.prank(owner);
-        vm.expectRevert(IAuction.AuctionNotFound.selector);
+        vm.expectRevert(IAuction.AuctionNotCancellable.selector);
         auction.recover(castHash, recoveryAddress);
     }
 
@@ -81,7 +81,7 @@ contract AuctionRecoverTest is TestSuiteSetup, AuctionTestHelper {
 
         // Try to recover settled auction
         vm.prank(owner);
-        vm.expectRevert(IAuction.AuctionAlreadySettled.selector);
+        vm.expectRevert(IAuction.AuctionNotCancellable.selector);
         auction.recover(castHash, recoveryAddress);
     }
 
@@ -98,7 +98,7 @@ contract AuctionRecoverTest is TestSuiteSetup, AuctionTestHelper {
 
         // Try to recover cancelled auction
         vm.prank(owner);
-        vm.expectRevert(IAuction.AuctionIsCancelled.selector);
+        vm.expectRevert(IAuction.AuctionNotCancellable.selector);
         auction.recover(castHash, recoveryAddress);
     }
 
@@ -192,7 +192,7 @@ contract AuctionRecoverTest is TestSuiteSetup, AuctionTestHelper {
 
         // Try to recover again
         vm.prank(owner);
-        vm.expectRevert(IAuction.AuctionIsRecovered.selector);
+        vm.expectRevert(IAuction.AuctionNotCancellable.selector);
         auction.recover(castHash, recoveryAddress);
     }
 
@@ -208,7 +208,7 @@ contract AuctionRecoverTest is TestSuiteSetup, AuctionTestHelper {
         auction.recover(castHash, recoveryAddress);
 
         // Try to settle recovered auction
-        vm.expectRevert(IAuction.AuctionIsRecovered.selector);
+        vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(castHash);
     }
 

@@ -20,6 +20,7 @@ Collectible Casts introduce a simple mechanism where every cast can be _collecte
 - Perfect royalty enforcement across all venues
 - Support for arbitrary ERC-20 payment tokens (USDC hardcoded for v1)
 - Highly onchain token metadata
+- Extreme gas efficiency
 
 ## Architecture
 
@@ -49,6 +50,48 @@ Two main contracts work together:
 4. **Settlement**: When ended, anyone can settle to mint NFT and distribute payments.
 5. **Cancellation**: Auctions can be cancelled when active or ended with a signature from an offchain authorizer.
 6. **Emergency Recovery**: Contract owner can recover funds from stuck auctions (e.g., USDC blacklisted addresses) to a specified address.
+
+### Auction State Transitions
+
+```mermaid
+stateDiagram-v2
+    [*] --> None: Initial state
+    None --> Active: start()
+    Active --> Ended: time expires
+    Active --> Cancelled: cancel()
+    Active --> Recovered: recover()
+    Ended --> Settled: settle()
+    Ended --> Cancelled: cancel()
+    Ended --> Recovered: recover()
+    Settled --> [*]: Terminal state
+    Cancelled --> [*]: Terminal state
+    Recovered --> [*]: Terminal state
+    
+    note right of Active
+        Bidding open
+        Can be extended
+    end note
+    
+    note right of Ended
+        No new bids
+        Awaiting settlement
+    end note
+    
+    note right of Settled
+        NFT minted
+        Payments distributed
+    end note
+    
+    note right of Cancelled
+        Authorizer cancelled
+        Bidder refunded
+    end note
+    
+    note right of Recovered
+        Emergency recovery
+        Owner action only
+    end note
+```
 
 ## Quick Start
 
