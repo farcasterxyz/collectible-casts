@@ -105,10 +105,8 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
         IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
-        if (previousBidder != address(0)) {
-            usdc.transfer(previousBidder, previousBid);
-            emit BidRefunded(previousBidder, previousBid);
-        }
+        usdc.transfer(previousBidder, previousBid);
+        emit BidRefunded(previousBidder, previousBid);
     }
 
     /// @inheritdoc IAuction
@@ -119,10 +117,8 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         (address previousBidder, uint256 previousBid) = _bid(castHash, bidData, auth);
 
         _permitAndTransfer(bidData.amount, permit);
-        if (previousBidder != address(0)) {
-            usdc.transfer(previousBidder, previousBid);
-            emit BidRefunded(previousBidder, previousBid);
-        }
+        usdc.transfer(previousBidder, previousBid);
+        emit BidRefunded(previousBidder, previousBid);
     }
 
     /// @inheritdoc IAuction
@@ -166,10 +162,8 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         auctionData.state = AuctionState.Cancelled;
 
         // Refund the highest bidder
-        if (refundAmount > 0 && refundAddress != address(0)) {
-            usdc.transfer(refundAddress, refundAmount);
-            emit BidRefunded(refundAddress, refundAmount);
-        }
+        usdc.transfer(refundAddress, refundAmount);
+        emit BidRefunded(refundAddress, refundAmount);
 
         emit AuctionCancelled(castHash, refundAddress, refundBidderFid, signer);
     }
@@ -191,9 +185,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         auctionData.state = AuctionState.Recovered;
 
         // Transfer funds
-        if (refundAmount > 0) {
-            usdc.transfer(refundTo, refundAmount);
-        }
+        usdc.transfer(refundTo, refundAmount);
 
         emit AuctionRecovered(castHash, refundTo, refundAmount);
     }

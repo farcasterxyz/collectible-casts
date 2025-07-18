@@ -286,7 +286,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         auction.setAuctionConfig(invalidConfig);
     }
 
-    // Test Ownable2Step functionality
     function testFuzz_TransferOwnership_TwoStep(address newOwner) public {
         vm.assume(newOwner != address(0));
         vm.assume(newOwner != auction.owner());
@@ -329,7 +328,6 @@ contract AuctionTest is Test, AuctionTestHelper {
     }
 
     function test_Constructor_SetsDomainSeparator() public {
-        // Deploy new auction to test domain separator is set in constructor
         CollectibleCasts newCollectibleCasts = new CollectibleCasts(address(this), "https://example.com");
         Auction newAuction = new Auction(address(newCollectibleCasts), USDC, treasury, owner);
 
@@ -358,25 +356,6 @@ contract AuctionTest is Test, AuctionTestHelper {
         bytes32 structHash =
             keccak256(abi.encode(BID_AUTHORIZATION_TYPEHASH, castHash, bidder, bidderFid, amount, nonce, deadline));
 
-        // Compute expected hash manually
-        bytes32 domainSeparator = auction.DOMAIN_SEPARATOR();
-        bytes32 expectedHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-
-        assertEq(auction.hashBidAuthorization(castHash, bidder, bidderFid, amount, nonce, deadline), expectedHash);
-    }
-
-    function testFuzz_BidAuthorizationHash_DifferentInputs(
-        bytes32 castHash,
-        address bidder,
-        uint96 bidderFid,
-        uint256 amount,
-        bytes32 nonce,
-        uint256 deadline
-    ) public view {
-        bytes32 structHash =
-            keccak256(abi.encode(BID_AUTHORIZATION_TYPEHASH, castHash, bidder, bidderFid, amount, nonce, deadline));
-
-        // Compute expected hash manually
         bytes32 domainSeparator = auction.DOMAIN_SEPARATOR();
         bytes32 expectedHash = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
@@ -384,28 +363,6 @@ contract AuctionTest is Test, AuctionTestHelper {
     }
 
     function testFuzz_UsedNonces_PublicMapping(bytes32 testNonce) public view {
-        // Test that usedNonces mapping is accessible
         assertFalse(auction.usedNonces(testNonce));
-    }
-
-    function testFuzz_BidAuthorizationHash_DifferentFids(
-        bytes32 castHash,
-        address bidder,
-        uint256 amount,
-        bytes32 nonce,
-        uint256 deadline,
-        uint96 fid1,
-        uint96 fid2
-    ) public view {
-        vm.assume(fid1 != fid2);
-
-        // Get hash with first FID
-        bytes32 hash1 = auction.hashBidAuthorization(castHash, bidder, fid1, amount, nonce, deadline);
-
-        // Get hash with second FID
-        bytes32 hash2 = auction.hashBidAuthorization(castHash, bidder, fid2, amount, nonce, deadline);
-
-        // Hashes should be different
-        assertTrue(hash1 != hash2);
     }
 }

@@ -95,9 +95,8 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
     ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0));
-        vm.assume(firstBidder != CREATOR);
         vm.assume(firstBidder != address(auction)); // Not the auction contract
-        vm.assume(firstBidder.code.length == 0); // Ensure EOA for clean test
+        // No EOA restriction needed
         vm.assume(nonce != keccak256("start-nonce")); // Avoid nonce collision
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6); // 1 to 1000 USDC
@@ -246,9 +245,8 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
     ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0));
-        vm.assume(firstBidder != CREATOR);
         vm.assume(firstBidder != address(auction)); // Not the auction contract
-        vm.assume(firstBidder.code.length == 0); // Ensure EOA for clean test
+        // No EOA restriction needed
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
         secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
@@ -342,7 +340,6 @@ contract AuctionPermitTest is Test, AuctionTestHelper {
     ) public {
         // Bound inputs
         vm.assume(firstBidder != address(0));
-        vm.assume(firstBidder != CREATOR);
         vm.assume(nonce != keccak256("start-nonce")); // Avoid nonce collision
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6);

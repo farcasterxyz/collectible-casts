@@ -15,27 +15,21 @@ contract AuctionBidTest is Test, AuctionTestHelper {
     MockUSDC public usdc;
     CollectibleCasts public collectibleCast;
 
-    address public constant TREASURY = address(0x4);
-
     address public authorizer;
     uint256 public authorizerKey;
 
+    address public treasury = makeAddr("treasury");
     bytes32 public constant TEST_CAST_HASH = keccak256("test-cast");
-    address public constant CREATOR = address(0x789);
-    uint96 public constant CREATOR_FID = 67890;
+    address public creator = makeAddr("creator");
+    uint96 public creatorFid = 67890;
 
     function setUp() public {
         usdc = new MockUSDC();
 
-        // Deploy real contracts
         address owner = address(this);
-        collectibleCast = new CollectibleCasts(
-            owner,
-            "https://example.com/" // baseURI - not needed for auction tests
-        );
+        collectibleCast = new CollectibleCasts(owner, "https://example.com/");
 
-        // Configure real contracts
-        auction = new Auction(address(collectibleCast), address(usdc), TREASURY, address(this));
+        auction = new Auction(address(collectibleCast), address(usdc), treasury, address(this));
         collectibleCast.allowMinter(address(auction));
 
         (authorizer, authorizerKey) = makeAddrAndKey("authorizer");
@@ -51,18 +45,17 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         uint96 secondBidderFid,
         uint256 bidIncrement
     ) public {
-        // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
         vm.assume(firstBidder != address(auction) && secondBidder != address(auction));
-        vm.assume(firstBidder != CREATOR && secondBidder != CREATOR); // Can't be the creator
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
-        firstAmount = _bound(firstAmount, 1e6, 1000e6); // 1 to 1000 USDC
+        firstAmount = _bound(firstAmount, 1e6, 100000e6); // 1 to 100000 USDC
         // Calculate minimum increment (10% of firstAmount)
         uint256 minIncrement = (firstAmount * 1000) / 10000; // 10%
         if (minIncrement < 1e6) minIncrement = 1e6; // At least 1 USDC
-        bidIncrement = _bound(bidIncrement, minIncrement, 100e6);
+        uint256 maxIncrement = minIncrement > 100e6 ? minIncrement : 100e6;
+        bidIncrement = _bound(bidIncrement, minIncrement, maxIncrement);
         uint256 secondAmount = firstAmount + bidIncrement;
 
         // Start auction first
@@ -106,7 +99,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
 
     function test_Bid_UpdatesLastBidAt() public {
         // Start auction first
-        address firstBidder = address(0x123);
+        address firstBidder = makeAddr("firstBidder");
         uint96 firstBidderFid = 12345;
         uint256 firstAmount = 100e6; // 100 USDC
         _startAuction(firstBidder, firstBidderFid, firstAmount);
@@ -119,7 +112,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         vm.warp(block.timestamp + 1 hours);
 
         // Second bidder places higher bid
-        address secondBidder = address(0x456);
+        address secondBidder = makeAddr("secondBidder");
         uint96 secondBidderFid = 45678;
         uint256 secondAmount = 150e6; // 150 USDC
 
@@ -164,7 +157,6 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
-        vm.assume(firstBidder != CREATOR && secondBidder != CREATOR);
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6); // 1 to 1000 USDC
@@ -254,10 +246,9 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         timeBeforeEnd = _bound(timeBeforeEnd, 1, 15 minutes - 1); // Within extension threshold
         vm.assume(secondBidder != address(0));
         vm.assume(secondBidder != address(0x123)); // Can't be same as first bidder
-        vm.assume(secondBidder != CREATOR); // Can't be the creator
         vm.assume(secondBidder != address(auction)); // Can't be the auction contract
         vm.assume(secondBidder != authorizer); // Can't be the authorizer
-        vm.assume(secondBidder.code.length == 0); // Ensure EOA
+        // No EOA restriction needed - bidding doesn't involve NFT transfers
         secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
         // Calculate minimum bid to outbid initial 1 USDC bid
         // minBid = 1e6 + max(1e6, 1e6 * 10%) = 1e6 + 1e6 = 2e6
@@ -308,7 +299,6 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
-        vm.assume(firstBidder != CREATOR && secondBidder != CREATOR);
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
@@ -353,7 +343,6 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
-        vm.assume(firstBidder != CREATOR && secondBidder != CREATOR);
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
@@ -402,7 +391,6 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
-        vm.assume(firstBidder != CREATOR && secondBidder != CREATOR);
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
@@ -474,8 +462,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Bound inputs
         vm.assume(firstBidder != address(0) && secondBidder != address(0));
         vm.assume(firstBidder != secondBidder);
-        vm.assume(firstBidder != CREATOR && secondBidder != CREATOR);
-        vm.assume(firstBidder.code.length == 0 && secondBidder.code.length == 0); // Ensure EOAs for ERC1155 transfers
+        // No EOA restriction needed - now using ERC721, not ERC1155
         firstBidderFid = uint96(_bound(firstBidderFid, 1, type(uint96).max));
         secondBidderFid = uint96(_bound(secondBidderFid, 1, type(uint96).max));
         firstAmount = _bound(firstAmount, 1e6, 1000e6);
@@ -521,7 +508,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         bytes32 nonce = keccak256("start-nonce");
         uint256 deadline = block.timestamp + 1 hours;
 
-        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, CREATOR, CREATOR_FID);
+        IAuction.CastData memory castData = createCastData(TEST_CAST_HASH, creator, creatorFid);
         IAuction.BidData memory bidData = createBidData(bidderFid, amount);
         IAuction.AuctionParams memory params = createAuctionParams(
             1e6, // minBid
@@ -533,7 +520,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         );
 
         bytes32 messageHash = auction.hashStartAuthorization(
-            TEST_CAST_HASH, CREATOR, CREATOR_FID, bidder, bidderFid, amount, params, nonce, deadline
+            TEST_CAST_HASH, creator, creatorFid, bidder, bidderFid, amount, params, nonce, deadline
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -564,7 +551,7 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         vm.chainId(999);
         MockUSDC wrongChainUsdc = new MockUSDC();
         Auction wrongChainAuction =
-            new Auction(address(collectibleCast), address(wrongChainUsdc), TREASURY, address(this));
+            new Auction(address(collectibleCast), address(wrongChainUsdc), treasury, address(this));
 
         // Allow the authorizer on wrong chain auction
         wrongChainAuction.allowAuthorizer(authorizer);

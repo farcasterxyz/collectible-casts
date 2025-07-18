@@ -44,8 +44,7 @@ contract AuctionSettleTest is Test, AuctionTestHelper {
     function testFuzz_Settle_Success(address bidder, uint96 bidderFid, uint256 amount) public {
         // Bound inputs
         vm.assume(bidder != address(0));
-        vm.assume(bidder != CREATOR); // Bidder must be different from creator
-        vm.assume(bidder.code.length == 0); // Must be EOA to receive ERC-1155 tokens safely
+        // No EOA restriction needed - now using ERC721, not ERC-1155
         bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         amount = _bound(amount, 1e6, 1000000e6); // 1 to 1,000,000 USDC
 

@@ -10,6 +10,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract CollectibleCastsTest is TestSuiteSetup {
@@ -247,9 +248,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
         vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         fid1 = uint96(_bound(uint256(fid1), 1, type(uint96).max)); // FID must be non-zero
         fid2 = uint96(_bound(uint256(fid2), 1, type(uint96).max)); // FID must be non-zero
-        // Skip addresses that might be contracts without ERC721Receiver
-        vm.assume(alice.code.length == 0 || alice == address(validReceiver));
-        vm.assume(bob.code.length == 0 || bob == address(validReceiver));
+        // No need to check for EOA since we're using regular mint, not safeMint
 
         address minterAddr = makeAddr("minter");
         vm.prank(owner);
@@ -695,7 +694,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
     function testFuzz_Mint_CastHash(address recipient, uint96 fid, bytes32 castHash) public {
         vm.assume(recipient != address(0));
         vm.assume(castHash != bytes32(0));
-        vm.assume(recipient.code.length == 0); // EOA for safe transfer
+        // No EOA restriction needed - using regular mint, not safeMint
         fid = uint96(_bound(uint256(fid), 1, type(uint96).max));
 
         vm.prank(owner);
@@ -908,7 +907,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
         token.mint(from, castHash, fid, creator);
 
         vm.prank(from);
-        vm.expectRevert(); // TODO: test for more specific revert reason
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, address(0)));
         token.transferFrom(from, address(0), tokenId);
     }
 
@@ -955,7 +954,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
         assertEq(token.ownerOf(tokenId), from);
 
         vm.prank(notOwner);
-        vm.expectRevert(); // TODO: Check for specific revert here
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InsufficientApproval.selector, notOwner, tokenId));
         token.transferFrom(from, to, tokenId);
     }
 

@@ -57,10 +57,9 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         vm.assume(castHash != bytes32(0));
         vm.assume(creator != address(0));
         vm.assume(bidder != address(0));
-        vm.assume(creator != bidder); // No self-bidding
         vm.assume(creatorFid != 0);
         vm.assume(bidderFid != 0);
-        vm.assume(bidder.code.length == 0); // Ensure bidder is EOA for clean test
+        // No EOA restriction needed
         amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -330,7 +329,6 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         public
     {
         vm.assume(bidder != address(0));
-        vm.assume(bidder != CREATOR); // Avoid self-bidding error
         vm.assume(bidderFid != 0);
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
@@ -365,7 +363,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
     {
         // Setup
         vm.assume(bidder != address(0));
-        vm.assume(bidder.code.length == 0);
+        // No EOA restriction needed
         vm.assume(bidderFid > 0);
         amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
 
@@ -430,7 +428,7 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         vm.assume(creator != bidder);
         vm.assume(creatorFid != 0);
         vm.assume(bidderFid != 0);
-        vm.assume(bidder.code.length == 0); // Ensure EOA
+        // No EOA restriction needed
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -591,7 +589,6 @@ contract AuctionStartTest is Test, AuctionTestHelper {
         uint256 expiredOffset
     ) public {
         vm.assume(bidder != address(0));
-        vm.assume(bidder != CREATOR); // Avoid self-bidding error
         vm.assume(bidderFid != 0);
         amount = _bound(amount, 1e6, 10000e6);
         expiredOffset = _bound(expiredOffset, 1, block.timestamp > 365 days ? 365 days : block.timestamp); // Avoid underflow
