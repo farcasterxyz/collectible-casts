@@ -6,10 +6,12 @@ A new way for Farcaster users to financially support creators through collectibl
 
 Collectible Casts introduce a mechanism where every cast can be _collected_. If more than one user attempts to collect the same cast within the bidding window, an ascending auction determines the final owner and price. The winning bidder receives an ERC721 token representing the collectible, minted directly to their wallet. 90% of the winning bid goes to the creator; the remaining 10% accrues to the protocol treasury for growth incentives.
 
+For more details see the product doc [here](https://farcasterhq.notion.site/Collectibles-2306a6c0c10180d7a917c24892662a3c)
+
 ## Goals
 
-- **Creator monetization** - Let any creator earn immediately from their content without waiting for weekly reward cycles
-- **Showcase support** - Give users a collectible that is more meaningful than a tip and shareable across wallets and profiles
+- **Creator monetization** - Let userse earn immediately without waiting for weekly reward cycles
+- **Showcase support** - Give users a collectible that is more meaningful than a tip and shareable across wallets/profiles
 - **Simplicity first** - Ship minimal contracts that we fully understand with few core dependencies
 - **Start permissioned** - Restrict initial auctions to Farcaster users
 - **Changeable periphery** - Make experimentation with auction parameters very easy. Make deploying new auction contracts pretty easy.
