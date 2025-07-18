@@ -20,6 +20,7 @@ interface IAuction {
     error InvalidAuctionParams(); // Auction parameters are invalid or out of bounds
     error InvalidCreatorFid(); // Creator Farcaster ID is zero or invalid
     error InvalidCastHash(); // Cast hash is zero or invalid
+    error AuctionIsRecovered(); // Operation not allowed on recovered auction
 
     /**
      * @notice Global auction configuration. Used to validate per-auction params.
@@ -130,14 +131,17 @@ interface IAuction {
     /**
      * @notice Auction states
      * @dev None -> Active -> Ended -> Settled  or
-     *      None -> Active -> Cancelled
+     *      None -> Active -> Cancelled  or
+     *      None -> Active -> Recovered  or
+     *      Active/Ended -> Recovered
      */
     enum AuctionState {
         None,
         Active,
         Ended,
         Settled,
-        Cancelled
+        Cancelled,
+        Recovered
     }
 
     event AuthorizerAllowed(address indexed authorizer); // Allowed a new offchain authorizer
@@ -153,6 +157,7 @@ interface IAuction {
     event AuctionCancelled(
         bytes32 indexed castHash, address indexed refundedBidder, uint96 refundedBidderFid, address indexed authorizer
     ); // Auction cancelled, highest bidder refunded
+    event AuctionRecovered(bytes32 indexed castHash, address indexed refundTo, uint256 amount); // Emergency recovery, funds sent to recovery address
     event BidRefunded(address indexed to, uint256 amount); // USDC refunded to previous bidder
 
     /**
@@ -219,6 +224,14 @@ interface IAuction {
      * @dev Refunds highest bidder
      */
     function cancel(bytes32 castHash, AuthData memory auth) external;
+
+    /**
+     * @notice Emergency recovery for stuck auctions
+     * @param castHash Cast identifier
+     * @param refundTo Address to send refund
+     * @dev Owner only. Treats as emergency cancellation.
+     */
+    function recover(bytes32 castHash, address refundTo) external;
 
     /**
      * @notice Read auction state

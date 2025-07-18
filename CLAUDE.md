@@ -431,3 +431,14 @@ fuzz = { runs = 50000 }
 - `forge fmt` - Format code
 - `python3 script/check-coverage.py` - Verify 100% coverage for production contracts
 - `forge build --sizes` - Check contract sizes
+
+## Recent Updates
+
+### Emergency Recovery Feature (Task 4)
+- **Added `recover()` function**: Owner-only emergency recovery for stuck auctions
+- **New `Recovered` terminal state**: Added to AuctionState enum
+- **Handles DoS scenarios**: USDC blacklisted addresses, malicious contract recipients
+- **Works on Active/Ended auctions**: Treats both as emergency cancellation
+- **11 comprehensive tests**: Full edge case coverage in AuctionRecover.t.sol
+- **Zero overhead**: No impact on normal auction operations
+- **Event: `AuctionRecovered`**: Tracks recovery address and amount for transparency

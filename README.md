@@ -48,6 +48,7 @@ Two main contracts work together:
 3. **Anti-snipe**: Auction end time is extended for new bids placed near end. Parameters are configurable at auction start time.
 4. **Settlement**: When ended, anyone can settle to mint NFT and distribute payments.
 5. **Cancellation**: Auctions can be cancelled when active or ended with a signature from an offchain authorizer.
+6. **Emergency Recovery**: Contract owner can recover funds from stuck auctions (e.g., USDC blacklisted addresses) to a specified address.
 
 ## Quick Start
 
@@ -71,7 +72,7 @@ forge test
 ### Testing
 
 ```bash
-# Run all tests (189 total across 13 suites)
+# Run all tests
 forge test
 
 # Run with gas reporting

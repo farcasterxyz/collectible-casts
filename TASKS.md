@@ -1,13 +1,18 @@
 # Collectible Casts - New Tasks
 
-## 1. Add a BidRefunded event to auctions
+## 1. Add emergency auction recovery functionality
 
-When the auction contract refunds a bid, we should emit a `BidRefunded(address indexed to, amount uint256)` event. Please add this event and TDD your change.
+Add an `onlyOwner` emergency recovery function to handle stuck auctions due to transfer failures (e.g., USDC blacklisted addresses, malicious contract recipients, etc.).
 
-## 2. Add `refundedBidderFid` to `AuctionCancelled` event
+**Requirements:**
 
-We should add the FID of the refunded bidder to the `AuctionCancelled` event for consistency with the rest of the auction events. Please update this event and TDD your change.
+- Owner-only function (no offchain authorizer required)
+- Add new `Recovered` terminal state to `AuctionState` enum
+- Works on both Active and Ended auctions (treat both as emergency cancellation)
+- Refund highest bidder to specified recovery address (don't mint NFT)
+- Simple function signature: `recover(bytes32 castHash, address refundTo)`
+- Emit `AuctionRecovered` event with recovery details
+- Comprehensive testing including edge cases and state transitions
+- Should handle any transfer failure scenario (not just blacklisting)
 
-## 3. Allow cancellation of ended auctions
-
-We should allow cancellation of auctions in either Active or Ended state. This is a larger change to the state transitionst than items 1 and 2, so please thoroughly test it.
+This provides a clean "escape hatch" for DoS scenarios - essentially "emergency cancel with custom refund address".
