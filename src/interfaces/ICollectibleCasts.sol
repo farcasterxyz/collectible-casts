@@ -85,14 +85,14 @@ interface ICollectibleCasts {
 
     /**
      * @notice Grants minting permission
-     * @param account Address to authorize
+     * @param account Address to allow
      * @dev Owner only
      */
     function allowMinter(address account) external;
 
     /**
      * @notice Revokes minting permission
-     * @param account Address to unauthorize
+     * @param account Address to deny
      * @dev Owner only
      */
     function denyMinter(address account) external;

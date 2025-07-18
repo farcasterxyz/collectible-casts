@@ -202,7 +202,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
     /**
      * @notice Grants signer authorization
-     * @param authorizer Address to authorize
+     * @param authorizer Address to allow
      * @dev Owner only
      */
     function allowAuthorizer(address authorizer) external onlyOwner {
@@ -213,7 +213,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
     /**
      * @notice Revokes signer authorization
-     * @param authorizer Address to unauthorize
+     * @param authorizer Address to deny
      * @dev Owner only
      */
     function denyAuthorizer(address authorizer) external onlyOwner {

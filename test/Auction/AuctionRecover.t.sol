@@ -280,4 +280,3 @@ contract AuctionRecoverTest is TestSuiteSetup, AuctionTestHelper {
         auction.start(cast, bid, params, auth);
     }
 }
-

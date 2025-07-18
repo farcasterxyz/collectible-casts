@@ -117,13 +117,13 @@ contract AuctionStateTest is Test, AuctionTestHelper {
         vm.assume(castHash != bytes32(0));
         bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         bidAmount = _bound(bidAmount, 1e6, 10000e6);
-        
+
         // Ensure nonce doesn't collide with the one used in _startAuction
         vm.assume(nonce != keccak256("start-nonce-1"));
-        
+
         // Try to bid on non-existent auction
         IAuction.BidData memory bidData = createBidData(bidderFid, bidAmount);
-        
+
         // Create a dummy signature (65 bytes) to avoid ECDSA errors
         bytes memory dummySignature = new bytes(65);
         IAuction.AuthData memory auth = createAuthData(nonce, block.timestamp + 1 hours, dummySignature);
