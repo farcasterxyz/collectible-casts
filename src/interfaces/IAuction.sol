@@ -150,7 +150,9 @@ interface IAuction {
     event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount); // Bid placed on auction
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime); // Auction end time extended due to late bid
     event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 winnerFid, uint256 amount); // Auction settled, NFT minted to winner
-    event AuctionCancelled(bytes32 indexed castHash, address indexed refundedBidder, address indexed authorizer); // Auction cancelled, highest bidder refunded
+    event AuctionCancelled(
+        bytes32 indexed castHash, address indexed refundedBidder, uint96 refundedBidderFid, address indexed authorizer
+    ); // Auction cancelled, highest bidder refunded
     event BidRefunded(address indexed to, uint256 amount); // USDC refunded to previous bidder
 
     /**

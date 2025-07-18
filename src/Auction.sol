@@ -140,10 +140,10 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
     /// @inheritdoc IAuction
     function cancel(bytes32 castHash, AuthData memory auth) external whenNotPaused {
-        // Auction must be active
+        // Auction must be active or ended (not settled or cancelled)
         AuctionState state = auctionState(castHash);
         if (state == AuctionState.None) revert AuctionNotFound();
-        if (state != AuctionState.Active) revert AuctionNotActive();
+        if (state != AuctionState.Active && state != AuctionState.Ended) revert AuctionNotActive();
 
         // Verify authorization
         if (block.timestamp > auth.deadline) revert DeadlineExpired();
@@ -160,6 +160,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         // Load refund info
         AuctionData storage auctionData = auctions[castHash];
         address refundAddress = auctionData.highestBidder;
+        uint96 refundBidderFid = auctionData.highestBidderFid;
         uint256 refundAmount = auctionData.highestBid;
 
         // Mark as cancelled
@@ -171,7 +172,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
             emit BidRefunded(refundAddress, refundAmount);
         }
 
-        emit AuctionCancelled(castHash, refundAddress, signer);
+        emit AuctionCancelled(castHash, refundAddress, refundBidderFid, signer);
     }
 
     // ========== PERMISSIONED FUNCTIONS ==========

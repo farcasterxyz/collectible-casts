@@ -11,7 +11,9 @@ import {TestSuiteSetup} from "../TestSuiteSetup.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
-    event AuctionCancelled(bytes32 indexed castHash, address indexed refundedBidder, address indexed authorizer);
+    event AuctionCancelled(
+        bytes32 indexed castHash, address indexed refundedBidder, uint96 refundedBidderFid, address indexed authorizer
+    );
     event BidRefunded(address indexed to, uint256 amount);
 
     Auction public auction;
@@ -81,22 +83,29 @@ contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
         auction.cancel(castHash, auth);
     }
 
-    function test_Cancel_RevertsIfAuctionNotActive_Ended() public {
+    function test_Cancel_AllowsEndedAuctions() public {
         // Create an auction and let it end
         bytes32 castHash = keccak256("test");
-        _createActiveAuction(castHash);
+        uint256 bidAmount = 50e6; // 50 USDC
+        _createActiveAuctionWithAmount(castHash, bidAmount);
+
+        uint256 bidderBalanceBefore = usdc.balanceOf(bidder);
+
+        // Prepare cancellation signature with deadline that will survive the warp
+        bytes32 nonce = keccak256("nonce");
+        uint256 deadline = block.timestamp + 3 days; // Set deadline longer than warp
+        bytes memory signature = _signCancellation(castHash, nonce, deadline, authorizerPk);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
         // Warp past auction end
         vm.warp(block.timestamp + 2 days);
 
-        // Try to cancel ended auction
-        bytes32 nonce = keccak256("nonce");
-        uint256 deadline = block.timestamp + 1 hours;
-        bytes memory signature = _signCancellation(castHash, nonce, deadline, authorizerPk);
-        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
-
-        vm.expectRevert(IAuction.AuctionNotActive.selector);
         auction.cancel(castHash, auth);
+
+        // Check refund
+        assertEq(usdc.balanceOf(bidder), bidderBalanceBefore + bidAmount);
+        // Check state
+        assertEq(uint8(auction.auctionState(castHash)), uint8(IAuction.AuctionState.Cancelled));
     }
 
     function test_Cancel_RevertsIfDeadlineExpired() public {
@@ -192,8 +201,8 @@ contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
         bytes memory signature = _signCancellation(castHash, nonce, deadline, authorizerPk);
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
-        vm.expectEmit(true, true, true, true);
-        emit AuctionCancelled(castHash, bidder, authorizer);
+        vm.expectEmit(true, true, false, true);
+        emit AuctionCancelled(castHash, bidder, 2, authorizer); // FID is 2 from createBidData(2, amount)
 
         auction.cancel(castHash, auth);
     }
@@ -287,10 +296,107 @@ contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
         emit BidRefunded(bidder, bidAmount);
 
         // Also expect AuctionCancelled event
-        vm.expectEmit(true, true, true, true);
-        emit AuctionCancelled(castHash, bidder, authorizer);
+        vm.expectEmit(true, true, false, true);
+        emit AuctionCancelled(castHash, bidder, 2, authorizer); // FID is 2 from createBidData(2, amount)
 
         auction.cancel(castHash, auth);
+    }
+
+    function test_Cancel_EmitsAuctionCancelledWithBidderFid() public {
+        bytes32 castHash = keccak256("test-fid");
+        uint96 expectedFid = 12345;
+        uint256 bidAmount = 150e6; // 150 USDC
+
+        // Create auction with specific FID
+        bytes32 startNonce = keccak256(abi.encodePacked("startNonce", castHash));
+        uint256 startDeadline = block.timestamp + 1 hours;
+
+        IAuction.CastData memory cast = createCastData(castHash, creator, 1);
+        IAuction.BidData memory bid = createBidData(expectedFid, bidAmount);
+        IAuction.AuctionParams memory params = createAuctionParams(1e6, 500, 1 days, 10 minutes, 10 minutes, 500);
+
+        bytes32 messageHash = auction.hashStartAuthorization(
+            castHash, creator, 1, bidder, expectedFid, bidAmount, params, startNonce, startDeadline
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        IAuction.AuthData memory auth = createAuthData(startNonce, startDeadline, signature);
+
+        vm.prank(bidder);
+        auction.start(cast, bid, params, auth);
+
+        // Now cancel and check event includes correct FID
+        bytes32 cancelNonce = keccak256("cancel-nonce");
+        uint256 cancelDeadline = block.timestamp + 1 hours;
+        bytes memory cancelSignature = _signCancellation(castHash, cancelNonce, cancelDeadline, authorizerPk);
+        IAuction.AuthData memory cancelAuth = createAuthData(cancelNonce, cancelDeadline, cancelSignature);
+
+        // Expect event with correct FID
+        vm.expectEmit(true, true, false, true);
+        emit AuctionCancelled(castHash, bidder, expectedFid, authorizer);
+
+        auction.cancel(castHash, cancelAuth);
+    }
+
+    function test_Cancel_RevertsIfCancelledAuctionAlreadyCancelled() public {
+        bytes32 castHash = keccak256("test-double-cancel");
+        _createActiveAuction(castHash);
+
+        // Cancel once
+        bytes32 nonce1 = keccak256("nonce1");
+        uint256 deadline1 = block.timestamp + 1 hours;
+        bytes memory signature1 = _signCancellation(castHash, nonce1, deadline1, authorizerPk);
+        IAuction.AuthData memory auth1 = createAuthData(nonce1, deadline1, signature1);
+        auction.cancel(castHash, auth1);
+
+        // Try to cancel again
+        bytes32 nonce2 = keccak256("nonce2");
+        uint256 deadline2 = block.timestamp + 1 hours;
+        bytes memory signature2 = _signCancellation(castHash, nonce2, deadline2, authorizerPk);
+        IAuction.AuthData memory auth2 = createAuthData(nonce2, deadline2, signature2);
+
+        vm.expectRevert(IAuction.AuctionNotActive.selector);
+        auction.cancel(castHash, auth2);
+    }
+
+    function test_Cancel_PreventsCancelAfterSettle() public {
+        bytes32 castHash = keccak256("test-settle-then-cancel");
+        _createActiveAuction(castHash);
+
+        // Warp past auction end and settle
+        vm.warp(block.timestamp + 2 days);
+        auction.settle(castHash);
+
+        // Try to cancel settled auction
+        bytes32 nonce = keccak256("nonce");
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory signature = _signCancellation(castHash, nonce, deadline, authorizerPk);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        vm.expectRevert(IAuction.AuctionNotActive.selector);
+        auction.cancel(castHash, auth);
+    }
+
+    function test_Cancel_PreventsSettleAfterCancel() public {
+        bytes32 castHash = keccak256("test-cancel-then-settle");
+        _createActiveAuction(castHash);
+
+        // Prepare cancellation signature with deadline that will survive the warp
+        bytes32 nonce = keccak256("nonce");
+        uint256 deadline = block.timestamp + 3 days; // Set deadline longer than warp
+        bytes memory signature = _signCancellation(castHash, nonce, deadline, authorizerPk);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        // Warp past auction end
+        vm.warp(block.timestamp + 2 days);
+
+        // Cancel first
+        auction.cancel(castHash, auth);
+
+        // Try to settle cancelled auction
+        vm.expectRevert(IAuction.AuctionIsCancelled.selector);
+        auction.settle(castHash);
     }
 
     function _createAndSettleAuction(bytes32 castHash) internal {
