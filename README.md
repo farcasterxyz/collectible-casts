@@ -74,7 +74,6 @@ In the event of a stuck auction, owner can "recover" an auction, cancelling it a
 
 ```mermaid
 stateDiagram-v2
-    [*] --> None: Initial state
     None --> Active: start()
     Active --> Ended: time expires
     Active --> Cancelled: cancel()
@@ -82,9 +81,6 @@ stateDiagram-v2
     Ended --> Settled: settle()
     Ended --> Cancelled: cancel()
     Ended --> Recovered: recover()
-    Settled --> [*]: Terminal state
-    Cancelled --> [*]: Terminal state
-    Recovered --> [*]: Terminal state
 ```
 
 ## Quick Start
@@ -119,9 +115,9 @@ forge test --gas-report
 forge coverage
 
 # Fuzz testing profiles
-forge test                    # Default: 2,048 runs
-FOUNDRY_PROFILE=ci forge test # CI: 10,000 runs
-FOUNDRY_PROFILE=deep forge test # Deep: 50,000 runs
+forge test
+FOUNDRY_PROFILE=ci forge test
+FOUNDRY_PROFILE=deep forge test
 ```
 
 ### Code Quality
