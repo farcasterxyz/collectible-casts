@@ -71,6 +71,7 @@ In the event of a stuck auction, owner can "recover" an auction, cancelling it a
 
 - Auctions will always use Base USDC. No weird ERC20s. No native ETH bidding.
 - "Push" refunds have some edge case risk in the event that a bidder is blacklisted by the USDC contract.
+- Authorizers and owner have a lot of control over the contract and parameters. We won't act maliciously and will try not to be stupid.
 
 ### Auction State Transitions
 
