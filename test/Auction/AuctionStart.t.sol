@@ -17,8 +17,8 @@ contract AuctionStartTest is AuctionTestBase {
     ) public {
         // Bound inputs
         vm.assume(castHash != bytes32(0));
-        vm.assume(creator != address(0));
-        vm.assume(bidder != address(0));
+        vm.assume(creator != address(0) && creator != address(auction));
+        vm.assume(bidder != address(0) && bidder != address(auction));
         vm.assume(creatorFid != 0);
         vm.assume(bidderFid != 0);
         amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
