@@ -6,7 +6,7 @@ A new way for Farcaster users to financially support creators through collectibl
 
 Collectible Casts introduce a mechanism where every cast can be _collected_. If more than one user attempts to collect the same cast within the bidding window, an ascending auction determines the final owner and price. The winning bidder receives an ERC721 token representing the collectible, minted directly to their wallet. 90% of the winning bid goes to the creator; the remaining 10% accrues to the protocol treasury for growth incentives.
 
-For more details see the product doc [here](https://farcasterhq.notion.site/Collectibles-2306a6c0c10180d7a917c24892662a3c)
+For more details see the product doc [here](https://farcasterhq.notion.site/Collectibles-2306a6c0c10180d7a917c24892662a3c).
 
 ## Goals
 
@@ -71,7 +71,7 @@ In the event of a stuck auction, owner can "recover" an auction, cancelling it a
 
 - Auctions will always use Base USDC. No weird ERC20s. No native ETH bidding.
 - "Push" refunds have some edge case risk in the event that a bidder is blacklisted by the USDC contract.
-- Authorizers and owner have a lot of control over the contract and parameters. We won't act maliciously and will try not to be stupid.
+- Authorizers and owner have a lot of control over the contract and parameters. We will do our best not to be stupid.
 
 ### Auction State Transitions
 
