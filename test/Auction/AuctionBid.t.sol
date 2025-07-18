@@ -9,6 +9,8 @@ import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {AuctionTestHelper} from "./AuctionTestHelper.sol";
 
 contract AuctionBidTest is Test, AuctionTestHelper {
+    event BidRefunded(address indexed to, uint256 amount);
+
     Auction public auction;
     MockUSDC public usdc;
     CollectibleCasts public collectibleCast;
@@ -592,6 +594,45 @@ contract AuctionBidTest is Test, AuctionTestHelper {
         // Should fail due to different chain id in signature
         vm.prank(secondBidder);
         vm.expectRevert(IAuction.Unauthorized.selector);
+        auction.bid(TEST_CAST_HASH, bidData, auth);
+    }
+
+    function test_Bid_EmitsBidRefundedEvent() public {
+        // Start auction with first bidder
+        address firstBidder = address(0x123);
+        uint96 firstBidderFid = 12345;
+        uint256 firstAmount = 100e6; // 100 USDC
+        _startAuction(firstBidder, firstBidderFid, firstAmount);
+
+        // Second bidder will outbid
+        address secondBidder = address(0x456);
+        uint96 secondBidderFid = 67890;
+        uint256 secondAmount = 200e6; // 200 USDC
+
+        // Prepare second bid
+        bytes32 nonce = keccak256("nonce");
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 messageHash =
+            auction.hashBidAuthorization(TEST_CAST_HASH, secondBidder, secondBidderFid, secondAmount, nonce, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerKey, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        usdc.mint(secondBidder, secondAmount);
+        vm.prank(secondBidder);
+        usdc.approve(address(auction), secondAmount);
+
+        IAuction.BidData memory bidData = createBidData(secondBidderFid, secondAmount);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        // Also expect BidPlaced event
+        vm.expectEmit(true, true, false, true);
+        emit BidPlaced(TEST_CAST_HASH, secondBidder, secondBidderFid, secondAmount);
+
+        // Expect BidRefunded event for first bidder
+        vm.expectEmit(true, false, false, true);
+        emit BidRefunded(firstBidder, firstAmount);
+
+        vm.prank(secondBidder);
         auction.bid(TEST_CAST_HASH, bidData, auth);
     }
 }

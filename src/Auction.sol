@@ -107,6 +107,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
         if (previousBidder != address(0)) {
             usdc.transfer(previousBidder, previousBid);
+            emit BidRefunded(previousBidder, previousBid);
         }
     }
 
@@ -120,6 +121,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         _permitAndTransfer(bidData.amount, permit);
         if (previousBidder != address(0)) {
             usdc.transfer(previousBidder, previousBid);
+            emit BidRefunded(previousBidder, previousBid);
         }
     }
 
@@ -166,6 +168,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         // Refund the highest bidder
         if (refundAmount > 0 && refundAddress != address(0)) {
             usdc.transfer(refundAddress, refundAmount);
+            emit BidRefunded(refundAddress, refundAmount);
         }
 
         emit AuctionCancelled(castHash, refundAddress, signer);

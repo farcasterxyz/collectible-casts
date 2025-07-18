@@ -12,6 +12,7 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 
 contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
     event AuctionCancelled(bytes32 indexed castHash, address indexed refundedBidder, address indexed authorizer);
+    event BidRefunded(address indexed to, uint256 amount);
 
     Auction public auction;
     MockCollectibleCasts public collectibleCast;
@@ -268,6 +269,28 @@ contract AuctionCancelTest is TestSuiteSetup, AuctionTestHelper {
         // Start auction
         vm.prank(bidder);
         auction.start(cast, bid, params, auth);
+    }
+
+    function test_Cancel_EmitsBidRefundedEvent() public {
+        bytes32 castHash = keccak256("test");
+        uint256 bidAmount = 100e6; // 100 USDC
+        _createActiveAuctionWithAmount(castHash, bidAmount);
+
+        // Prepare cancel authorization
+        bytes32 nonce = keccak256("nonce");
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory signature = _signCancellation(castHash, nonce, deadline, authorizerPk);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        // Expect BidRefunded event
+        vm.expectEmit(true, false, false, true);
+        emit BidRefunded(bidder, bidAmount);
+
+        // Also expect AuctionCancelled event
+        vm.expectEmit(true, true, true, true);
+        emit AuctionCancelled(castHash, bidder, authorizer);
+
+        auction.cancel(castHash, auth);
     }
 
     function _createAndSettleAuction(bytes32 castHash) internal {
