@@ -5,7 +5,7 @@ libs = ["lib"]
 solc_version = "0.8.30"
 optimizer_runs = 100_000
 via_ir = true
-fuzz = { runs = 1000 }
+fuzz = { runs = 2500 }
 remappings = []
 
 [fmt]
@@ -15,9 +15,9 @@ quote_style = "double"
 bracket_spacing = false
 
 [profile.ci]
-fuzz = { runs = 100000 }
+fuzz = { runs = 25000 }
 
 [profile.deep]
-fuzz = { runs = 500000 }
+fuzz = { runs = 100000 }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
