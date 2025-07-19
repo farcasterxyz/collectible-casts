@@ -16,7 +16,6 @@ Collectible Casts introduce a lightweight, on‑chain way for Farcaster users t
 ## 3 Non‑Goals
 
 - A fully‑featured secondary marketplace at launch.
-- Perfect on‑chain royalty enforcement across _all_ venues.
 - Support for arbitrary ERC‑20 payment tokens; we hardcode USDC for v1.
 
 ---
@@ -42,7 +41,6 @@ Responsibility: The core collectible token contract. This is the core immutable 
 
 - Use 32 byte cast hash as a synthetic token ID
 - Should also store the FID and address associated with each cast
-- Implements EIP‑2981 royalty info (5% royalty to creator).
 - Implement contract level and token level metadata functions
 - Default metadata "base URL" for contract and token metadata
 - Ability to set metadata URL per token

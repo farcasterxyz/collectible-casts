@@ -70,7 +70,7 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
 
         vm.prank(minter);
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        token.mint(recipient, castHash, creatorFid, creator);
+        token.mint(recipient, castHash, creatorFid);
     }
 
     function test_MintWithUri_RevertsWhenPaused() public {
@@ -82,7 +82,7 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
 
         vm.prank(minter);
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        token.mint(recipient, castHash, creatorFid, creator, tokenUri);
+        token.mint(recipient, castHash, creatorFid, tokenUri);
     }
 
     function test_Mint_SucceedsWhenUnpaused() public {
@@ -94,7 +94,7 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
         token.unpause();
 
         vm.prank(minter);
-        token.mint(recipient, castHash, creatorFid, creator);
+        token.mint(recipient, castHash, creatorFid);
 
         assertTrue(token.isMinted(castHash));
     }
@@ -105,7 +105,7 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
         address recipient2 = makeAddr("recipient2");
 
         vm.prank(minter);
-        token.mint(recipient, castHash, creatorFid, creator);
+        token.mint(recipient, castHash, creatorFid);
 
         vm.prank(owner);
         token.pause();
@@ -122,7 +122,7 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
         address recipient2 = makeAddr("recipient2");
 
         vm.prank(minter);
-        token.mint(recipient, castHash, creatorFid, creator);
+        token.mint(recipient, castHash, creatorFid);
 
         vm.prank(owner);
         token.pause();

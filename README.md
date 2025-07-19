@@ -20,7 +20,6 @@ For more details see the product doc [here](https://farcasterhq.notion.site/Coll
 ## Non-Goals
 
 - Our own secondary marketplace at launch
-- Perfect royalty enforcement across all marketplaces
 - Multiple clients at launch
 - Gasless bidding at launch
 - Support for arbitrary ERC20 payment tokens (Base USDC only)
@@ -36,7 +35,7 @@ Two contracts, `Auction` and `CollectibleCasts`:
 │    Auction      │ ──────────▶ │ CollectibleCasts│
 │                 │             │   (ERC-721)     │
 │ • USDC escrow   │             │ • NFT management│
-│ • Bid tracking  │             │ • Royalties     │
+│ • Bid tracking  │             │ • Metadata      │
 │ • Settlement    │             │ • Metadata      │
 └─────┬───────────┘             └─────────────────┘
       │ escrow

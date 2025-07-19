@@ -54,7 +54,7 @@ Instead of `--private-key`, you can use:
 
 The contracts are deployed in this specific order to handle dependencies:
 
-1. **CollectibleCasts** - Main ERC-721 token contract with integrated royalties
+1. **CollectibleCasts** - Main ERC-721 token contract
 2. **Auction** - Auction system (depends on CollectibleCasts and USDC)
 
 ## Post-Deployment Configuration

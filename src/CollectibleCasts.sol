@@ -3,7 +3,6 @@ pragma solidity 0.8.30;
 
 import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import {IERC2981} from "openzeppelin-contracts/contracts/interfaces/IERC2981.sol";
 import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
@@ -14,12 +13,7 @@ import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
  * @notice ERC-721 NFTs for Farcaster collectible casts
  * @custom:security-contact security@merklemanufactory.com
  */
-contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, IERC2981 {
-    /// @dev Basis points denominator (10,000 = 100%)
-    uint256 internal constant BPS_DENOMINATOR = 10_000;
-    /// @dev Royalty percentage in basis points (500 = 5%)
-    uint256 internal constant ROYALTY_BPS = 500;
-
+contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     /// @dev Mapping of address to minting authorization status
     mapping(address account => bool authorized) public minters;
     /// @dev Mapping of token ID to token metadata and creator info
@@ -42,7 +36,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
     }
 
     /// @inheritdoc ICollectibleCasts
-    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator) external whenNotPaused {
+    function mint(address to, bytes32 castHash, uint96 creatorFid) external whenNotPaused {
         if (!minters[msg.sender]) revert Unauthorized();
         if (castHash == bytes32(0)) revert InvalidInput();
         if (creatorFid == 0) revert InvalidFid();
@@ -51,17 +45,13 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         if (_tokenData[tokenId].fid != 0) revert AlreadyMinted();
 
         _tokenData[tokenId].fid = creatorFid;
-        _tokenData[tokenId].creator = creator;
 
         _mint(to, tokenId);
-        emit Mint(to, tokenId, castHash, creatorFid, creator);
+        emit Mint(to, tokenId, castHash, creatorFid);
     }
 
     /// @inheritdoc ICollectibleCasts
-    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator, string memory tokenUri)
-        external
-        whenNotPaused
-    {
+    function mint(address to, bytes32 castHash, uint96 creatorFid, string memory tokenUri) external whenNotPaused {
         if (!minters[msg.sender]) revert Unauthorized();
         if (castHash == bytes32(0)) revert InvalidInput();
         if (creatorFid == 0) revert InvalidFid();
@@ -70,11 +60,10 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         if (_tokenData[tokenId].fid != 0) revert AlreadyMinted();
 
         _tokenData[tokenId].fid = creatorFid;
-        _tokenData[tokenId].creator = creator;
         _tokenData[tokenId].uri = tokenUri;
 
         _mint(to, tokenId);
-        emit Mint(to, tokenId, castHash, creatorFid, creator);
+        emit Mint(to, tokenId, castHash, creatorFid);
     }
 
     /// @inheritdoc ICollectibleCasts
@@ -140,30 +129,9 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
         return string.concat(_baseURIString, "contract");
     }
 
-    /// @inheritdoc IERC2981
-    function royaltyInfo(uint256 tokenId, uint256 salePrice)
-        external
-        view
-        override
-        returns (address receiver, uint256 royaltyAmount)
-    {
-        address creator = _tokenData[tokenId].creator;
-        if (creator == address(0)) {
-            return (address(0), 0);
-        }
-
-        receiver = creator;
-        royaltyAmount = (salePrice * ROYALTY_BPS) / BPS_DENOMINATOR;
-    }
-
     /// @inheritdoc ICollectibleCasts
     function tokenFid(uint256 tokenId) external view returns (uint96) {
         return _tokenData[tokenId].fid;
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function tokenCreator(uint256 tokenId) external view returns (address) {
-        return _tokenData[tokenId].creator;
     }
 
     /// @inheritdoc ICollectibleCasts
@@ -196,16 +164,6 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts, 
      */
     function unpause() external onlyOwner {
         _unpause();
-    }
-
-    /**
-     * @notice Checks if contract supports a given interface
-     * @param interfaceId The interface identifier to check
-     * @return True if interface is supported
-     * @dev Supports ERC721, ERC2981, and ERC165 interfaces
-     */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, IERC165) returns (bool) {
-        return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /// @dev Returns base URI for token metadata

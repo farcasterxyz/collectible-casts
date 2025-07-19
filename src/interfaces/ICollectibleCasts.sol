@@ -9,12 +9,10 @@ interface ICollectibleCasts {
     /**
      * @notice Token metadata storage
      * @param fid Farcaster ID of the cast creator
-     * @param creator Creator's primary address at mint time (receives optional royalties)
      * @param uri Optional custom metadata URI
      */
     struct TokenData {
         uint96 fid;
-        address creator;
         string uri;
     }
 
@@ -29,9 +27,8 @@ interface ICollectibleCasts {
      * @param tokenId Token ID (uint256 representation of cast hash)
      * @param castHash Unique Farcaster cast identifier
      * @param fid Creator's Farcaster ID
-     * @param creator Creator's primary address at mint time
      */
-    event Mint(address indexed to, uint256 indexed tokenId, bytes32 indexed castHash, uint96 fid, address creator);
+    event Mint(address indexed to, uint256 indexed tokenId, bytes32 indexed castHash, uint96 fid);
 
     event BaseURISet(string baseURI); // Base metadata URI updated
     event MetadataUpdate(uint256 _tokenId); // Single token metadata updated (ERC-4906)
@@ -45,21 +42,19 @@ interface ICollectibleCasts {
      * @param to Recipient address
      * @param castHash Unique cast identifier
      * @param creatorFid Creator's Farcaster ID
-     * @param creator Creator's primary address at mint time
      * @dev Token ID = uint256(castHash)
      */
-    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator) external;
+    function mint(address to, bytes32 castHash, uint96 creatorFid) external;
 
     /**
      * @notice Mints a cast NFT with custom metadata
      * @param to Recipient address
      * @param castHash Unique cast identifier
      * @param creatorFid Creator's Farcaster ID
-     * @param creator Creator's primary address at mint time
      * @param tokenUri Custom metadata URI
      * @dev Custom URI takes precedence over base URI
      */
-    function mint(address to, bytes32 castHash, uint96 creatorFid, address creator, string memory tokenUri) external;
+    function mint(address to, bytes32 castHash, uint96 creatorFid, string memory tokenUri) external;
 
     /**
      * @notice Sets base URI for token metadata
@@ -117,13 +112,6 @@ interface ICollectibleCasts {
      * @return Creator's FID
      */
     function tokenFid(uint256 tokenId) external view returns (uint96);
-
-    /**
-     * @notice Gets cast creator's primary address
-     * @param tokenId Token to query
-     * @return Creator's address (royalty recipient)
-     */
-    function tokenCreator(uint256 tokenId) external view returns (address);
 
     /**
      * @notice Gets token metadata URI

@@ -146,14 +146,14 @@ contract AuctionStateTest is AuctionTestBase {
     function test_StateTransition_ActiveToCancelled() public {
         bytes32 castHash = TEST_CAST_HASH;
         _startAuction(castHash);
-        
+
         // Active state
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Active));
-        
+
         // Creator cancels
         vm.prank(address(0x789)); // creator
         _cancelAuction(castHash);
-        
+
         // Should now be Cancelled
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Cancelled));
     }
@@ -161,14 +161,14 @@ contract AuctionStateTest is AuctionTestBase {
     function test_StateTransition_ActiveToRecovered() public {
         bytes32 castHash = TEST_CAST_HASH;
         _startAuction(castHash);
-        
+
         // Active state
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Active));
-        
+
         // Owner recovers
         vm.prank(auction.owner());
         auction.recover(castHash, address(0x999));
-        
+
         // Should now be Recovered
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Recovered));
     }
@@ -177,17 +177,17 @@ contract AuctionStateTest is AuctionTestBase {
     function test_StateTransition_EndedToCancelled() public {
         bytes32 castHash = TEST_CAST_HASH;
         _startAuction(castHash);
-        
+
         // Fast forward past end time
         vm.warp(block.timestamp + 25 hours);
-        
+
         // Ended state
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Ended));
-        
+
         // Creator cancels
         vm.prank(address(0x789)); // creator
         _cancelAuction(castHash);
-        
+
         // Should now be Cancelled
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Cancelled));
     }
@@ -195,17 +195,17 @@ contract AuctionStateTest is AuctionTestBase {
     function test_StateTransition_EndedToRecovered() public {
         bytes32 castHash = TEST_CAST_HASH;
         _startAuction(castHash);
-        
+
         // Fast forward past end time
         vm.warp(block.timestamp + 25 hours);
-        
+
         // Ended state
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Ended));
-        
+
         // Owner recovers
         vm.prank(auction.owner());
         auction.recover(castHash, address(0x999));
-        
+
         // Should now be Recovered
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Recovered));
     }
@@ -214,14 +214,14 @@ contract AuctionStateTest is AuctionTestBase {
     function test_SettledAuctionCannotBeSettledAgain() public {
         bytes32 castHash = TEST_CAST_HASH;
         _startAuction(castHash);
-        
+
         // Fast forward and settle
         vm.warp(block.timestamp + 25 hours);
         auction.settle(castHash);
-        
+
         // Verify Settled state
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Settled));
-        
+
         // Cannot settle again
         vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(castHash);
@@ -230,13 +230,13 @@ contract AuctionStateTest is AuctionTestBase {
     function test_CancelledAuctionCannotBeSettled() public {
         bytes32 castHash = TEST_CAST_HASH;
         _startAuction(castHash);
-        
+
         // Cancel auction
         _cancelAuction(castHash);
-        
+
         // Verify Cancelled state
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Cancelled));
-        
+
         // Cannot settle cancelled auction
         vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(castHash);
@@ -245,14 +245,14 @@ contract AuctionStateTest is AuctionTestBase {
     function test_RecoveredAuctionCannotBeSettled() public {
         bytes32 castHash = TEST_CAST_HASH;
         _startAuction(castHash);
-        
+
         // Recover auction
         vm.prank(auction.owner());
         auction.recover(castHash, address(0x999));
-        
+
         // Verify Recovered state
         assertEq(uint256(auction.auctionState(castHash)), uint256(IAuction.AuctionState.Recovered));
-        
+
         // Cannot settle recovered auction
         vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(castHash);
@@ -260,18 +260,19 @@ contract AuctionStateTest is AuctionTestBase {
 
     function test_NonExistentAuctionCannotTransition() public {
         bytes32 nonExistentCastHash = keccak256("non-existent");
-        
+
         // Verify None state
         assertEq(uint256(auction.auctionState(nonExistentCastHash)), uint256(IAuction.AuctionState.None));
-        
+
         // Cannot settle
         vm.expectRevert(IAuction.AuctionNotEnded.selector);
         auction.settle(nonExistentCastHash);
-        
+
         // Cannot bid
         IAuction.BidData memory bidData = createBidData(12345, 2e6);
         bytes memory dummySignature = new bytes(65);
-        IAuction.AuthData memory auth2 = createAuthData(keccak256("test-nonce"), block.timestamp + 1 hours, dummySignature);
+        IAuction.AuthData memory auth2 =
+            createAuthData(keccak256("test-nonce"), block.timestamp + 1 hours, dummySignature);
         vm.expectRevert(IAuction.AuctionNotActive.selector);
         auction.bid(nonExistentCastHash, bidData, auth2);
     }
