@@ -14,7 +14,6 @@ contract AuctionRecoverTest is AuctionTestBase {
         super.setUp();
         recoveryAddress = makeAddr("recoveryAddress");
 
-        // Fund the bidder with USDC (matching the original setup)
         usdc.mint(bidder, 10000e6);
         vm.prank(bidder);
         usdc.approve(address(auction), type(uint256).max);
@@ -24,7 +23,6 @@ contract AuctionRecoverTest is AuctionTestBase {
         bytes32 castHash = keccak256("test");
         _createActiveAuction(castHash);
 
-        // Try to recover as non-owner
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         auction.recover(castHash, recoveryAddress);
     }
@@ -193,7 +191,6 @@ contract AuctionRecoverTest is AuctionTestBase {
         assertEq(uint8(auction.auctionState(castHash)), uint8(IAuction.AuctionState.Recovered));
     }
 
-    // Helper functions
     function _createActiveAuction(bytes32 castHash) internal {
         _createActiveAuctionWithAmount(castHash, 10e6);
     }

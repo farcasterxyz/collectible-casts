@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 import {IAuction} from "../../src/interfaces/IAuction.sol";
 
 contract AuctionTestHelper {
-    // Helper functions to create structs for cleaner tests
     function createCastData(bytes32 castHash, address creator, uint96 creatorFid)
         internal
         pure

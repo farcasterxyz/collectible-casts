@@ -11,6 +11,7 @@ contract AuctionSettleTest is AuctionTestBase {
     function testFuzz_Settle_Success(address bidder, uint96 bidderFid, uint256 amount) public {
         // Bound inputs
         vm.assume(bidder != address(0));
+        vm.assume(bidder != address(auction));
         bidderFid = uint96(_bound(bidderFid, 1, type(uint96).max));
         amount = _bound(amount, 1e6, 1000000e6); // 1 to 1,000,000 USDC
 
@@ -166,8 +167,6 @@ contract AuctionSettleTest is AuctionTestBase {
 
     function test_BatchSettle_EmptyArray() public {
         bytes32[] memory emptyCastHashes = new bytes32[](0);
-
-        // Should not revert with empty array
         auction.batchSettle(emptyCastHashes);
     }
 

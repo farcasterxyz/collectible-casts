@@ -10,7 +10,6 @@ import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
 
 contract AuctionBidTest is AuctionTestBase {
-    // Import events from interface where possible
     event BidRefunded(address indexed to, uint256 amount);
     event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount);
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime);
@@ -477,5 +476,49 @@ contract AuctionBidTest is AuctionTestBase {
 
         vm.prank(secondBidder);
         auction.bid(TEST_CAST_HASH, bidData, auth);
+    }
+
+    function test_Bid_AllowsSelfBidding() public {
+        // Start auction first with a different bidder
+        address firstBidder = address(0x123);
+        uint96 firstBidderFid = 12345;
+        uint256 firstAmount = 1e6;
+        _startAuctionWithParams(
+            TEST_CAST_HASH,
+            DEFAULT_CREATOR,
+            DEFAULT_CREATOR_FID,
+            firstBidder,
+            firstBidderFid,
+            firstAmount,
+            _getDefaultAuctionParams()
+        );
+
+        // Bid as the creator - should succeed
+        uint96 creatorBidderFid = 99999;
+        uint256 creatorAmount = 2e6;
+        bytes32 nonce = keccak256("bid-nonce-creator");
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes32 messageHash = auction.hashBidAuthorization(
+            TEST_CAST_HASH, DEFAULT_CREATOR, creatorBidderFid, creatorAmount, nonce, deadline
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(authorizerPk, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        usdc.mint(DEFAULT_CREATOR, creatorAmount);
+        vm.prank(DEFAULT_CREATOR);
+        usdc.approve(address(auction), creatorAmount);
+
+        IAuction.BidData memory bidData = createBidData(creatorBidderFid, creatorAmount);
+        IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
+
+        // Should succeed - self-bidding is now allowed
+        vm.prank(DEFAULT_CREATOR);
+        auction.bid(TEST_CAST_HASH, bidData, auth);
+
+        // Verify creator is now the highest bidder
+        (,, address highestBidder,, uint256 highestBid,,,,,) = auction.auctions(TEST_CAST_HASH);
+        assertEq(highestBidder, DEFAULT_CREATOR);
+        assertEq(highestBid, creatorAmount);
     }
 }

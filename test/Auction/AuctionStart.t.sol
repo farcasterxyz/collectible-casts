@@ -219,10 +219,8 @@ contract AuctionStartTest is AuctionTestBase {
         belowMinAmount = _bound(belowMinAmount, 1, 0.99e6); // Below 1 USDC minimum
         uint256 deadline = block.timestamp + 1 hours;
 
-        // Create structs using helper functions
         IAuction.CastData memory castData = createCastData(castHash, creator, creatorFid);
         IAuction.BidData memory bidData = createBidData(bidderFid, belowMinAmount);
-        // Auction params with 1 USDC minimum
         IAuction.AuctionParams memory params = createAuctionParams(
             1e6, // minBid
             1000, // minBidIncrement
@@ -256,6 +254,7 @@ contract AuctionStartTest is AuctionTestBase {
         public
     {
         vm.assume(bidder != address(0));
+        vm.assume(bidder != address(auction));
         vm.assume(bidderFid != 0);
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
@@ -290,6 +289,7 @@ contract AuctionStartTest is AuctionTestBase {
     {
         // Setup
         vm.assume(bidder != address(0));
+        vm.assume(bidder != address(auction));
         vm.assume(bidderFid > 0);
         amount = _bound(amount, 1e6, 10000e6); // 1 to 10,000 USDC
 
@@ -398,6 +398,7 @@ contract AuctionStartTest is AuctionTestBase {
         public
     {
         vm.assume(bidder != address(0));
+        vm.assume(bidder != address(auction));
         vm.assume(bidderFid != 0);
         amount = _bound(amount, 1e6, 10000e6);
         uint256 deadline = block.timestamp + 1 hours;
@@ -473,6 +474,7 @@ contract AuctionStartTest is AuctionTestBase {
         public
     {
         vm.assume(bidder != address(0));
+        vm.assume(bidder != address(auction));
         vm.assume(bidderFid != 0);
         lowAmount = _bound(lowAmount, 1, 0.99e6); // Below 1 USDC minimum
         uint256 deadline = block.timestamp + 1 hours;

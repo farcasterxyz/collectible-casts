@@ -166,7 +166,7 @@ contract AuctionTest is AuctionTestBase {
 
     function testFuzz_DenyAuthorizer_NotPreviouslyAllowed(address authorizerToDeny) public {
         vm.assume(authorizerToDeny != address(0));
-        vm.assume(authorizerToDeny != authorizer); // Not the already-allowed authorizer from base setup
+        vm.assume(authorizerToDeny != authorizer);
 
         assertFalse(auction.authorizers(authorizerToDeny));
 
@@ -177,7 +177,6 @@ contract AuctionTest is AuctionTestBase {
         vm.prank(auction.owner());
         auction.denyAuthorizer(authorizerToDeny);
 
-        // Still false
         assertFalse(auction.authorizers(authorizerToDeny));
     }
 

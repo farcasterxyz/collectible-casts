@@ -32,7 +32,7 @@ abstract contract AuctionTestBase is TestSuiteSetup, AuctionTestHelper {
 
     // ========== Common Test Constants ==========
     bytes32 public constant TEST_CAST_HASH = keccak256("test-cast");
-    address public constant DEFAULT_CREATOR = address(0x789);
+    address public DEFAULT_CREATOR;
     uint96 public constant DEFAULT_CREATOR_FID = 67890;
     uint96 public constant DEFAULT_BIDDER_FID = 12345;
     uint256 public constant DEFAULT_BID_AMOUNT = 100e6; // 100 USDC
@@ -80,6 +80,7 @@ abstract contract AuctionTestBase is TestSuiteSetup, AuctionTestHelper {
         (creator, creatorPk) = makeAddrAndKey("creator");
         (bidder, bidderPk) = makeAddrAndKey("bidder");
         (bidder2, bidder2Pk) = makeAddrAndKey("bidder2");
+        DEFAULT_CREATOR = creator;
     }
 
     // ========== USDC Helpers ==========

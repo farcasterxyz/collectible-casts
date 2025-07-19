@@ -5,7 +5,6 @@ import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {AuctionTestBase} from "./AuctionTestBase.sol";
 
 contract AuctionPermitTest is AuctionTestBase {
-    // Permit signature domain
     bytes32 private constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 
