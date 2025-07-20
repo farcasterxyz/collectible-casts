@@ -73,18 +73,6 @@ contract CollectibleCastsPausableTest is TestSuiteSetup {
         token.mint(recipient, castHash, creatorFid);
     }
 
-    function test_MintWithUri_RevertsWhenPaused() public {
-        bytes32 castHash = keccak256("test");
-        string memory tokenUri = "https://example.com/token";
-
-        vm.prank(owner);
-        token.pause();
-
-        vm.prank(minter);
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        token.mint(recipient, castHash, creatorFid, tokenUri);
-    }
-
     function test_Mint_SucceedsWhenUnpaused() public {
         bytes32 castHash = keccak256("test");
 

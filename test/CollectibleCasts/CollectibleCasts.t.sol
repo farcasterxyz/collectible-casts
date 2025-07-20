@@ -160,7 +160,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
         token.allowMinter(minter);
 
         vm.expectEmit(true, true, true, true);
-        emit ICollectibleCasts.Mint(recipient, tokenId, castHash, fid);
+        emit ICollectibleCasts.Mint(recipient, tokenId, fid, castHash);
 
         vm.prank(minter);
         token.mint(recipient, castHash, fid);
@@ -300,22 +300,6 @@ contract CollectibleCastsTest is TestSuiteSetup {
         token.tokenURI(nonExistentTokenId);
     }
 
-    function test_Uri_ReturnsTokenSpecificURI() public {
-        // Mint a token with a specific URI
-        address minterAddr = makeAddr("minter");
-        bytes32 castHash = keccak256("test");
-        uint256 tokenId = uint256(castHash);
-        string memory specificURI = "https://custom.example.com/token123";
-
-        vm.prank(owner);
-        token.allowMinter(minterAddr);
-        vm.prank(minterAddr);
-        token.mint(alice, castHash, 123, specificURI);
-
-        // Test that tokenURI returns the token-specific URI
-        assertEq(token.tokenURI(tokenId), specificURI);
-    }
-
     function test_Uri_FallsBackToBaseURI() public {
         // Mint a token without a specific URI
         address minterAddr = makeAddr("minter");
@@ -366,7 +350,7 @@ contract CollectibleCastsTest is TestSuiteSetup {
         string memory customContractURI = "https://custom.com/contract-metadata";
 
         vm.expectEmit(true, true, true, true);
-        emit ICollectibleCasts.ContractURIUpdated(customContractURI);
+        emit ICollectibleCasts.ContractURIUpdated();
 
         vm.prank(owner);
         token.setContractURI(customContractURI);
@@ -405,35 +389,22 @@ contract CollectibleCastsTest is TestSuiteSetup {
         }
     }
 
-    function testFuzz_TokenData_ReturnsStoredData(bytes32 castHash, uint96 fid, address testCreator) public {
+    function testFuzz_TokenFid_ReturnsStoredFid(bytes32 castHash, uint96 fid) public {
         // Bound inputs
-        vm.assume(testCreator != address(0));
         vm.assume(castHash != bytes32(0)); // CastHash must be non-zero
         fid = uint96(_bound(uint256(fid), 1, type(uint96).max));
 
         address minterAddr = makeAddr("minter");
         uint256 tokenId = uint256(castHash);
-        string memory tokenURI = "https://example.com/specific-token";
 
-        // Mint a token with URI
+        // Mint a token
         vm.prank(owner);
         token.allowMinter(minterAddr);
         vm.prank(minterAddr);
-        token.mint(alice, castHash, fid, tokenURI);
+        token.mint(alice, castHash, fid);
 
-        // Test tokenData function returns correct data
-        ICollectibleCasts.TokenData memory data = token.tokenData(tokenId);
-        assertEq(data.fid, fid);
-        // creator field removed - royalties removed
-        assertEq(data.uri, tokenURI);
-    }
-
-    function test_TokenData_ReturnsEmptyForUnmintedToken() public view {
-        uint256 tokenId = uint256(keccak256("unminted"));
-        ICollectibleCasts.TokenData memory data = token.tokenData(tokenId);
-        assertEq(data.fid, 0);
-        // creator field removed
-        assertEq(data.uri, "");
+        // Test tokenFid function returns correct fid
+        assertEq(token.tokenFid(tokenId), fid);
     }
 
     function testFuzz_IsMinted_ReturnsTrueForMintedToken(bytes32 castHash, uint96 fid, address /* testCreator */ )
@@ -603,93 +574,6 @@ contract CollectibleCastsTest is TestSuiteSetup {
         }
     }
 
-    function test_BatchSetTokenURIs_OnlyOwner(address notOwner) public {
-        vm.assume(notOwner != owner);
-
-        uint256[] memory tokenIds = new uint256[](1);
-        string[] memory uris = new string[](1);
-        tokenIds[0] = 123;
-        uris[0] = "https://example.com/123";
-
-        vm.prank(notOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        token.setTokenURIs(tokenIds, uris);
-    }
-
-    function test_BatchSetTokenURIs_RevertsWithMismatchedArrays() public {
-        uint256[] memory tokenIds = new uint256[](2);
-        string[] memory uris = new string[](1);
-        tokenIds[0] = 123;
-        tokenIds[1] = 456;
-        uris[0] = "https://example.com/123";
-
-        vm.prank(owner);
-        vm.expectRevert(ICollectibleCasts.InvalidInput.selector);
-        token.setTokenURIs(tokenIds, uris);
-    }
-
-    function test_BatchSetTokenURIs_AllowsSettingForNonExistentToken() public {
-        uint256[] memory tokenIds = new uint256[](1);
-        string[] memory uris = new string[](1);
-        tokenIds[0] = 123;
-        uris[0] = "https://example.com/123";
-
-        // Should not revert when setting URI for non-existent token
-        vm.prank(owner);
-        token.setTokenURIs(tokenIds, uris);
-
-        // But tokenURI should still revert for unminted token
-        vm.expectRevert();
-        token.tokenURI(123);
-    }
-
-    function testFuzz_BatchSetTokenURIs_UpdatesExistingTokens(bytes32[3] memory castHashes, string[3] memory newURIs)
-        public
-    {
-        vm.assume(castHashes[0] != bytes32(0) && castHashes[1] != bytes32(0) && castHashes[2] != bytes32(0));
-        vm.assume(castHashes[0] != castHashes[1] && castHashes[0] != castHashes[2] && castHashes[1] != castHashes[2]);
-
-        vm.prank(owner);
-        token.allowMinter(minter);
-
-        // Mint tokens
-        uint256[] memory tokenIds = new uint256[](3);
-        for (uint256 i = 0; i < 3; i++) {
-            tokenIds[i] = uint256(castHashes[i]);
-            vm.prank(minter);
-            token.mint(alice, castHashes[i], uint96(i + 1));
-        }
-
-        // Prepare arrays for batch update
-        string[] memory uris = new string[](3);
-        for (uint256 i = 0; i < 3; i++) {
-            uris[i] = newURIs[i];
-        }
-
-        // Expect MetadataUpdate events
-        for (uint256 i = 0; i < 3; i++) {
-            vm.expectEmit(true, false, false, true);
-            emit ICollectibleCasts.MetadataUpdate(tokenIds[i]);
-        }
-
-        // Update URIs
-        vm.prank(owner);
-        token.setTokenURIs(tokenIds, uris);
-
-        // Verify updates
-        for (uint256 i = 0; i < 3; i++) {
-            // When an empty URI is set, it falls back to base URI + tokenId
-            if (bytes(newURIs[i]).length == 0) {
-                assertEq(
-                    token.tokenURI(tokenIds[i]),
-                    string(abi.encodePacked("https://example.com/", vm.toString(tokenIds[i])))
-                );
-            } else {
-                assertEq(token.tokenURI(tokenIds[i]), newURIs[i]);
-            }
-        }
-    }
-
     function testFuzz_Transfer_ToZeroAddress_Reverts(address from, bytes32 castHash, uint96 fid) public {
         vm.assume(from != address(0));
         vm.assume(castHash != bytes32(0));
@@ -794,174 +678,5 @@ contract CollectibleCastsTest is TestSuiteSetup {
         assertEq(token.balanceOf(from), 0);
         assertEq(token.balanceOf(address(validReceiver)), 1);
         assertEq(token.ownerOf(tokenId), address(validReceiver));
-    }
-
-    // Additional tests for mint() with URI parameter
-    function testFuzz_MintWithUri_Success(
-        address to,
-        bytes32 castHash,
-        uint96 fid,
-        address, /* tokenCreator */
-        string memory tokenUri
-    ) public {
-        vm.assume(to != address(0));
-        vm.assume(castHash != bytes32(0));
-        vm.assume(fid > 0);
-
-        vm.prank(owner);
-        token.allowMinter(minter);
-
-        // Calculate expected token ID
-        uint256 expectedTokenId = uint256(castHash);
-
-        // Expect mint event (same as regular mint)
-        vm.expectEmit(true, true, true, true);
-        emit ICollectibleCasts.Mint(to, expectedTokenId, castHash, fid);
-
-        vm.prank(minter);
-        token.mint(to, castHash, fid, tokenUri);
-
-        // Verify token was minted correctly
-        assertEq(token.ownerOf(expectedTokenId), to);
-        assertEq(token.tokenFid(expectedTokenId), fid);
-        // tokenCreator removed - royalties removed
-
-        // Verify URI was set
-        if (bytes(tokenUri).length > 0) {
-            assertEq(token.tokenURI(expectedTokenId), tokenUri);
-        } else {
-            // Empty URI falls back to base URI pattern
-            string memory expectedUri =
-                string(abi.encodePacked("https://example.com/", Strings.toString(expectedTokenId)));
-            assertEq(token.tokenURI(expectedTokenId), expectedUri);
-        }
-    }
-
-    function test_MintWithUri_EmptyString() public {
-        vm.prank(owner);
-        token.allowMinter(minter);
-
-        bytes32 castHash = keccak256("empty-uri-test");
-        string memory emptyUri = "";
-        uint256 tokenId = uint256(castHash);
-
-        vm.prank(minter);
-        token.mint(alice, castHash, 123, emptyUri);
-
-        // With empty URI, should fall back to base URI + tokenId
-        string memory expectedUri = string(abi.encodePacked("https://example.com/", Strings.toString(tokenId)));
-        assertEq(token.tokenURI(tokenId), expectedUri);
-    }
-
-    function test_MintWithUri_VeryLongUri() public {
-        vm.prank(owner);
-        token.allowMinter(minter);
-
-        bytes32 castHash = keccak256("long-uri-test");
-        // Create a very long URI (1000+ characters)
-        string memory longUri = "https://example.com/";
-        for (uint256 i = 0; i < 49; i++) {
-            longUri = string(abi.encodePacked(longUri, "verylongpathsegment/"));
-        }
-
-        uint256 tokenId = uint256(castHash);
-
-        vm.prank(minter);
-        token.mint(alice, castHash, 123, longUri);
-
-        assertEq(token.tokenURI(tokenId), longUri);
-    }
-
-    function test_MintWithUri_OverwritesWithSetTokenURIs() public {
-        vm.prank(owner);
-        token.allowMinter(minter);
-
-        bytes32 castHash = keccak256("overwrite-uri-test");
-        string memory initialUri = "https://initial.com/metadata.json";
-        string memory newUri = "https://new.com/metadata.json";
-        uint256 tokenId = uint256(castHash);
-
-        // Mint with initial URI
-        vm.prank(minter);
-        token.mint(alice, castHash, 123, initialUri);
-
-        assertEq(token.tokenURI(tokenId), initialUri);
-
-        // Overwrite with setTokenURIs
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = tokenId;
-        string[] memory uris = new string[](1);
-        uris[0] = newUri;
-
-        vm.prank(owner);
-        token.setTokenURIs(tokenIds, uris);
-
-        assertEq(token.tokenURI(tokenId), newUri);
-    }
-
-    function testFuzz_MintWithUri_RevertsWhenNotAllowedMinter(
-        address notMinter,
-        address to,
-        bytes32 castHash,
-        uint96 fid,
-        address, /* tokenCreator */
-        string memory tokenUri
-    ) public {
-        vm.assume(notMinter != address(0));
-        vm.assume(!token.minters(notMinter));
-        vm.assume(to != address(0));
-        vm.assume(castHash != bytes32(0));
-        vm.assume(fid > 0);
-
-        vm.prank(notMinter);
-        vm.expectRevert(ICollectibleCasts.Unauthorized.selector);
-        token.mint(to, castHash, fid, tokenUri);
-    }
-
-    function test_MintWithUri_RevertsOnDoubleMint() public {
-        vm.prank(owner);
-        token.allowMinter(minter);
-
-        bytes32 castHash = keccak256("double-mint-uri-test");
-        string memory uri1 = "https://first.com/metadata.json";
-        string memory uri2 = "https://second.com/metadata.json";
-
-        // First mint succeeds
-        vm.prank(minter);
-        token.mint(alice, castHash, 123, uri1);
-
-        // Second mint with same castHash fails
-        vm.prank(minter);
-        vm.expectRevert(ICollectibleCasts.AlreadyMinted.selector);
-        token.mint(bob, castHash, 456, uri2);
-    }
-
-    function test_MintWithUri_RevertsWithZeroCastHash() public {
-        vm.prank(owner);
-        token.allowMinter(minter);
-
-        bytes32 zeroCastHash = bytes32(0);
-        string memory uri = "https://example.com/metadata.json";
-
-        vm.prank(minter);
-        vm.expectRevert(ICollectibleCasts.InvalidInput.selector);
-        token.mint(alice, zeroCastHash, 123, uri);
-    }
-
-    function testFuzz_MintWithUri_RevertsWithZeroFid(
-        address to,
-        bytes32 castHash,
-        address, /* tokenCreator */
-        string memory tokenUri
-    ) public {
-        vm.assume(to != address(0));
-        vm.assume(castHash != bytes32(0));
-
-        vm.prank(owner);
-        token.allowMinter(minter);
-
-        vm.prank(minter);
-        vm.expectRevert(ICollectibleCasts.InvalidFid.selector);
-        token.mint(to, castHash, 0, tokenUri);
     }
 }

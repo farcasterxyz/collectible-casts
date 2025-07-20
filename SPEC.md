@@ -40,11 +40,11 @@ Collectible Casts introduce a lightweight, on‑chain way for Farcaster users t
 Responsibility: The core collectible token contract. This is the core immutable dependency and we must think carefully about the design. We should keep it as simple as possible.
 
 - Use 32 byte cast hash as a synthetic token ID
-- Should also store the FID and address associated with each cast
+- Should also store the FID associated with each cast
 - Implement contract level and token level metadata functions
 - Default metadata "base URL" for contract and token metadata
-- Ability to set metadata URL per token
 - Ability to set contract metadata URL
+- Support for optional metadata module that can handle custom metadata logic
 - Allow for multiple minters stored in a simple allowlist with allow/deny functions
 
 ### 5.5 `Auction`

@@ -7,20 +7,27 @@ import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
+import {IMetadata} from "./interfaces/IMetadata.sol";
 
 /**
  * @title CollectibleCasts
- * @notice ERC-721 NFTs for Farcaster collectible casts
+ * @notice Farcaster collectible casts
  * @custom:security-contact security@merklemanufactory.com
  */
 contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
-    /// @dev Mapping of address to minting authorization status
+    /// @dev Optional metadata module
+    IMetadata public metadata;
+
+    /// @dev Mapping of address to auth status
     mapping(address account => bool authorized) public minters;
-    /// @dev Mapping of token ID to token metadata and creator info
-    mapping(uint256 tokenId => ICollectibleCasts.TokenData data) internal _tokenData;
+
+    /// @dev Mapping of token ID to creator's Farcaster ID
+    mapping(uint256 tokenId => uint96 fid) internal _tokenFids;
+
     /// @dev Base URI for token metadata
     string internal _baseURIString;
-    /// @dev Contract-level metadata URI
+
+    /// @dev Contract metadata URI
     string internal _contractURIString;
 
     /**
@@ -42,28 +49,12 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
         if (creatorFid == 0) revert InvalidFid();
 
         uint256 tokenId = uint256(castHash);
-        if (_tokenData[tokenId].fid != 0) revert AlreadyMinted();
+        if (_tokenFids[tokenId] != 0) revert AlreadyMinted();
 
-        _tokenData[tokenId].fid = creatorFid;
-
-        _mint(to, tokenId);
-        emit Mint(to, tokenId, castHash, creatorFid);
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function mint(address to, bytes32 castHash, uint96 creatorFid, string memory tokenUri) external whenNotPaused {
-        if (!minters[msg.sender]) revert Unauthorized();
-        if (castHash == bytes32(0)) revert InvalidInput();
-        if (creatorFid == 0) revert InvalidFid();
-
-        uint256 tokenId = uint256(castHash);
-        if (_tokenData[tokenId].fid != 0) revert AlreadyMinted();
-
-        _tokenData[tokenId].fid = creatorFid;
-        _tokenData[tokenId].uri = tokenUri;
+        _tokenFids[tokenId] = creatorFid;
 
         _mint(to, tokenId);
-        emit Mint(to, tokenId, castHash, creatorFid);
+        emit Mint(to, tokenId, creatorFid, castHash);
     }
 
     /// @inheritdoc ICollectibleCasts
@@ -76,17 +67,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     /// @inheritdoc ICollectibleCasts
     function setContractURI(string memory contractURI_) external onlyOwner {
         _contractURIString = contractURI_;
-        emit ContractURIUpdated(contractURI_);
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function setTokenURIs(uint256[] memory tokenIds, string[] memory uris) external onlyOwner {
-        if (tokenIds.length != uris.length) revert InvalidInput();
-
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            _tokenData[tokenIds[i]].uri = uris[i];
-            emit MetadataUpdate(tokenIds[i]);
-        }
+        emit ContractURIUpdated();
     }
 
     /// @inheritdoc ICollectibleCasts
@@ -102,6 +83,14 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     }
 
     /// @inheritdoc ICollectibleCasts
+    function setMetadataModule(address module) external onlyOwner {
+        metadata = IMetadata(module);
+        emit MetadataModuleUpdated(module);
+        emit ContractURIUpdated();
+        emit BatchMetadataUpdate(0, type(uint256).max);
+    }
+
+    /// @inheritdoc ICollectibleCasts
     function tokenURI(uint256 tokenId)
         public
         view
@@ -111,9 +100,8 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     {
         _requireOwned(tokenId);
 
-        string memory tokenURIString = _tokenData[tokenId].uri;
-        if (bytes(tokenURIString).length > 0) {
-            return tokenURIString;
+        if (address(metadata) != address(0)) {
+            return metadata.tokenURI(tokenId);
         }
 
         string memory baseURI = _baseURI();
@@ -122,6 +110,10 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
 
     /// @inheritdoc ICollectibleCasts
     function contractURI() external view returns (string memory) {
+        if (address(metadata) != address(0)) {
+            return metadata.contractURI();
+        }
+
         if (bytes(_contractURIString).length > 0) {
             return _contractURIString;
         }
@@ -131,23 +123,17 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
 
     /// @inheritdoc ICollectibleCasts
     function tokenFid(uint256 tokenId) external view returns (uint96) {
-        return _tokenData[tokenId].fid;
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function tokenData(uint256 tokenId) external view returns (ICollectibleCasts.TokenData memory) {
-        return _tokenData[tokenId];
+        return _tokenFids[tokenId];
     }
 
     /// @inheritdoc ICollectibleCasts
     function isMinted(uint256 tokenId) external view returns (bool) {
-        return _tokenData[tokenId].fid != 0;
+        return _tokenFids[tokenId] != 0;
     }
 
     /// @inheritdoc ICollectibleCasts
     function isMinted(bytes32 castHash) external view returns (bool) {
-        uint256 tokenId = uint256(castHash);
-        return _tokenData[tokenId].fid != 0;
+        return _tokenFids[uint256(castHash)] != 0;
     }
 
     /**

@@ -1,21 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import {IMetadata} from "./IMetadata.sol";
+
 /**
  * @title ICollectibleCasts
  * @notice Interface for minting and managing Farcaster collectible cast NFTs
  */
 interface ICollectibleCasts {
-    /**
-     * @notice Token metadata storage
-     * @param fid Farcaster ID of the cast creator
-     * @param uri Optional custom metadata URI
-     */
-    struct TokenData {
-        uint96 fid;
-        string uri;
-    }
-
     error Unauthorized(); // Caller is unauthorized for this operation
     error AlreadyMinted(); // Token with this cast hash already exists
     error InvalidFid(); // Farcaster ID is zero or invalid
@@ -25,17 +17,18 @@ interface ICollectibleCasts {
      * @notice Emitted when a cast NFT is minted
      * @param to Recipient address
      * @param tokenId Token ID (uint256 representation of cast hash)
-     * @param castHash Unique Farcaster cast identifier
      * @param fid Creator's Farcaster ID
+     * @param castHash Unique Farcaster cast identifier
      */
-    event Mint(address indexed to, uint256 indexed tokenId, bytes32 indexed castHash, uint96 fid);
+    event Mint(address indexed to, uint256 indexed tokenId, uint96 indexed fid, bytes32 castHash);
 
     event BaseURISet(string baseURI); // Base metadata URI updated
     event MetadataUpdate(uint256 _tokenId); // Single token metadata updated (ERC-4906)
     event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId); // Multiple token metadata updated (ERC-4906)
-    event ContractURIUpdated(string contractURI); // Contract-level metadata URI updated
+    event ContractURIUpdated(); // Contract-level metadata URI updated
     event MinterAllowed(address indexed account); // Address granted minting permission
     event MinterDenied(address indexed account); // Address revoked minting permission
+    event MetadataModuleUpdated(address indexed newModule); // Metadata module address updated
 
     /**
      * @notice Mints a cast NFT
@@ -45,16 +38,6 @@ interface ICollectibleCasts {
      * @dev Token ID = uint256(castHash)
      */
     function mint(address to, bytes32 castHash, uint96 creatorFid) external;
-
-    /**
-     * @notice Mints a cast NFT with custom metadata
-     * @param to Recipient address
-     * @param castHash Unique cast identifier
-     * @param creatorFid Creator's Farcaster ID
-     * @param tokenUri Custom metadata URI
-     * @dev Custom URI takes precedence over base URI
-     */
-    function mint(address to, bytes32 castHash, uint96 creatorFid, string memory tokenUri) external;
 
     /**
      * @notice Sets base URI for token metadata
@@ -69,14 +52,6 @@ interface ICollectibleCasts {
      * @dev Owner only. For marketplace collection metadata.
      */
     function setContractURI(string memory contractURI_) external;
-
-    /**
-     * @notice Batch updates token URIs
-     * @param tokenIds Token IDs to update
-     * @param uris Corresponding new URIs
-     * @dev Owner only. Arrays must match length.
-     */
-    function setTokenURIs(uint256[] memory tokenIds, string[] memory uris) external;
 
     /**
      * @notice Grants minting permission
@@ -98,13 +73,6 @@ interface ICollectibleCasts {
      * @return Has minting permission
      */
     function minters(address account) external view returns (bool);
-
-    /**
-     * @notice Get complete token data
-     * @param tokenId Token to query
-     * @return Token metadata struct
-     */
-    function tokenData(uint256 tokenId) external view returns (TokenData memory);
 
     /**
      * @notice Gets cast creator's Farcaster ID
@@ -140,4 +108,17 @@ interface ICollectibleCasts {
      * @return Cast has been minted
      */
     function isMinted(bytes32 castHash) external view returns (bool);
+
+    /**
+     * @notice Sets the metadata module for delegating metadata functionality
+     * @param module Address of the metadata module (can be address(0) to disable)
+     * @dev Owner only. Emits MetadataModuleUpdated, ContractURIUpdated, and BatchMetadataUpdate.
+     */
+    function setMetadataModule(address module) external;
+
+    /**
+     * @notice Gets the current metadata module address
+     * @return The address of the metadata module (addess(0) if not set)
+     */
+    function metadata() external view returns (IMetadata);
 }
