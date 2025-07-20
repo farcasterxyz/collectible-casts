@@ -10,8 +10,8 @@ import {CollectibleCasts} from "../../src/CollectibleCasts.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
 
 contract AuctionBidTest is AuctionTestBase {
-    event BidRefunded(address indexed to, uint256 amount);
-    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount);
+    event BidRefunded(bytes32 indexed castHash, address indexed to, uint256 amount);
+    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount, address indexed authorizer);
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime);
 
     function testFuzz_Bid_Success(
@@ -468,11 +468,11 @@ contract AuctionBidTest is AuctionTestBase {
 
         // Also expect BidPlaced event
         vm.expectEmit(true, true, false, true);
-        emit BidPlaced(TEST_CAST_HASH, secondBidder, secondBidderFid, secondAmount);
+        emit BidPlaced(TEST_CAST_HASH, secondBidder, secondBidderFid, secondAmount, authorizer);
 
         // Expect BidRefunded event for first bidder
         vm.expectEmit(true, false, false, true);
-        emit BidRefunded(firstBidder, firstAmount);
+        emit BidRefunded(TEST_CAST_HASH, firstBidder, firstAmount);
 
         vm.prank(secondBidder);
         auction.bid(TEST_CAST_HASH, bidData, auth);

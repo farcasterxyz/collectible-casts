@@ -9,7 +9,7 @@ contract AuctionCancelTest is AuctionTestBase {
     event AuctionCancelled(
         bytes32 indexed castHash, address indexed refundedBidder, uint96 refundedBidderFid, address indexed authorizer
     );
-    event BidRefunded(address indexed to, uint256 amount);
+    event BidRefunded(bytes32 indexed castHash, address indexed to, uint256 amount);
 
     function setUp() public override {
         super.setUp();
@@ -233,7 +233,7 @@ contract AuctionCancelTest is AuctionTestBase {
 
         // Expect BidRefunded event
         vm.expectEmit(true, false, false, true);
-        emit BidRefunded(bidder, bidAmount);
+        emit BidRefunded(castHash, bidder, bidAmount);
 
         // Also expect AuctionCancelled event
         vm.expectEmit(true, true, false, true);

@@ -144,14 +144,14 @@ interface IAuction {
     event AuctionStarted(
         bytes32 indexed castHash, address indexed creator, uint96 creatorFid, uint40 endTime, address authorizer
     ); // New auction started with initial bid and signed parameters
-    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount); // Bid placed on auction
+    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount, address indexed authorizer); // Bid placed on auction
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime); // Auction end time extended due to late bid
     event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 winnerFid, uint256 amount); // Auction settled, NFT minted to winner
     event AuctionCancelled(
         bytes32 indexed castHash, address indexed refundedBidder, uint96 refundedBidderFid, address indexed authorizer
     ); // Auction cancelled, highest bidder refunded
     event AuctionRecovered(bytes32 indexed castHash, address indexed refundTo, uint256 amount); // Emergency recovery, funds sent to recovery address
-    event BidRefunded(address indexed to, uint256 amount); // USDC refunded to previous bidder
+    event BidRefunded(bytes32 indexed castHash, address indexed to, uint256 amount); // USDC refunded to previous bidder
 
     /**
      * @notice Starts an auction with prior USDC allowance

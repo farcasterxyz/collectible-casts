@@ -106,7 +106,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
         IERC20(usdc).transferFrom(msg.sender, address(this), bidData.amount);
         usdc.transfer(previousBidder, previousBid);
-        emit BidRefunded(previousBidder, previousBid);
+        emit BidRefunded(castHash, previousBidder, previousBid);
     }
 
     /// @inheritdoc IAuction
@@ -118,7 +118,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
         _permitAndTransfer(bidData.amount, permit);
         usdc.transfer(previousBidder, previousBid);
-        emit BidRefunded(previousBidder, previousBid);
+        emit BidRefunded(castHash, previousBidder, previousBid);
     }
 
     /// @inheritdoc IAuction
@@ -138,7 +138,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     function cancel(bytes32 castHash, AuthData memory auth) external whenNotPaused {
         // Auction must be active or ended (not settled or cancelled)
         AuctionState state = auctionState(castHash);
-        if (state != AuctionState.Active && state != AuctionState.Ended) revert AuctionNotActive();
+        if (state != AuctionState.Active && state != AuctionState.Ended) revert AuctionNotCancellable();
 
         // Verify authorization
         if (block.timestamp > auth.deadline) revert DeadlineExpired();
@@ -163,7 +163,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
         // Refund the highest bidder
         usdc.transfer(refundAddress, refundAmount);
-        emit BidRefunded(refundAddress, refundAmount);
+        emit BidRefunded(castHash, refundAddress, refundAmount);
 
         emit AuctionCancelled(castHash, refundAddress, refundBidderFid, signer);
     }
@@ -241,7 +241,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
 
     /**
      * @notice Pauses auctions
-     * @dev Owner only
+     * @dev Owner only. Emits Paused event.
      */
     function pause() external onlyOwner {
         _pause();
@@ -351,6 +351,9 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         // Auction must not exist
         if (auctionState(cast.castHash) != AuctionState.None) revert AuctionAlreadyExists();
 
+        // Cast token must not be minted
+        if (collectible.isMinted(cast.castHash)) revert AuctionAlreadyExists();
+
         // Validate cast parameters
         if (cast.castHash == bytes32(0)) revert InvalidCastHash();
         if (cast.creator == address(0)) revert InvalidAddress();
@@ -402,7 +405,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         });
 
         emit AuctionStarted(cast.castHash, cast.creator, cast.creatorFid, endTime, signer);
-        emit BidPlaced(cast.castHash, msg.sender, bidData.bidderFid, bidData.amount);
+        emit BidPlaced(cast.castHash, msg.sender, bidData.bidderFid, bidData.amount, signer);
     }
 
     function _bid(bytes32 castHash, BidData memory bidData, AuthData memory auth)
@@ -454,7 +457,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
             emit AuctionExtended(castHash, auctionData.endTime);
         }
 
-        emit BidPlaced(castHash, msg.sender, bidData.bidderFid, bidData.amount);
+        emit BidPlaced(castHash, msg.sender, bidData.bidderFid, bidData.amount, signer);
     }
 
     function _settle(bytes32 castHash) internal {

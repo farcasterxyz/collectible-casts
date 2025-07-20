@@ -2,10 +2,6 @@
 
 This directory contains deployment scripts for the CollectibleCasts contract suite.
 
-## Overview
-
-The deployment uses the ImmutableCreate2Factory for deterministic deployments across chains. This ensures that contracts have the same addresses on all networks where the factory is deployed.
-
 ## Scripts
 
 - **ImmutableCreate2Deployer.sol** - Base contract for CREATE2 deployments
@@ -64,19 +60,6 @@ The deployment script automatically:
 - Allows Auction contract to mint tokens on CollectibleCasts
 - Adds backend signer as auction authorizer
 - Transfers ownership of both contracts to the specified owner address
-
-## Base Mainnet Configuration
-
-The deployment is configured for Base mainnet with USDC hardcoded to: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
-
-## Deterministic Addresses
-
-By using CREATE2, contracts will have the same addresses across all networks where the ImmutableCreate2Factory (0x0000000000FFe8B47B3e2130213B802212439497) is deployed.
-
-To use custom salts for specific addresses, set the following environment variables in your `.env` file:
-
-- `COLLECTIBLE_CAST_CREATE2_SALT` - Salt for CollectibleCasts deployment
-- `AUCTION_CREATE2_SALT` - Salt for Auction deployment
 
 ## Testing Deployment
 
