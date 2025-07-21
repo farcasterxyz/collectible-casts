@@ -67,7 +67,7 @@ contract DeployCollectibleCastsTest is DeployCollectibleCasts, Test {
     function test_CollectibleCastsConfiguration() public view {
         assertTrue(deployed.collectibleCast.minters(address(deployed.auction)), "Auction not allowed to mint");
         assertEq(deployed.collectibleCast.owner(), deployer, "CollectibleCasts owner incorrect");
-        assertEq(deployed.collectibleCast.pendingOwner(), owner, "CollectibleCasts owner incorrect");
+        assertEq(deployed.collectibleCast.pendingOwner(), address(0), "CollectibleCasts pending owner incorrect");
     }
 
     function test_AuctionConfiguration() public view {
