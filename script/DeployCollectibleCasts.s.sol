@@ -108,7 +108,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
 
     function loadDeploymentParams() internal view returns (DeploymentParams memory params) {
         params.deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
-        params.owner = vm.envOr("OWNER_ADDRESS", params.owner);
+        params.owner = vm.envOr("OWNER_ADDRESS", params.deployer);
         params.treasury = vm.envAddress("TREASURY_ADDRESS");
         params.usdc = vm.envAddress("USDC_ADDRESS");
         params.backendSigner = vm.envAddress("BACKEND_SIGNER_ADDRESS");
