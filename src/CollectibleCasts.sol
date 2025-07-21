@@ -3,7 +3,6 @@ pragma solidity 0.8.30;
 
 import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {Pausable} from "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {ICollectibleCasts} from "./interfaces/ICollectibleCasts.sol";
@@ -22,7 +21,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     mapping(address account => bool authorized) public minters;
 
     /// @dev Mapping of token ID to creator's Farcaster ID
-    mapping(uint256 tokenId => uint96 fid) internal _tokenFids;
+    mapping(uint256 tokenId => uint256 fid) internal _tokenFids;
 
     /// @dev Base URI for token metadata
     string internal _baseURIString;
@@ -43,7 +42,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     }
 
     /// @inheritdoc ICollectibleCasts
-    function mint(address to, bytes32 castHash, uint96 creatorFid) external whenNotPaused {
+    function mint(address to, bytes32 castHash, uint256 creatorFid) external whenNotPaused {
         if (!minters[msg.sender]) revert Unauthorized();
         if (castHash == bytes32(0)) revert InvalidInput();
         if (creatorFid == 0) revert InvalidFid();
@@ -122,7 +121,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     }
 
     /// @inheritdoc ICollectibleCasts
-    function tokenFid(uint256 tokenId) external view returns (uint96) {
+    function tokenFid(uint256 tokenId) external view returns (uint256) {
         return _tokenFids[tokenId];
     }
 

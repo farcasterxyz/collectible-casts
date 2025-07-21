@@ -20,7 +20,7 @@ interface ICollectibleCasts {
      * @param fid Creator's Farcaster ID
      * @param castHash Unique Farcaster cast identifier
      */
-    event Mint(address indexed to, uint256 indexed tokenId, uint96 indexed fid, bytes32 castHash);
+    event Mint(address indexed to, uint256 indexed tokenId, uint256 indexed fid, bytes32 castHash);
 
     event BaseURISet(string baseURI); // Base metadata URI updated
     event MetadataUpdate(uint256 _tokenId); // Single token metadata updated (ERC-4906)
@@ -37,7 +37,7 @@ interface ICollectibleCasts {
      * @param creatorFid Creator's Farcaster ID
      * @dev Token ID = uint256(castHash)
      */
-    function mint(address to, bytes32 castHash, uint96 creatorFid) external;
+    function mint(address to, bytes32 castHash, uint256 creatorFid) external;
 
     /**
      * @notice Sets base URI for token metadata
@@ -79,7 +79,7 @@ interface ICollectibleCasts {
      * @param tokenId Token to query
      * @return Creator's FID
      */
-    function tokenFid(uint256 tokenId) external view returns (uint96);
+    function tokenFid(uint256 tokenId) external view returns (uint256);
 
     /**
      * @notice Gets token metadata URI

@@ -29,7 +29,7 @@ contract AuctionCancelTest is AuctionTestBase {
         bytes memory signature = _signCancelAuthorization(castHash, nonce, deadline);
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
-        vm.expectRevert(IAuction.AuctionNotActive.selector);
+        vm.expectRevert(IAuction.AuctionNotCancellable.selector);
         auction.cancel(castHash, auth);
     }
 
@@ -44,7 +44,7 @@ contract AuctionCancelTest is AuctionTestBase {
         bytes memory signature = _signCancelAuthorization(castHash, nonce, deadline);
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
-        vm.expectRevert(IAuction.AuctionNotActive.selector);
+        vm.expectRevert(IAuction.AuctionNotCancellable.selector);
         auction.cancel(castHash, auth);
     }
 
@@ -296,7 +296,7 @@ contract AuctionCancelTest is AuctionTestBase {
         bytes memory signature2 = _signCancelAuthorization(castHash, nonce2, deadline2);
         IAuction.AuthData memory auth2 = createAuthData(nonce2, deadline2, signature2);
 
-        vm.expectRevert(IAuction.AuctionNotActive.selector);
+        vm.expectRevert(IAuction.AuctionNotCancellable.selector);
         auction.cancel(castHash, auth2);
     }
 
@@ -314,7 +314,7 @@ contract AuctionCancelTest is AuctionTestBase {
         bytes memory signature = _signCancelAuthorization(castHash, nonce, deadline);
         IAuction.AuthData memory auth = createAuthData(nonce, deadline, signature);
 
-        vm.expectRevert(IAuction.AuctionNotActive.selector);
+        vm.expectRevert(IAuction.AuctionNotCancellable.selector);
         auction.cancel(castHash, auth);
     }
 

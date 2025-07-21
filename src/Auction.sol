@@ -479,7 +479,7 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         usdc.transfer(auctionData.creator, creatorAmount);
 
         // Mint NFT to the winner
-        collectible.mint(auctionData.highestBidder, castHash, uint96(auctionData.creatorFid));
+        collectible.mint(auctionData.highestBidder, castHash, uint256(auctionData.creatorFid));
 
         emit AuctionSettled(castHash, auctionData.highestBidder, auctionData.highestBidderFid, auctionData.highestBid);
     }
