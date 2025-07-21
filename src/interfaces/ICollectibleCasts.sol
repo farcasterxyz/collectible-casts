@@ -168,4 +168,25 @@ interface ICollectibleCasts {
      * @dev Only callable by contract owner. Emits Unpaused event.
      */
     function unpause() external;
+
+    /**
+     * @notice Emits a metadata update event for a single token
+     * @param tokenId The token ID whose metadata was updated
+     * @dev Only callable by the metadata module or owner. Emits MetadataUpdate event.
+     */
+    function emitMetadataUpdate(uint256 tokenId) external;
+
+    /**
+     * @notice Emits a batch metadata update event for multiple tokens
+     * @param fromTokenId The starting token ID (inclusive)
+     * @param toTokenId The ending token ID (inclusive)
+     * @dev Only callable by the metadata module or owner. Emits BatchMetadataUpdate event.
+     */
+    function emitBatchMetadataUpdate(uint256 fromTokenId, uint256 toTokenId) external;
+
+    /**
+     * @notice Emits a contract URI update event
+     * @dev Only callable by the metadata module or owner. Emits ContractURIUpdated event.
+     */
+    function emitContractURIUpdated() external;
 }

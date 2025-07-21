@@ -146,6 +146,24 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
         _unpause();
     }
 
+    /// @inheritdoc ICollectibleCasts
+    function emitMetadataUpdate(uint256 tokenId) external {
+        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
+        emit MetadataUpdate(tokenId);
+    }
+
+    /// @inheritdoc ICollectibleCasts
+    function emitBatchMetadataUpdate(uint256 fromTokenId, uint256 toTokenId) external {
+        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
+        emit BatchMetadataUpdate(fromTokenId, toTokenId);
+    }
+
+    /// @inheritdoc ICollectibleCasts
+    function emitContractURIUpdated() external {
+        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
+        emit ContractURIUpdated();
+    }
+
     /**
      * @notice Returns base URI for token metadata
      * @return Base URI string
