@@ -135,37 +135,18 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     }
 
     /// @inheritdoc IAuction
+    function batchCancel(bytes32[] calldata castHashes, AuthData[] calldata authDatas) external whenNotPaused {
+        uint256 length = castHashes.length;
+        if (length != authDatas.length) revert InvalidAuctionParams();
+
+        for (uint256 i = 0; i < length; ++i) {
+            _cancel(castHashes[i], authDatas[i]);
+        }
+    }
+
+    /// @inheritdoc IAuction
     function cancel(bytes32 castHash, AuthData memory auth) external whenNotPaused {
-        // Auction must be active or ended (not settled or cancelled)
-        AuctionState state = auctionState(castHash);
-        if (state != AuctionState.Active && state != AuctionState.Ended) revert AuctionNotCancellable();
-
-        // Verify authorization
-        if (block.timestamp > auth.deadline) revert DeadlineExpired();
-        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
-
-        // Validate signature
-        bytes32 digest = hashCancelAuthorization(castHash, auth.nonce, auth.deadline);
-        address signer = ECDSA.recover(digest, auth.signature);
-        if (!authorizers[signer]) revert Unauthorized();
-
-        // Mark nonce as used
-        usedNonces[auth.nonce] = true;
-
-        // Load refund info
-        AuctionData storage auctionData = auctions[castHash];
-        address refundAddress = auctionData.highestBidder;
-        uint96 refundBidderFid = auctionData.highestBidderFid;
-        uint256 refundAmount = auctionData.highestBid;
-
-        // Mark as cancelled
-        auctionData.state = AuctionState.Cancelled;
-
-        // Refund the highest bidder
-        usdc.transfer(refundAddress, refundAmount);
-        emit BidRefunded(castHash, refundAddress, refundAmount);
-
-        emit AuctionCancelled(castHash, refundAddress, refundBidderFid, signer);
+        _cancel(castHash, auth);
     }
 
     /// @inheritdoc IAuction
@@ -260,25 +241,20 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
     /// @inheritdoc IAuction
     function auctionState(bytes32 castHash) public view returns (AuctionState) {
         AuctionData storage auctionData = auctions[castHash];
+        AuctionState state = auctionData.state;
 
-        if (auctionData.endTime == 0) {
-            return AuctionState.None;
+        if (block.timestamp > auctionData.endTime && state == AuctionState.Active) {
+            return AuctionState.Ended;
         }
 
-        // If auction is in terminal state, return that state
-        if (
-            auctionData.state == AuctionState.Settled || auctionData.state == AuctionState.Cancelled
-                || auctionData.state == AuctionState.Recovered
-        ) {
-            return auctionData.state;
-        }
+        return state;
+    }
 
-        // Otherwise, check if auction is active or ended based on time
-        if (block.timestamp < auctionData.endTime) {
-            return AuctionState.Active;
-        }
-
-        return AuctionState.Ended;
+    /// @inheritdoc IAuction
+    function getAuction(bytes32 castHash) external view returns (AuctionData memory) {
+        AuctionData memory auction = auctions[castHash];
+        auction.state = auctionState(castHash);
+        return auction;
     }
 
     /// @inheritdoc IAuction
@@ -482,6 +458,39 @@ contract Auction is IAuction, Ownable2Step, Pausable, EIP712 {
         collectible.mint(auctionData.highestBidder, castHash, uint256(auctionData.creatorFid));
 
         emit AuctionSettled(castHash, auctionData.highestBidder, auctionData.highestBidderFid, auctionData.highestBid);
+    }
+
+    function _cancel(bytes32 castHash, AuthData memory auth) internal {
+        // Auction must be active or ended (not settled or cancelled)
+        AuctionState state = auctionState(castHash);
+        if (state != AuctionState.Active && state != AuctionState.Ended) revert AuctionNotCancellable();
+
+        // Verify authorization
+        if (block.timestamp > auth.deadline) revert DeadlineExpired();
+        if (usedNonces[auth.nonce]) revert NonceAlreadyUsed();
+
+        // Validate signature
+        bytes32 digest = hashCancelAuthorization(castHash, auth.nonce, auth.deadline);
+        address signer = ECDSA.recover(digest, auth.signature);
+        if (!authorizers[signer]) revert Unauthorized();
+
+        // Mark nonce as used
+        usedNonces[auth.nonce] = true;
+
+        // Load refund info
+        AuctionData storage auctionData = auctions[castHash];
+        address refundAddress = auctionData.highestBidder;
+        uint96 refundBidderFid = auctionData.highestBidderFid;
+        uint256 refundAmount = auctionData.highestBid;
+
+        // Mark as cancelled
+        auctionData.state = AuctionState.Cancelled;
+
+        // Refund the highest bidder
+        usdc.transfer(refundAddress, refundAmount);
+        emit BidRefunded(castHash, refundAddress, refundAmount);
+
+        emit AuctionCancelled(castHash, refundAddress, refundBidderFid, signer);
     }
 
     function _permitAndTransfer(uint256 amount, PermitData memory permit) internal {

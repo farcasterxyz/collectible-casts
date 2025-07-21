@@ -151,7 +151,9 @@ contract AuctionStartTest is AuctionTestBase {
     event AuctionStarted(
         bytes32 indexed castHash, address indexed creator, uint96 creatorFid, uint40 endTime, address authorizer
     );
-    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount, address indexed authorizer);
+    event BidPlaced(
+        bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount, address indexed authorizer
+    );
 
     function testFuzz_Start_RevertsInvalidProtocolFee(
         bytes32 castHash,

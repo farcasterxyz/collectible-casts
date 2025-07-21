@@ -144,7 +144,9 @@ interface IAuction {
     event AuctionStarted(
         bytes32 indexed castHash, address indexed creator, uint96 creatorFid, uint40 endTime, address authorizer
     ); // New auction started with initial bid and signed parameters
-    event BidPlaced(bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount, address indexed authorizer); // Bid placed on auction
+    event BidPlaced(
+        bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount, address indexed authorizer
+    ); // Bid placed on auction
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime); // Auction end time extended due to late bid
     event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 winnerFid, uint256 amount); // Auction settled, NFT minted to winner
     event AuctionCancelled(
@@ -219,6 +221,14 @@ interface IAuction {
     function cancel(bytes32 castHash, AuthData memory auth) external;
 
     /**
+     * @notice Batch cancels multiple auctions
+     * @param castHashes Array of cast identifiers
+     * @param authDatas Array of signature authorizations (must match castHashes length)
+     * @dev Reverts entire batch if any cancellation fails
+     */
+    function batchCancel(bytes32[] calldata castHashes, AuthData[] calldata authDatas) external;
+
+    /**
      * @notice Emergency recovery for stuck auctions
      * @param castHash Cast identifier
      * @param refundTo Address to send refund
@@ -232,6 +242,14 @@ interface IAuction {
      * @return Current state
      */
     function auctionState(bytes32 castHash) external view returns (AuctionState);
+
+    /**
+     * @notice Get auction data with calculated state
+     * @param castHash Cast identifier
+     * @return Auction data with current calculated state
+     * @dev Returns empty struct for non-existent auctions
+     */
+    function getAuction(bytes32 castHash) external view returns (AuctionData memory);
 
     /**
      * @notice Computes bid authorization hash
