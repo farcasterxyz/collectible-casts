@@ -91,6 +91,34 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     }
 
     /// @inheritdoc ICollectibleCasts
+    function emitMetadataUpdate(uint256 tokenId) external {
+        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
+        emit MetadataUpdate(tokenId);
+    }
+
+    /// @inheritdoc ICollectibleCasts
+    function emitBatchMetadataUpdate(uint256 fromTokenId, uint256 toTokenId) external {
+        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
+        emit BatchMetadataUpdate(fromTokenId, toTokenId);
+    }
+
+    /// @inheritdoc ICollectibleCasts
+    function emitContractURIUpdated() external {
+        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
+        emit ContractURIUpdated();
+    }
+
+    /// @inheritdoc ICollectibleCasts
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @inheritdoc ICollectibleCasts
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /// @inheritdoc ICollectibleCasts
     function tokenURI(uint256 tokenId)
         public
         view
@@ -134,34 +162,6 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     /// @inheritdoc ICollectibleCasts
     function isMinted(bytes32 castHash) external view returns (bool) {
         return _tokenFids[uint256(castHash)] != 0;
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function emitMetadataUpdate(uint256 tokenId) external {
-        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
-        emit MetadataUpdate(tokenId);
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function emitBatchMetadataUpdate(uint256 fromTokenId, uint256 toTokenId) external {
-        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
-        emit BatchMetadataUpdate(fromTokenId, toTokenId);
-    }
-
-    /// @inheritdoc ICollectibleCasts
-    function emitContractURIUpdated() external {
-        if (msg.sender != address(metadata) && msg.sender != owner()) revert Unauthorized();
-        emit ContractURIUpdated();
     }
 
     /**

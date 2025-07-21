@@ -41,6 +41,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
         console.log("========================================");
         console.log("Deploying CollectibleCasts contracts...");
         console.log("========================================");
+        console.log("Caller:", msg.sender);
         console.log("Deployer:", params.deployer);
         console.log("Owner:", params.owner);
         console.log("Treasury:", params.treasury);
@@ -100,9 +101,6 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
 
         console.log("Transferring ownership...");
         if (broadcast) vm.broadcast();
-        contracts.collectibleCast.transferOwnership(params.owner);
-
-        if (broadcast) vm.broadcast();
         contracts.auction.transferOwnership(params.owner);
 
         console.log("Configuration complete!");
@@ -110,7 +108,7 @@ contract DeployCollectibleCasts is ImmutableCreate2Deployer {
 
     function loadDeploymentParams() internal view returns (DeploymentParams memory params) {
         params.deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
-        params.owner = vm.envOr("OWNER_ADDRESS", params.deployer);
+        params.owner = vm.envOr("OWNER_ADDRESS", params.owner);
         params.treasury = vm.envAddress("TREASURY_ADDRESS");
         params.usdc = vm.envAddress("USDC_ADDRESS");
         params.backendSigner = vm.envAddress("BACKEND_SIGNER_ADDRESS");
