@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 /**
  * @title IMetadata
+ * @author Farcaster
  * @notice NFT metadata interface
  */
 interface IMetadata {

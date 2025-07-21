@@ -10,14 +10,15 @@ import {IMetadata} from "./interfaces/IMetadata.sol";
 
 /**
  * @title CollectibleCasts
+ * @author Farcaster
  * @notice Farcaster collectible casts
  * @custom:security-contact security@merklemanufactory.com
  */
 contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
-    /// @dev Optional metadata module
+    /// @notice Optional metadata module
     IMetadata public metadata;
 
-    /// @dev Mapping of address to auth status
+    /// @notice Mapping of address to auth status
     mapping(address account => bool authorized) public minters;
 
     /// @dev Mapping of token ID to creator's Farcaster ID
@@ -57,14 +58,14 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
     }
 
     /// @inheritdoc ICollectibleCasts
-    function setBaseURI(string memory baseURI_) external onlyOwner {
+    function setBaseURI(string calldata baseURI_) external onlyOwner {
         _baseURIString = baseURI_;
         emit BaseURISet(baseURI_);
         emit BatchMetadataUpdate(0, type(uint256).max);
     }
 
     /// @inheritdoc ICollectibleCasts
-    function setContractURI(string memory contractURI_) external onlyOwner {
+    function setContractURI(string calldata contractURI_) external onlyOwner {
         _contractURIString = contractURI_;
         emit ContractURIUpdated();
     }
@@ -135,23 +136,20 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
         return _tokenFids[uint256(castHash)] != 0;
     }
 
-    /**
-     * @notice Pauses all minting operations
-     * @dev Only callable by contract owner
-     */
+    /// @inheritdoc ICollectibleCasts
     function pause() external onlyOwner {
         _pause();
     }
 
-    /**
-     * @notice Resumes all minting operations
-     * @dev Only callable by contract owner
-     */
+    /// @inheritdoc ICollectibleCasts
     function unpause() external onlyOwner {
         _unpause();
     }
 
-    /// @dev Returns base URI for token metadata
+    /**
+     * @notice Returns base URI for token metadata
+     * @return Base URI string
+     */
     function _baseURI() internal view virtual override returns (string memory) {
         return _baseURIString;
     }

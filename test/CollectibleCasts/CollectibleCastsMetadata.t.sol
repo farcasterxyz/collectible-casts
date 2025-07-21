@@ -60,7 +60,7 @@ contract CollectibleCastsMetadataTest is TestSuiteSetup {
         token.mint(alice, castHash, creatorFid);
     }
 
-    function test_MetadataModule_StartsAsZeroAddress() public {
+    function test_MetadataModule_StartsAsZeroAddress() public view {
         assertEq(address(token.metadata()), address(0));
     }
 
@@ -96,7 +96,7 @@ contract CollectibleCastsMetadataTest is TestSuiteSetup {
         assertEq(token.contractURI(), "https://metadata.com/mock-contract");
     }
 
-    function test_ContractURI_FallsBackToDefaultWhenNoModule() public {
+    function test_ContractURI_FallsBackToDefaultWhenNoModule() public view {
         assertEq(token.contractURI(), "https://example.com/contract");
     }
 
@@ -107,7 +107,7 @@ contract CollectibleCastsMetadataTest is TestSuiteSetup {
         assertEq(token.tokenURI(tokenId), string.concat("https://metadata.com/mock-token-", Strings.toString(tokenId)));
     }
 
-    function test_TokenURI_FallsBackToDefaultWhenNoModule() public {
+    function test_TokenURI_FallsBackToDefaultWhenNoModule() public view {
         assertEq(token.tokenURI(tokenId), string.concat("https://example.com/", Strings.toString(tokenId)));
     }
 

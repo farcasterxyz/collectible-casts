@@ -259,7 +259,7 @@ abstract contract AuctionTestBase is TestSuiteSetup, AuctionTestHelper {
         assertEq(collectibleCast.ownerOf(tokenId), expectedOwner);
     }
 
-    function _assertTokenData(bytes32 castHash, uint96 expectedFid, address expectedCreator) internal view {
+    function _assertTokenData(bytes32 castHash, uint96 expectedFid, address /* expectedCreator */ ) internal view {
         uint256 tokenId = uint256(castHash);
         assertEq(collectibleCast.tokenFid(tokenId), expectedFid);
         // Creator parameter is no longer used after royalty removal

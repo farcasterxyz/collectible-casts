@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 /**
  * @title IERC20Permit
+ * @author Farcaster
  * @notice EIP-2612: Gasless token approvals via signatures
  */
 interface IERC20Permit {

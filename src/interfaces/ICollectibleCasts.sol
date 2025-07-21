@@ -5,6 +5,7 @@ import {IMetadata} from "./IMetadata.sol";
 
 /**
  * @title ICollectibleCasts
+ * @author Farcaster
  * @notice Interface for minting and managing Farcaster collectible cast NFTs
  */
 interface ICollectibleCasts {
@@ -22,13 +23,47 @@ interface ICollectibleCasts {
      */
     event Mint(address indexed to, uint256 indexed tokenId, uint256 indexed fid, bytes32 castHash);
 
-    event BaseURISet(string baseURI); // Base metadata URI updated
-    event MetadataUpdate(uint256 _tokenId); // Single token metadata updated (ERC-4906)
-    event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId); // Multiple token metadata updated (ERC-4906)
-    event ContractURIUpdated(); // Contract-level metadata URI updated
-    event MinterAllowed(address indexed account); // Address granted minting permission
-    event MinterDenied(address indexed account); // Address revoked minting permission
-    event MetadataModuleUpdated(address indexed newModule); // Metadata module address updated
+    /**
+     * @notice Emitted when base URI is updated
+     * @param baseURI New base URI
+     */
+    event BaseURISet(string baseURI);
+
+    /**
+     * @notice Emitted when a single token's metadata is updated (ERC-4906)
+     * @param _tokenId Token ID whose metadata was updated
+     */
+    event MetadataUpdate(uint256 _tokenId);
+
+    /**
+     * @notice Emitted when multiple tokens' metadata is updated (ERC-4906)
+     * @param _fromTokenId Starting token ID (inclusive)
+     * @param _toTokenId Ending token ID (inclusive)
+     */
+    event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
+
+    /**
+     * @notice Emitted when contract-level metadata URI is updated
+     */
+    event ContractURIUpdated();
+
+    /**
+     * @notice Emitted when an address is granted minting permission
+     * @param account Address granted permission
+     */
+    event MinterAllowed(address indexed account);
+
+    /**
+     * @notice Emitted when an address has minting permission revoked
+     * @param account Address revoked permission
+     */
+    event MinterDenied(address indexed account);
+
+    /**
+     * @notice Emitted when metadata module address is updated
+     * @param newModule New metadata module address
+     */
+    event MetadataModuleUpdated(address indexed newModule);
 
     /**
      * @notice Mints a cast NFT
@@ -44,14 +79,14 @@ interface ICollectibleCasts {
      * @param baseURI_ New base URI
      * @dev Owner only. Emits BatchMetadataUpdate.
      */
-    function setBaseURI(string memory baseURI_) external;
+    function setBaseURI(string calldata baseURI_) external;
 
     /**
      * @notice Sets contract metadata URI
      * @param contractURI_ New contract URI
      * @dev Owner only. For marketplace collection metadata.
      */
-    function setContractURI(string memory contractURI_) external;
+    function setContractURI(string calldata contractURI_) external;
 
     /**
      * @notice Grants minting permission
@@ -121,4 +156,16 @@ interface ICollectibleCasts {
      * @return The address of the metadata module (addess(0) if not set)
      */
     function metadata() external view returns (IMetadata);
+
+    /**
+     * @notice Pauses all minting operations
+     * @dev Only callable by contract owner. Emits Paused event.
+     */
+    function pause() external;
+
+    /**
+     * @notice Resumes all minting operations
+     * @dev Only callable by contract owner. Emits Unpaused event.
+     */
+    function unpause() external;
 }
