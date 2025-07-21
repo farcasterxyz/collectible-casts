@@ -10,12 +10,12 @@ For more details see the product doc [here](https://farcasterhq.notion.site/Coll
 
 ## Goals
 
-- **Creator monetization** - Let userse earn immediately without waiting for weekly reward cycles
+- **Creator monetization** - Let users earn immediately without waiting for weekly reward cycles
 - **Showcase support** - Give users a collectible that is more meaningful than a tip and shareable across wallets/profiles
 - **Simplicity first** - Ship minimal contracts that we fully understand with few core dependencies
 - **Start permissioned** - Restrict initial auctions to Farcaster users
 - **Changeable periphery** - Make experimentation with auction parameters very easy. Make deploying new auction contracts pretty easy.
-- **Ossify NFT metadata** - Start with offchain metadata but make it possible to progressively ossify.
+- **Ossify NFT metadata** - Start with offchain metadata but make it possible to progressively ossify via the modular metadata system.
 
 ## Non-Goals
 
@@ -28,16 +28,16 @@ For more details see the product doc [here](https://farcasterhq.notion.site/Coll
 
 ## Architecture
 
-Two contracts, `Auction` and `CollectibleCasts`:
+Two main contracts, `Auction` and `CollectibleCasts`, with support for modular metadata:
 
 ```
-┌─────────────────┐    mints    ┌─────────────────┐
-│    Auction      │ ──────────▶ │ CollectibleCasts│
-│                 │             │   (ERC-721)     │
-│ • USDC escrow   │             │ • NFT management│
-│ • Bid tracking  │             │ • Metadata      │
-│ • Settlement    │             │ • Metadata      │
-└─────┬───────────┘             └─────────────────┘
+┌─────────────────┐    mints    ┌─────────────────┐    delegates   ┌─────────────────┐
+│    Auction      │ ──────────▶ │ CollectibleCasts│ ──────────────▶│ Metadata Module │
+│                 │             │   (ERC-721)     │    metadata     │   (optional)    │
+│ • USDC escrow   │             │ • NFT management│ ◀────────────  │ • Dynamic URIs  │
+│ • Bid tracking  │             │ • Metadata      │    callbacks    │ • Custom logic  │
+│ • Settlement    │             │ • Event emission│                 │                 │
+└─────┬───────────┘             └─────────────────┘                 └─────────────────┘
       │ escrow
       ▼
 ┌─────────────────┐
@@ -64,13 +64,13 @@ Once ended, anyone can settle an auction. This distributes payment and mints the
 Offchain authorizers can cancel Active and Ended auctions before they are Settled. They will do this in the event that a cast is deleted or a user opts out of collectible casts.
 
 **Emergency Recovery**:
-In the event of a stuck auction, owner can "recover" an auction, cancelling it and sending funds to a specified address instead of the high bidder.
+In the event of a stuck auction (e.g., USDC blacklisted recipient), the owner can "recover" an auction, cancelling it and sending funds to a specified address instead of the high bidder. This works on both Active and Ended auctions.
 
 ## Assumptions and Acknowledgments
 
 - Auctions will always use Base USDC. No weird ERC20s. No native ETH bidding.
-- "Push" refunds have some edge case risk in the event that a bidder is blacklisted by the USDC contract.
-- Authorizers and owner have a lot of control over the contract and parameters. We will do our best not to be stupid.
+- "Push" refunds have some edge case risk in the event that a bidder is blacklisted by the USDC contract. The owner-only `recover()` function provides an escape hatch for these situations.
+- Authorizers and owner have significant control over the contract and parameters. We will do our best not to be stupid.
 
 ### Auction State Transitions
 
@@ -125,17 +125,23 @@ FOUNDRY_PROFILE=deep forge test
 ### Code Quality
 
 ```bash
-# Format code (120 char lines)
+# Format code
 forge fmt
 
 # Check formatting
 forge fmt --check
+
+# Lint Solidity files
+npx solhint 'src/**/*.sol'
 
 # Generate documentation
 forge doc
 
 # Contract size analysis
 forge build --sizes
+
+# Verify 100% coverage
+python3 script/check-coverage.py
 ```
 
 ## Deployment
@@ -170,6 +176,27 @@ forge script script/DeployCollectibleCasts.s.sol \
 ```
 
 The deployment script uses CREATE2 for deterministic addresses and automatically configures permissions and parameters.
+
+### Post-Deployment Configuration
+
+After deployment, you can optionally:
+
+1. **Set a metadata module**:
+
+   ```solidity
+   collectibleCasts.setMetadataModule(metadataModuleAddress);
+   ```
+
+2. **Configure additional authorizers**:
+
+   ```solidity
+   auction.allowAuthorizer(additionalSignerAddress);
+   ```
+
+3. **Adjust auction configuration**:
+   ```solidity
+   auction.setAuctionConfig(newConfig);
+   ```
 
 ## Documentation
 
