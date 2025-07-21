@@ -118,7 +118,7 @@ contract CollectibleCasts is ERC721, Ownable2Step, Pausable, ICollectibleCasts {
             return _contractURIString;
         }
 
-        return string.concat(_baseURIString, "contract");
+        return string.concat(_baseURI(), "contract");
     }
 
     /// @inheritdoc ICollectibleCasts
