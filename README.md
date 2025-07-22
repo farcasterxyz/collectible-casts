@@ -1,6 +1,6 @@
 # Collectible Casts
 
-A new way for Farcaster users to financially support creators through collectible NFTs.
+A new way for Farcaster users to support creators through collectible NFTs.
 
 ## Overview
 
@@ -15,15 +15,15 @@ For more details see the product doc [here](https://farcasterhq.notion.site/Coll
 - **Simplicity first** - Ship minimal contracts that we fully understand with few core dependencies
 - **Start permissioned** - Restrict initial auctions to Farcaster users
 - **Changeable periphery** - Make experimentation with auction parameters very easy. Make deploying new auction contracts pretty easy.
-- **Ossify NFT metadata** - Start with offchain metadata but make it possible to progressively ossify via the modular metadata system.
+- **Ossify NFT metadata** - Start with offchain metadata but make it possible to progressively ossify.
 
 ## Non-Goals
 
 - Our own secondary marketplace at launch
 - Multiple clients at launch
 - Gasless bidding at launch
-- Support for arbitrary ERC20 payment tokens (Base USDC only)
-- Extremely onchain token metadata
+- Support for arbitrary ERC20 payment tokens
+- Extremely onchain token metadata at launch
 - Extreme gas efficiency
 
 ## Architecture
@@ -33,11 +33,11 @@ Two main contracts, `Auction` and `CollectibleCasts`, with support for modular m
 ```
 ┌─────────────────┐    mints    ┌─────────────────┐    delegates   ┌─────────────────┐
 │    Auction      │ ──────────▶ │ CollectibleCasts│ ──────────────▶│ Metadata Module │
-│                 │             │   (ERC-721)     │    metadata     │   (optional)    │
+│                 │             │   (ERC-721)     │    metadata    │   (optional)    │
 │ • USDC escrow   │             │ • NFT management│ ◀────────────  │ • Dynamic URIs  │
-│ • Bid tracking  │             │ • Metadata      │    callbacks    │ • Custom logic  │
-│ • Settlement    │             │ • Event emission│                 │                 │
-└─────┬───────────┘             └─────────────────┘                 └─────────────────┘
+│ • Bid tracking  │             │ • Metadata      │    callbacks   │ • Custom logic  │
+│ • Settlement    │             │ • Event emission│                │                 │
+└─────┬───────────┘             └─────────────────┘                └─────────────────┘
       │ escrow
       ▼
 ┌─────────────────┐
@@ -52,13 +52,13 @@ Two main contracts, `Auction` and `CollectibleCasts`, with support for modular m
 A backend signer authorizes auction creation with an EIP712 signature, signing over the initial auction parameters and bid. This enables us to change some auction parameters (min bid amount, min increment, fee split, duration, extension time, extension threshold) from the Farcaster app backend and set different policies for new vs historical casts. Auctions start on first bid and the initial bid must provide this authorization signature from the backend.
 
 **Bidding**:
-Users place ascending USDC bids with automatic refunds. New bids must be the greater of an absolute min bid amount and min bid increment in BPS. Each bid must be submitted with an offchain authorizer signature. This allows us to restrict bids to Farcaster users. Users who are outbid are automatically refunded.
+Users place ascending USDC bids with automatic refunds. New bids must be the greater of an absolute min bid amount and min bid increment in basis points. Each bid must be submitted with an offchain authorizer signature. This allows us to restrict bids to Farcaster users. Users who are outbid are automatically refunded.
 
 **Extension**:
 The auction's end time is extended when new bids are placed near the end. These parameters are configurable by the offchain authorizer at auction start time.
 
 **Settlement**:
-Once ended, anyone can settle an auction. This distributes payment and mints the collectible NFT to the winner. We intend to run batch settlement jobs to settle auctions for app users.
+Once ended, anyone can settle an auction. This distributes payment and mints the collectible NFT to the winner. We intend to run batch settlement jobs to settle auctions on behalf of app users.
 
 **Cancellation**:
 Offchain authorizers can cancel Active and Ended auctions before they are Settled. They will do this in the event that a cast is deleted or a user opts out of collectible casts.
@@ -139,9 +139,6 @@ forge doc
 
 # Contract size analysis
 forge build --sizes
-
-# Verify 100% coverage
-python3 script/check-coverage.py
 ```
 
 ## Deployment
@@ -164,39 +161,16 @@ export BASE_URI=<metadata-base-uri>
 # Base Mainnet
 forge script script/DeployCollectibleCasts.s.sol \
   --rpc-url $BASE_RPC_URL \
-  --private-key $PRIVATE_KEY \
   --broadcast \
   --verify
 
 # Base Sepolia (testnet)
 forge script script/DeployCollectibleCasts.s.sol \
   --rpc-url $BASE_SEPOLIA_RPC_URL \
-  --private-key $PRIVATE_KEY \
   --broadcast
 ```
 
 The deployment script uses CREATE2 for deterministic addresses and automatically configures permissions and parameters.
-
-### Post-Deployment Configuration
-
-After deployment, you can optionally:
-
-1. **Set a metadata module**:
-
-   ```solidity
-   collectibleCasts.setMetadataModule(metadataModuleAddress);
-   ```
-
-2. **Configure additional authorizers**:
-
-   ```solidity
-   auction.allowAuthorizer(additionalSignerAddress);
-   ```
-
-3. **Adjust auction configuration**:
-   ```solidity
-   auction.setAuctionConfig(newConfig);
-   ```
 
 ## Documentation
 
