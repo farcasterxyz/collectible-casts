@@ -7,7 +7,7 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 
 contract AuctionCancelTest is AuctionTestBase {
     event AuctionCancelled(
-        bytes32 indexed castHash, address indexed refundedBidder, uint96 refundedBidderFid, address indexed authorizer
+        bytes32 indexed castHash, address indexed refundedBidder, uint96 indexed refundedBidderFid, address authorizer
     );
     event BidRefunded(bytes32 indexed castHash, address indexed to, uint256 amount);
 

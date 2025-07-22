@@ -111,7 +111,7 @@ interface IAuction {
      * @param highestBidderFid Leader's FID
      * @param highestBid Leading bid (USDC)
      * @param lastBidAt Last bid timestamp
-     * @param endTime End time (extensible)
+     * @param endTime End time (may be extended)
      * @param bids Bid count
      * @param state Auction state
      * @param params Auction parameters
@@ -174,7 +174,7 @@ interface IAuction {
      * @param authorizer Address that signed the authorization
      */
     event AuctionStarted(
-        bytes32 indexed castHash, address indexed creator, uint96 creatorFid, uint40 endTime, address authorizer
+        bytes32 indexed castHash, address indexed creator, uint96 indexed creatorFid, uint40 endTime, address authorizer
     );
 
     /**
@@ -186,7 +186,7 @@ interface IAuction {
      * @param authorizer Address that signed the authorization
      */
     event BidPlaced(
-        bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount, address indexed authorizer
+        bytes32 indexed castHash, address indexed bidder, uint96 indexed bidderFid, uint256 amount, address authorizer
     );
 
     /**
@@ -203,7 +203,7 @@ interface IAuction {
      * @param winnerFid Winner's Farcaster ID
      * @param amount Winning bid amount
      */
-    event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 winnerFid, uint256 amount);
+    event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 indexed winnerFid, uint256 amount);
 
     /**
      * @notice Emitted when an auction is cancelled
@@ -213,7 +213,7 @@ interface IAuction {
      * @param authorizer Address that signed the authorization
      */
     event AuctionCancelled(
-        bytes32 indexed castHash, address indexed refundedBidder, uint96 refundedBidderFid, address indexed authorizer
+        bytes32 indexed castHash, address indexed refundedBidder, uint96 indexed refundedBidderFid, address authorizer
     );
 
     /**

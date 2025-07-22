@@ -5,7 +5,7 @@ import {IAuction} from "../../src/interfaces/IAuction.sol";
 import {AuctionTestBase} from "./AuctionTestBase.sol";
 
 contract AuctionSettleTest is AuctionTestBase {
-    event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 winnerFid, uint256 amount);
+    event AuctionSettled(bytes32 indexed castHash, address indexed winner, uint96 indexed winnerFid, uint256 amount);
     event BidRefunded(address indexed to, uint256 amount);
 
     function testFuzz_Settle_Success(address bidder, uint96 bidderFid, uint256 amount) public {
@@ -24,6 +24,9 @@ contract AuctionSettleTest is AuctionTestBase {
         // Record balances before settlement
         uint256 treasuryBalanceBefore = usdc.balanceOf(treasury);
         uint256 creatorBalanceBefore = usdc.balanceOf(DEFAULT_CREATOR);
+
+        vm.expectEmit(true, true, true, true);
+        emit AuctionSettled(TEST_CAST_HASH, bidder, bidderFid, amount);
 
         // Settle auction
         auction.settle(TEST_CAST_HASH);

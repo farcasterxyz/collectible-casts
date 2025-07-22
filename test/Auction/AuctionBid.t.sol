@@ -12,7 +12,7 @@ import {MockUSDC} from "../mocks/MockUSDC.sol";
 contract AuctionBidTest is AuctionTestBase {
     event BidRefunded(bytes32 indexed castHash, address indexed to, uint256 amount);
     event BidPlaced(
-        bytes32 indexed castHash, address indexed bidder, uint96 bidderFid, uint256 amount, address indexed authorizer
+        bytes32 indexed castHash, address indexed bidder, uint96 indexed bidderFid, uint256 amount, address authorizer
     );
     event AuctionExtended(bytes32 indexed castHash, uint256 newEndTime);
 
