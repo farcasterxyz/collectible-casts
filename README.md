@@ -172,6 +172,15 @@ forge script script/DeployCollectibleCasts.s.sol \
 
 The deployment script uses CREATE2 for deterministic addresses and automatically configures permissions and parameters.
 
+## Deployments
+
+### Base Mainnet
+
+| Contract         | Address                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| CollectibleCasts | [0xc011ec7ca575d4f0a2eda595107ab104c7af7a09](https://basescan.org/address/0xc011ec7ca575d4f0a2eda595107ab104c7af7a09) |
+| Auction          | [0xfc52e33f48dd3fcd5ee428c160722efda645d74a](https://basescan.org/address/0xfc52e33f48dd3fcd5ee428c160722efda645d74a) |
+
 ## Documentation
 
 - **[SPEC.md](./SPEC.md)** - Notes from original spec
