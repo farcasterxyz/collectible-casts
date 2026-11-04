@@ -4,8 +4,8 @@ ARG TZ
 ENV TZ="$TZ"
 
 # Install basic development tools and iptables/ipset
-RUN echo 'Acquire::Retries "0";' > /etc/apt/apt.conf.d/99-cve-2026-109518 && \
-  apt update && apt install -y less \
+RUN apt-get -o Acquire::Retries=0 update && apt-get -o Acquire::Retries=0 install -y --only-upgrade apt && \
+  apt install -y less \
   git \
   procps \
   sudo \
