@@ -5,7 +5,7 @@ ENV TZ="$TZ"
 
 # Install basic development tools and iptables/ipset
 RUN apt-get -o Acquire::Retries=0 update && apt-get -o Acquire::Retries=0 install -y --only-upgrade apt && \
-  apt install -y less \
+  apt -o Acquire::Retries=0 install -y less \
   git \
   procps \
   sudo \
